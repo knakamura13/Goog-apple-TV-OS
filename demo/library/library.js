@@ -43,6 +43,12 @@
     { id: 'twitch', name: 'Twitch', mark: 'twitch', bg: '#9146ff', ink: '#fff' }
   ];
   var DEFAULT_FAVS = ['netflix', 'youtube', 'disneyplus', 'hbomax', 'primevideo', 'appletv'], FAV_MAX = 6, STORE = 'library-prototype.v1';
+  // Preinstalled apps the owners don't use start hidden on the TV (by TV app ID). Settings › Apps shows them again.
+  var DEFAULT_HIDDEN = [
+    'GWMD4fpzG9.TheRokuChannel', 'HEPsqFNie0.tvplusstandalone', 'jAfAs7yVDX.TheSix', 'org.tizen.browser', '25emanual1.emanual',
+    'GHI3a0zMSx.XboxGamePass', 'CmeyUlnhYY.LunaWebApp', 'KMZlIHL7Pp.Blacknut1wO', 'qZoUOTiixu.Chess', 'com.microsoft.copilot',
+    'zigzSWa1hy.InstagramAirwave', 'HupEmjIB4I.Glance', 'XtU8fQk2gN.ESPN', 'PvWgqxV3Xa.YouTubeTV', '9z6IujVul3.DeviceHomeTV', '9TYrsHWbaB.klyq'
+  ];
   // HDMI ports as the TV reports them; names and visibility are the owner's choices.
   var INPUT_DEFAULTS = [
     { port: 'HDMI 1', name: 'PlayStation 5', show: true, connected: true },
@@ -59,7 +65,7 @@
   var FAVS = [], ROWS = [], INS = []; // Home's favourites, library rows and input tiles, rebuilt from the owner's choices.
 
   var S = { tab: 0, zone: 'fav', nav: 0, fav: 0, lr: 0, lc: 0, inp: 0, panel: 0, dialog: 0, glassTiles: false, wall: 0, homeWall: 0, sleep: 0, amb: 1, ambient: false, scroll: 0,
-    favIds: DEFAULT_FAVS.slice(), hiddenIds: [], ed: null, pages: [], panelFrom: 'gear', paging: false, pageEntered: false, queued: [],
+    favIds: DEFAULT_FAVS.slice(), hiddenIds: DEFAULT_HIDDEN.slice(), ed: null, pages: [], panelFrom: 'gear', paging: false, pageEntered: false, queued: [],
     weather: { zip: '', units: 'F' }, zip: [], zipAt: 0, inputAt: 0,
     inputs: INPUT_DEFAULTS.map(function (p) { return { port: p.port, name: p.name, show: p.show, connected: p.connected }; }) };
   var SETTINGS = [
@@ -200,12 +206,13 @@
   function load() {
     var d, ok = function (id) { return !!byId(id); };
     try { d = JSON.parse(window.localStorage.getItem(STORE) || 'null'); } catch (e) { d = null; }
-    // Favorites (saved, or the defaults on a first run) keep only installed apps and never end up empty.
+    // Favorites and Hidden (saved, or the defaults on a first run) keep only installed apps. Favorites never end up empty.
     if (d && d.fav) S.favIds = d.fav;
+    if (d && d.hid) S.hiddenIds = d.hid;
     S.favIds = S.favIds.filter(ok).slice(0, FAV_MAX);
     if (!S.favIds.length) S.favIds = APPS.map(function (a) { return a.id; }).sort(byName).slice(0, FAV_MAX);
+    S.hiddenIds = S.hiddenIds.filter(function (id) { return ok(id) && S.favIds.indexOf(id) < 0; });
     if (!d) return;
-    if (d.hid) S.hiddenIds = d.hid.filter(function (id) { return ok(id) && S.favIds.indexOf(id) < 0; });
     S.glassTiles = !!d.glass;
     if (d.weather) S.weather = { zip: /^\d{5}$/.test(d.weather.zip) ? d.weather.zip : '', units: d.weather.units === 'C' ? 'C' : 'F' };
     if (d.inputs) S.inputs.forEach(function (inp, n) {

@@ -91,6 +91,7 @@
   var edFavLabel = $('edFavLabel'), edLibLabel = $('edLibLabel'), edHidLabel = $('edHidLabel'), edEmpty = $('edEmpty'), edFavBox = $('edFavBox'), edSlots = {};
   var pills, panelRows = $('panelRows').children, dialogBtns, tileRim = '', thumbRim = '', tilePath = '', ringSvg = '', focused = null, lastZone = null, credits = {}, wallToken = 0, statusWidth = 0;
   var idleTimer = null, driftTimer = null, rotateTimer = null, toastTimer = null, quietPress = false, statusAt = 0;
+  var tvSources = {}, tvWindowOn = false; // On the TV only: real HDMI sources by port name, and whether one is showing.
 
   function $(id) { return document.getElementById(id); }
   function chunk(list, n) { var out = [], i; for (i = 0; i < list.length; i += n) out.push(list.slice(i, i + n)); return out; }
@@ -383,6 +384,7 @@
   function chooseInput(s) {
     press(focused);
     if (s.edit) openPanel('inputs', 'inputs');
+    else if (!s.empty && !s.list && tvShowSource(s.port)) return;
     else if (s.empty) toast('Nothing is connected to ' + s.port + '.');
     else if (s.list) toast('Opens Samsung’s source list on the TV.');
     else toast('Switches to ' + s.name + ' (' + s.port + ') on the TV.');
@@ -785,6 +787,7 @@
       return;
     }
     if (e.keyCode === KEY_HINTS) { $('hints').classList.toggle('is-off'); return; }
+    if (tvWindowOn) { e.preventDefault(); tvHideSource(); return; }
     if (S.ambient) { e.preventDefault(); if (!e.repeat) exitAmbient(); return; }
     if (S.zone === 'panel' && pageDef().custom === 'zip' && ((e.keyCode >= 48 && e.keyCode <= 57) || (e.keyCode >= 96 && e.keyCode <= 105))) { zipDigit(e.keyCode - (e.keyCode >= 96 ? 96 : 48)); return; }
     if (e.keyCode === KEY_AMBIENT) { enterAmbient(); return; }
@@ -835,6 +838,40 @@
     if (!window.tizen || !window.tizen.tvinputdevice) return;
     for (i = 0; i <= 9; i++) { try { window.tizen.tvinputdevice.registerKey(String(i)); } catch (e) { /* Older firmware without the key keeps arrow entry. */ } }
     $('hints').classList.add('is-off');
+    tvReadSources();
+  }
+
+  // ---------- TV inputs (only on the TV) ----------
+
+  // Two open questions for the TV test: which HDMI ports really have a device, and whether the app can show one.
+  // Results and exact errors appear as messages, so the first run on the TV answers both.
+  function tvReadSources() {
+    var si = window.tizen && window.tizen.systeminfo;
+    if (!si) return;
+    try {
+      si.getPropertyValue('VIDEOSOURCE', function (vs) {
+        tvSources = {};
+        (vs.connected || []).forEach(function (src) { if (src.type === 'HDMI') tvSources['HDMI ' + src.number] = src; });
+        S.inputs.forEach(function (inp) { inp.connected = !!tvSources[inp.port]; });
+        buildInputs();
+        render();
+      }, function (err) { toast('Could not read inputs: ' + err.name + ' ' + err.message); });
+    } catch (e) { toast('Could not read inputs: ' + e.message); }
+  }
+  function tvShowSource(port) {
+    var tw = window.tizen && window.tizen.tvwindow, src = tvSources[port];
+    if (!tw || !src) return false;
+    try {
+      tw.setSource(src, function () {
+        tw.show(function () { tvWindowOn = true; toast(port + ' is showing. Press any button to come back.'); },
+          function (err) { toast('Show failed: ' + err.name + ' ' + err.message); }, ['0px', '0px', '1920px', '1080px'], 'MAIN', 'FRONT');
+      }, function (err) { toast('Switch failed: ' + err.name + ' ' + err.message); }, 'MAIN');
+    } catch (e) { toast('Switch failed: ' + e.message); }
+    return true;
+  }
+  function tvHideSource() {
+    tvWindowOn = false;
+    try { window.tizen.tvwindow.hide(function () {}, function (err) { toast('Hide failed: ' + err.name); }, 'MAIN'); } catch (e) { toast('Hide failed: ' + e.message); }
   }
 
   function start() {

@@ -58,6 +58,32 @@
     </header>
   </div>
 
+  <section class="editor" id="editor" aria-label="Apps">
+    <h2 class="ed-title">Apps</h2>
+    <p class="ed-hint" id="edHint" aria-live="polite"></p>
+    <div class="ed-style" id="edStyle" data-z="edstyle" role="button"></div>
+    <div class="ed-view">
+      <div class="ed-page" id="edPage">
+        <div class="ed-plate squircle"></div>
+        <div class="ed-free-row" id="edFree"></div>
+        <div class="ed-label" id="edFavLabel"></div>
+        <div class="ed-label ed-lib-label" id="edLibLabel"></div>
+        <div class="ed-label" id="edHidLabel"></div>
+        <p class="ed-empty" id="edEmpty">Nothing hidden. Move an app here to keep it off Home.</p>
+        <div id="edTiles"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="picker glass squircle" id="picker" aria-label="Wallpaper">
+    <div class="glass-layer"><img class="glass-img" data-material="frost" alt=""></div>
+    <div class="glass-tint"></div><svg class="rim" id="pickerRim" aria-hidden="true"></svg>
+    <p class="p-crumb">Settings</p>
+    <h2 class="p-title">Wallpaper</h2>
+    <div class="pk-view"><div class="pk-grid" id="pkGrid"></div></div>
+  </section>
+  <div class="pk-caption" aria-hidden="true"><div class="amb-title" id="pkTitle"></div><div class="amb-credit" id="pkCredit"></div></div>
+
   <div class="ambient" aria-hidden="true">
     <div class="amb-shade"></div>
     <div class="amb-drift" id="ambDrift">
@@ -69,8 +95,13 @@
   <aside class="panel glass squircle" aria-label="Settings">
     <div class="glass-layer"><img class="glass-img" data-material="frost" alt=""></div>
     <div class="glass-tint"></div><svg class="rim" id="panelRim" aria-hidden="true"></svg>
-    <h2 class="p-title">Settings</h2>
-    <div class="p-rows"><div id="panelRows"></div><div class="ind p-ind" id="panelInd"><div class="ind-ink" id="panelInk" aria-hidden="true"></div></div></div>
+    <div class="p-body" id="panelBody">
+      <p class="p-crumb" id="panelCrumb"></p>
+      <h2 class="p-title" id="panelTitle">Settings</h2>
+      <div class="p-rows" id="panelRowsBox"><div id="panelRows"></div><div class="ind p-ind" id="panelInd"><div class="ind-ink" id="panelInk" aria-hidden="true"></div></div></div>
+      <div class="p-custom" id="panelCustom"></div>
+      <p class="p-note" id="panelNote"></p>
+    </div>
     <p class="p-status" id="panelStatus" aria-live="polite"></p>
   </aside>
 

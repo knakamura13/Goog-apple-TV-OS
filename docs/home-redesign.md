@@ -40,17 +40,27 @@ Down from favourites scrolls the page up as one block and crossfades in a pre-re
 
 ## Inputs tab
 
-The tab shows HDMI sources as tiles that you can rename, such as "PlayStation" or "Mac". It may also offer a shortcut to Samsung's own source list. Whether a web app can switch the TV's real input on this model has to be confirmed on the TV (see Open checks).
+The tab shows HDMI sources as tiles, then Samsung's own source list and an **Edit inputs** tile. Whether a web app can switch the TV's real input on this model has to be confirmed on the TV (see Open checks).
 
 ## Settings (top-right gear)
 
-Settings reuses CleanFrame's grouped Settings and adds:
+The gear opens a glass panel on the right. Rows that only change a value do it in place when you press OK; a chevron opens a page or a full screen; an arrow opens a Samsung screen. Pages stack inside the panel with a breadcrumb, slide left going in and right coming back, and queue any key pressed during the slide.
 
-- Favourites and hidden apps, extending the existing Apps on Home editor to three groups: Favourites, Library and Hidden.
-- Weather location and units.
-- Ambient mode timing.
-- Sleep timer and TV settings shortcuts.
-- **Samsung Home**, the escape route. Back from the favourites row still offers the existing "stay or open Samsung Home" choice.
+| Row | Behaviour |
+| --- | --- |
+| Sleep timer | Steps through Off, 30 min, 1 hour, 90 min, 2 hours |
+| Wallpaper › | Full-screen picker (below) |
+| Apps › | Full-screen editor (below) |
+| Weather › | Page with **ZIP code ›** (five digits: Up/Down change a digit, Left/Right move, or type with the remote's number buttons) and **Units** (Fahrenheit or Celsius) |
+| Screensaver | Steps through After 1 min, 5 min, 15 min, Off |
+| Picture and sound ↗ | Samsung's picture and sound settings |
+| Samsung Home ↗ | The escape route. Back from the favourites row still offers the "stay or open Samsung Home" choice |
+
+**Inputs** (from the Edit inputs tile): one row per HDMI port; each opens a page with **Name ›** (typed with the TV keyboard) and **Show on Inputs** (On or Off).
+
+**Wallpaper picker:** a glass panel on the left lists every photo as a thumbnail with its name, two per row. Resting on a photo previews it full screen after a quarter second, with its title and credit at the bottom right. OK applies it (a check marks the applied photo); Back restores the applied photo.
+
+**Apps editor:** Favorites (up to 6, in your order, on a plate with outlines for free slots), Library (A–Z) and Hidden (A–Z, dimmed), with names under every app. OK picks an app up and a white outline marks it; the arrows carry it while the other apps slide aside; OK drops it and Back cancels. Favorites can't exceed 6 or drop below 1. A **Tile style** button switches between Color and Glass tiles. Every change saves at once and Home rebuilds when the editor closes.
 
 ## Screensaver (ambient mode)
 
@@ -130,5 +140,5 @@ The prototype only explores the design. Once the spec is locked, the launcher is
 ## Open choices for the owners
 
 - Nav tabs: only Home and Inputs, or a third such as Photos (wallpaper and ambient)?
-- Weather location (city or ZIP) and °F or °C.
-- Whether favourites can hold more than 6 apps (that would mean a second favourites row, never sideways scrolling).
+- Whether favourites can hold more than 6 apps (that would mean a second favourites row, never sideways scrolling). The editor enforces 6 for now.
+- Ideas offered but not yet chosen: edit apps in place by holding OK on Home; a night look (darker photo and dimmer screen after a set time); two favourite sets for two people; Text size and Reduce motion settings.

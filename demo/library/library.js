@@ -10,12 +10,12 @@
   // Stage geometry in 1920 x 1080 pixels, proportioned after the tvOS Home screen.
   // Favourites and library share six columns starting at the 90px side margin.
   var TILE_W = 250, TILE_H = 150, TILE_R = 32, PITCH = 298, COLS = 6, GRID_LEFT = 90;
-  var DOCK_W = 1824, DOCK_H = 230, DOCK_R = 56, DOCK_TOP = 762;
-  var LIB_TOP = 1035, ROW_PITCH = 236, LABEL_GAP = 24, LABEL_H = 36, ROW_SPAN = TILE_H + LABEL_GAP + LABEL_H;
+  var DOCK_W = 1824, DOCK_H = 230, DOCK_R = 56, DOCK_TOP = 747;
+  var LIB_TOP = 1020, ROW_PITCH = 236, LABEL_GAP = 24, LABEL_H = 36, ROW_SPAN = TILE_H + LABEL_GAP + LABEL_H;
   var TOP_LINE = 152, SAFE_BOTTOM = 1026, TOP_EDGE = 140;
   var SHALLOW = TOP_LINE - DOCK_TOP; // The dock sits just below the top bar while the first library rows show.
   var DEEP_ROWS = Math.floor((SAFE_BOTTOM - TOP_LINE - ROW_SPAN) / ROW_PITCH) + 1; // Rows that fit once the dock scrolls away.
-  var PANEL = { w: 700, h: 896, r: 48 }, DIALOG = { w: 840, h: 340, r: 48 };
+  var PANEL = { w: 700, h: 826, r: 48 }, DIALOG = { w: 728, h: 340, r: 48 };
   var PILL_W = 150, PANEL_PITCH = 96, DIALOG_PITCH = 316, SMOOTHING = 0.6;
 
   var FAVOURITES = [
@@ -63,9 +63,11 @@
     { label: 'Wallpaper', value: function () { return WALLS[S.wall] ? WALLS[S.wall].name : ''; }, ok: function () { setWall(S.wall + 1); } },
     { label: 'App tiles', value: function () { return S.glassTiles ? 'Glass' : 'Color'; }, ok: function () { S.glassTiles = !S.glassTiles; } },
     { label: 'Screensaver', value: function () { return AMBIENT[S.amb].name; }, ok: function () { S.amb = (S.amb + 1) % AMBIENT.length; armIdle(); } },
-    { label: 'Picture and sound', value: function () { return 'Samsung'; }, ok: function () { toast('Opens Samsung’s picture and sound settings on the TV.'); } },
-    { label: 'Samsung Home', value: function () { return ''; }, ok: function () { toast('Opens Samsung Home on the TV.'); } }
+    { label: 'Picture and sound', link: true, ok: function () { toast('Opens Samsung’s picture and sound settings on the TV.'); } },
+    { label: 'Samsung Home', link: true, ok: function () { toast('Opens Samsung Home on the TV.'); } }
   ];
+  // Rows that open a Samsung screen show an outward arrow instead of a value.
+  var LINK_ICON = '<svg class="ico p-link" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>';
 
   var stage = $('stage'), page = $('page'), dock = $('dock'), dockLayer = $('dockLayer'), library = $('library');
   var favRow = $('favRow'), inRow = $('inRow'), focusName = $('focusName'), gear = $('gear'), toastEl = $('toast'), panelStatus = $('panelStatus');
@@ -154,8 +156,8 @@
     }).join('');
     $('pills').innerHTML = TABS.map(function (t, i) { return '<div class="pill" data-z="nav" data-i="' + i + '">' + t + '</div>'; }).join('');
     navInk.innerHTML = TABS.map(function (t) { return '<div class="pill">' + t + '</div>'; }).join('');
-    $('panelRows').innerHTML = SETTINGS.map(function (s, i) { return '<div class="p-row" data-z="panel" data-i="' + i + '"><span class="p-label">' + s.label + '</span><span class="p-value"></span></div>'; }).join('');
-    panelInk.innerHTML = SETTINGS.map(function (s) { return '<div class="p-row"><span class="p-label">' + s.label + '</span><span class="p-value"></span></div>'; }).join('');
+    $('panelRows').innerHTML = SETTINGS.map(function (s, i) { return '<div class="p-row" data-z="panel" data-i="' + i + '"><span class="p-label">' + s.label + '</span><span class="p-value">' + (s.link ? LINK_ICON : '') + '</span></div>'; }).join('');
+    panelInk.innerHTML = SETTINGS.map(function (s) { return '<div class="p-row"><span class="p-label">' + s.label + '</span><span class="p-value">' + (s.link ? LINK_ICON : '') + '</span></div>'; }).join('');
     pills = $('pills').children;
     panelRows = $('panelRows').children;
     dialogBtns = stage.querySelectorAll('.d-actions > .d-btn');
@@ -226,7 +228,7 @@
       focused = el;
     }
     for (i = 0; i < pills.length; i++) toggle(pills[i], 'is-active', i === S.tab);
-    for (i = 0; i < panelRows.length; i++) panelRows[i].lastChild.textContent = panelInk.children[i].lastChild.textContent = SETTINGS[i].value();
+    for (i = 0; i < panelRows.length; i++) if (!SETTINGS[i].link) panelRows[i].lastChild.textContent = panelInk.children[i].lastChild.textContent = SETTINGS[i].value();
     place(navActive, null, S.tab * PILL_W, 0, false);
     if (S.zone === 'nav') place(navFocus, navInk, S.nav * PILL_W, 0, entered);
     if (S.zone === 'panel') place(panelInd, panelInk, 0, S.panel * PANEL_PITCH, entered);
@@ -333,8 +335,10 @@
     for (i = 0; i < stage.classList.length; i++) if (stage.classList[i].indexOf('tone-') !== 0) keep.push(stage.classList[i]);
     keep.push('tone-' + (w.tone || 'dark'));
     stage.className = keep.join(' ');
-    // CleanFrame's per-photo frost veil sets how much the glass tint must darken to keep text readable.
-    stage.style.setProperty('--tint', (0.26 + (w.frostVeil || 0.12) * 0.6).toFixed(3));
+    // CleanFrame's catalogue records how bright each photo is behind the top corners (ut.tr, clockMist)
+    // and how much its frost needs veiling; the capsules darken by those amounts to keep text readable.
+    stage.style.setProperty('--tint-tl', (0.36 + (w.frostVeil || 0.12) * 0.5 + (w.clockMist ? 0.12 : 0)).toFixed(3));
+    stage.style.setProperty('--tint-tr', ({ light: 0.34, mist: 0.5, dark: 0.62 }[w.ut && w.ut.tr] || 0.4) + (w.tone === 'light' ? 0.04 : 0));
     stage.style.setProperty('--dock-tint', (0.20 + (w.frostVeil || 0.12) * 0.5).toFixed(3));
   }
   function setWall(i) {
@@ -422,14 +426,13 @@
     if (e.repeat && (k === 'ok' || k === 'back')) return;
     act(k);
   });
-  // A click acts like the remote: the first click moves focus, a click on the focused item is OK.
+  // A click focuses the item and presses OK on it, so one click switches a tab or launches an app.
   stage.addEventListener('click', function (e) {
     var el = e.target, z, i;
     if (S.ambient) { exitAmbient(); return; }
     armIdle();
     while (el && el !== stage && !el.getAttribute('data-z')) el = el.parentNode;
     if (!el || el === stage) return;
-    if (el === focused) { act('ok'); return; }
     z = el.getAttribute('data-z'); i = +el.getAttribute('data-i');
     if ((z === 'panel' && S.zone !== 'panel') || (z === 'dialog' && S.zone !== 'dialog')) return;
     if (z === 'nav') S.nav = i;
@@ -440,6 +443,7 @@
     else if (z === 'dialog') S.dialog = i;
     S.zone = z;
     render();
+    act('ok');
   });
 
   function fit() {

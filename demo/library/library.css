@@ -17,7 +17,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 
 .stage{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden;transform-origin:0 0;background:#10161a;color:var(--ink);font-size:28px;line-height:1.2;outline:0;-webkit-user-select:none;user-select:none}
 .stage [data-z]{cursor:pointer}
-.ico{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ico{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .squircle{-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
 
 /* ---------- Background: photo, its pre-blurred twin for the library, legibility shades ---------- */
@@ -39,9 +39,13 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .is-library .glass-alt{opacity:1}
 .glass-tint,.glass-hl,.glass-dim{position:absolute;left:0;top:0;right:0;bottom:0}
 .glass-tint{background:rgba(10,12,14,var(--tint,.32))}
+/* Each top-bar capsule darkens by how bright the photo is behind it (CleanFrame catalogue values per corner). */
+.nav .glass-tint{background:rgba(10,12,14,var(--tint-tl,.32))}
+.status .glass-tint{background:rgba(10,12,14,var(--tint-tr,.36))}
 .glass-hl{background:linear-gradient(to bottom,rgba(255,255,255,.10),rgba(255,255,255,0) 44%)}
 .glass-dim{background:rgba(6,10,14,.42);opacity:0;transition:opacity var(--scroll-t) linear}
-.is-library .glass-dim{opacity:1}
+.is-library .glass-dim,.is-panel .glass-dim,.is-dialog .glass-dim{opacity:1}
+.dock .glass-dim{background:rgba(6,10,14,.18)}
 .rim{position:absolute;left:0;top:0;width:100%;height:100%;fill:none;stroke:rgba(255,255,255,.18);stroke-width:2;pointer-events:none}
 .nav::after,.status::after{content:"";position:absolute;left:0;top:0;right:0;bottom:0;border-radius:inherit;box-shadow:inset 0 1px 0 rgba(255,255,255,.24),inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
 
@@ -55,8 +59,9 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .ui{position:absolute;left:0;top:0;width:1920px;height:1080px;transition:opacity 400ms linear 250ms}
 .topbar{position:absolute;left:0;top:0;width:1920px;height:140px;z-index:3}
 .nav{position:absolute;left:90px;top:48px;height:64px;padding:6px;border-radius:32px}
-.nav .ind{left:6px;top:6px;width:150px;height:52px;border-radius:26px}
-.nav-active{background:rgba(255,255,255,.20)}
+.nav .ind{left:10px;top:6px;width:142px;height:52px;border-radius:26px}
+.nav-focus .ind-ink{left:-4px}
+.nav-active{background:rgba(255,255,255,.18)}
 .nav-focus{background:var(--solid);opacity:0}
 .nav-focus.is-on{opacity:1}
 .pills{position:relative;display:flex}
@@ -67,20 +72,20 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 /* Settings, weather and time share one gap; the capsule is anchored to the right edge. */
 .status{position:absolute;right:90px;top:48px;height:64px;padding:0 26px 0 6px;border-radius:32px;display:flex;align-items:center}
 .st{position:relative}
-.gear{width:52px;height:52px;border-radius:26px;margin-right:24px;background:rgba(255,255,255,.14);color:#fff}
+.gear{width:52px;height:52px;border-radius:26px;margin-right:24px;color:#fff}
 .gear::before{content:"";position:absolute;left:0;top:0;width:52px;height:52px;border-radius:26px;background:var(--solid);opacity:0;transition:opacity 140ms linear}
 .gear .ico{position:absolute;left:11px;top:11px;width:30px;height:30px}
 .gear .ico-dark{color:var(--solid-ink);opacity:0;transition:opacity 140ms linear}
 .gear.is-focus::before,.gear.is-focus .ico-dark{opacity:1}
 .is-panel .gear{background:rgba(255,255,255,.30)}
-.weather{display:flex;align-items:center;margin-right:24px;font-size:28px;font-weight:500;color:var(--ink-soft)}
+.weather{display:flex;align-items:center;margin-right:24px;font-size:28px;font-weight:500;color:rgba(255,255,255,.92)}
 .weather .ico{width:32px;height:32px;margin-right:8px}
 .time{font-size:28px;font-weight:600;letter-spacing:-.4px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.time .mer{margin-left:5px;font-size:20px;letter-spacing:.04em;color:var(--ink-quiet)}
+.time .mer{margin-left:5px;font-size:22px;letter-spacing:.04em;color:rgba(255,255,255,.92)}
 
 /* ---------- Page: favourites dock and library grid, scrolled as one block ---------- */
 .page{position:absolute;left:0;top:0;width:1920px;height:1080px;transition:transform var(--scroll-t) var(--glide);will-change:transform}
-.dock{position:absolute;left:48px;top:762px;width:1824px;height:230px;transition:opacity 200ms linear}
+.dock{position:absolute;left:48px;top:747px;width:1824px;height:230px;transition:opacity 200ms linear}
 .dock.is-above{opacity:0}
 .dock-glass{position:absolute;left:0;top:0;width:1824px;height:230px;-webkit-mask-image:var(--dock-mask);mask-image:var(--dock-mask)}
 .dock-glass .glass-layer{transition:transform var(--scroll-t) var(--glide);will-change:transform}
@@ -89,14 +94,15 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .in-tiles,.tab-inputs .fav-tiles{opacity:0;pointer-events:none}
 .tab-inputs .in-tiles{opacity:1;pointer-events:auto}
 
-.library{position:absolute;left:90px;top:1035px;width:1740px;transition:opacity 160ms linear}
+.library{position:absolute;left:90px;top:1020px;width:1740px;transition:opacity 160ms linear}
 .tab-inputs .library{opacity:0;pointer-events:none}
 .lib-row{position:absolute;left:0;width:1740px;height:150px;transition:opacity 200ms linear}
 .lib-row.is-above{opacity:0}
 
 /* ---------- Tiles: squircle faces; the focused tile grows, lifts its shadow and catches a sheen ---------- */
 .tile{position:absolute;top:0;width:250px;height:150px;transition:transform var(--focus-t) var(--glide);will-change:transform;-webkit-backface-visibility:hidden;backface-visibility:hidden}
-.tile::before{content:"";position:absolute;left:10%;right:10%;top:30%;bottom:-4px;border-radius:40px;box-shadow:0 24px 48px rgba(0,0,0,.6);opacity:0;transition:opacity var(--focus-t) linear}
+/* The shadow is a soft gradient blob behind the face: no box edge, so nothing shows through glass faces. */
+.tile::before{content:"";position:absolute;left:-8%;right:-8%;top:24%;bottom:-30%;background:radial-gradient(closest-side,rgba(0,0,0,.52),rgba(0,0,0,.26) 58%,rgba(0,0,0,0));opacity:0;transition:opacity var(--focus-t) linear}
 .t-face{position:absolute;left:0;top:0;width:250px;height:150px;-webkit-mask-image:var(--tile-mask);mask-image:var(--tile-mask)}
 .t-sheen{position:absolute;left:0;top:0;width:250px;height:150px;background:linear-gradient(160deg,rgba(255,255,255,.30),rgba(255,255,255,.06) 40%,rgba(255,255,255,0) 60%);opacity:0;transition:opacity var(--focus-t) linear}
 .t-face .rim{stroke:rgba(255,255,255,.16)}
@@ -118,19 +124,22 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .tiles-glass .t-text{color:var(--ink)!important}
 
 /* Input tiles stay typographic: the device name matters more than the port. */
-.in-tile .t-face{display:flex;flex-direction:column;justify-content:flex-end;padding:0 26px 22px;background:rgba(14,18,22,.50);color:var(--ink)}
+.in-tile .t-face{display:flex;flex-direction:column;justify-content:space-between;padding:20px 26px 22px;background:rgba(14,18,22,.50);color:var(--ink)}
 .in-port{font-size:22px;line-height:28px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-quiet)}
 .in-name{font-size:32px;line-height:40px;font-weight:600;letter-spacing:-.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .in-tile.is-empty .t-face{opacity:.5}
+.in-tile .t-face::before{content:"";position:absolute;left:0;top:0;right:0;bottom:0;background:rgba(255,255,255,.22);opacity:0;transition:opacity var(--focus-t) linear}
+.in-tile.is-focus .t-face::before{opacity:1}
+.in-port,.in-name{position:relative}
 
-.focus-name{position:absolute;left:0;top:0;width:420px;text-align:center;font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.2px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity 120ms linear}
+.focus-name{position:absolute;left:0;top:0;width:420px;text-align:center;font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.2px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity 120ms linear;z-index:2}
 .focus-name.is-on{opacity:1}
 
 /* ---------- Panels and dialogs sit over a dimmed page; the top bar stays readable ---------- */
 .modal-dim{position:absolute;left:0;top:0;width:1920px;height:1080px;background:rgba(4,8,12,.58);opacity:0;transition:opacity 180ms linear;pointer-events:none}
 .is-panel .modal-dim,.is-dialog .modal-dim{opacity:1}
 
-.panel{position:absolute;right:48px;top:136px;width:700px;height:896px;z-index:5;opacity:0;transform:translate3d(40px,0,0);transition:opacity 160ms linear,transform 240ms var(--glide);pointer-events:none;-webkit-mask-image:var(--panel-mask);mask-image:var(--panel-mask)}
+.panel{position:absolute;right:90px;top:136px;width:700px;height:826px;z-index:5;opacity:0;transform:translate3d(40px,0,0);transition:opacity 160ms linear,transform 240ms var(--glide);pointer-events:none;-webkit-mask-image:var(--panel-mask);mask-image:var(--panel-mask)}
 .panel .glass-tint{background:rgba(12,16,20,.56)}
 .is-panel .panel{opacity:1;transform:translate3d(0,0,0);pointer-events:auto}
 .p-title{position:relative;padding:52px 56px 0;font-size:40px;line-height:48px;font-weight:600;letter-spacing:-.8px}
@@ -139,17 +148,18 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .p-row{position:relative;display:flex;align-items:center;justify-content:space-between;width:652px;height:88px;padding:0 32px;font-size:30px;font-weight:500}
 .p-row+.p-row{margin-top:8px}
 .p-value{margin-left:24px;font-size:28px;color:var(--ink-quiet);white-space:nowrap}
+.p-link{display:block;width:30px;height:30px}
 .ind-ink .p-row{color:var(--solid-ink)}
 .ind-ink .p-value{color:rgba(20,22,24,.62)}
 .p-status{position:absolute;left:56px;right:56px;bottom:52px;font-size:26px;line-height:34px;font-weight:500;color:var(--ink-soft);opacity:0;transition:opacity 160ms linear}
 .p-status.is-on{opacity:1}
 
-.dialog{position:absolute;left:540px;top:370px;width:840px;height:340px;z-index:6;opacity:0;transform:scale(.97);transition:opacity 160ms linear,transform 200ms var(--glide);pointer-events:none;-webkit-mask-image:var(--dialog-mask);mask-image:var(--dialog-mask)}
+.dialog{position:absolute;left:596px;top:370px;width:728px;height:340px;z-index:6;opacity:0;transform:scale(.97);transition:opacity 160ms linear,transform 200ms var(--glide);pointer-events:none;-webkit-mask-image:var(--dialog-mask);mask-image:var(--dialog-mask)}
 .dialog .glass-tint{background:rgba(12,16,20,.58)}
 .is-dialog .dialog{opacity:1;transform:scale(1);pointer-events:auto}
 .d-title{position:relative;padding:52px 56px 0;font-size:40px;line-height:48px;font-weight:600;letter-spacing:-.8px}
 .d-text{position:relative;padding:12px 56px 0;font-size:28px;line-height:36px;color:var(--ink-soft)}
-.d-actions{position:absolute;left:44px;bottom:44px;z-index:0;width:616px;height:72px;display:flex}
+.d-actions{position:absolute;left:56px;bottom:44px;z-index:0;width:616px;height:72px;display:flex}
 .d-actions::before,.d-actions::after{content:"";position:absolute;top:0;z-index:-1;width:300px;height:72px;border-radius:36px;background:rgba(255,255,255,.10)}
 .d-actions::before{left:0}
 .d-actions::after{left:316px}
@@ -169,12 +179,12 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .amb-shade{position:absolute;left:0;top:560px;width:1920px;height:520px;background:linear-gradient(to bottom,rgba(4,8,12,0),rgba(4,8,12,.5))}
 .amb-drift{position:absolute;left:0;top:0;width:1920px;height:1080px;transition:transform 8s linear}
 .amb-clock{position:absolute;left:96px;bottom:84px}
-.amb-time{font-family:'Study Geist',Manrope,Arial,sans-serif;font-size:150px;line-height:150px;font-weight:300;letter-spacing:-4px;font-variant-numeric:tabular-nums;white-space:nowrap;color:rgba(255,255,255,.82)}
+.amb-time{margin-left:-6px;font-family:'Study Geist',Manrope,Arial,sans-serif;font-size:150px;line-height:150px;font-weight:300;letter-spacing:-4px;font-variant-numeric:tabular-nums;white-space:nowrap;color:rgba(255,255,255,.82)}
 .amb-time .mer{margin-left:14px;font-size:44px;letter-spacing:0;color:rgba(255,255,255,.62)}
-.amb-date{margin-top:4px;font-size:40px;line-height:48px;font-weight:500;letter-spacing:-.3px;color:rgba(255,255,255,.76)}
-.amb-caption{position:absolute;right:96px;bottom:92px;text-align:right}
+.amb-date{margin-top:4px;font-family:'Study Geist',Manrope,Arial,sans-serif;font-size:40px;line-height:48px;font-weight:400;letter-spacing:-.3px;color:rgba(255,255,255,.76)}
+.amb-caption{position:absolute;right:96px;bottom:88px;text-align:right}
 .amb-title{font-family:'Study Newsreader',Georgia,serif;font-size:44px;line-height:52px;color:rgba(255,255,255,.84)}
-.amb-credit{margin-top:6px;font-size:26px;line-height:34px;font-weight:500;color:rgba(255,255,255,.62)}
+.amb-credit{margin-top:6px;font-family:'Study Geist',Manrope,Arial,sans-serif;font-size:26px;line-height:34px;font-weight:400;color:rgba(255,255,255,.62)}
 .is-ambient .ambient{opacity:1;transition:opacity 1000ms linear 500ms}
 .is-ambient .ui{opacity:0;transition:opacity 500ms linear}
 .is-ambient .bg-shade,.is-ambient .bg-scrim,.is-ambient .bg-blur,.is-ambient .bg-veil{opacity:0}

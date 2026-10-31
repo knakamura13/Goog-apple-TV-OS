@@ -30,7 +30,7 @@ Goals: no ads, no apps the owners don't use, no autoplay, a fast feel on the TV,
 - **Top left:** nav pills on a semi-transparent bar that the photo clearly shows through. Proposed tabs: **Home** and **Inputs**. A translucent indicator marks the active tab and a solid one marks focus. Both slide between pills rather than jumping.
 - **Top right:** one semi-transparent capsule holding the Settings button, the weather (icon and temperature) and the time in the corner, with equal gaps between all three. Weather and time can't be focused. Settings is the only focusable item there.
 - **Favourites dock:** a near-full-width semi-transparent bar, after the tvOS dock, holding at most 6 apps so it never scrolls sideways. The focused app grows (about 1.18×), lifts a shadow and catches a sheen.
-- **Library:** every installed app that isn't a favourite and isn't hidden, in alphabetical order, 6 per row in the same columns as the dock. At rest only about 15% of the first row peeks above the bottom edge. The focused app's name appears below it.
+- **Library:** every installed app that isn't a favourite and isn't hidden, in alphabetical order, 6 per row in the same columns as the dock. At rest about 40% of the first row peeks above the bottom edge. The focused app's name appears below it.
 - **Shapes:** tiles, the dock, panels and dialogs use squircle (continuous-curvature) corners. Capsules keep fully rounded ends.
 - **Motion:** quick and smooth, with transform and opacity only. Focus scales in about 170 ms, selection indicators slide in about 220 ms, and the page scrolls in about 340 ms.
 

@@ -27,14 +27,16 @@ Goals: no ads, no apps the owners don't use, no autoplay, a fast feel on the TV,
 └──────────────────────────────────────────────────────────────┘  below the screen edge
 ```
 
-- **Top left:** nav pills on a glass bar. Proposed tabs: **Home** and **Inputs**. The active pill is filled. The focused pill gets the focus treatment. A pill that is both active and focused shows both states.
-- **Top right, left to right:** a glass Settings button, then weather (icon and temperature), then the time in the corner. Weather and time can't be focused. Settings is the only focusable item there.
-- **Favourites row:** at most 6 apps, sized so the row never scrolls sideways. It sits on one glass plate, made from the pre-rendered materials CleanFrame already uses. The focused app grows, gains a shadow and shows its name below.
-- **Library:** every installed app that isn't a favourite and isn't hidden, in alphabetical order, 6 per row. About a third of the first row shows below the favourites at rest.
+- **Top left:** nav pills on a semi-transparent bar that the photo clearly shows through. Proposed tabs: **Home** and **Inputs**. A translucent indicator marks the active tab and a solid one marks focus. Both slide between pills rather than jumping.
+- **Top right:** one semi-transparent capsule holding the Settings button, the weather (icon and temperature) and the time in the corner, with equal gaps between all three. Weather and time can't be focused. Settings is the only focusable item there.
+- **Favourites dock:** a near-full-width semi-transparent bar, after the tvOS dock, holding at most 6 apps so it never scrolls sideways. The focused app grows (about 1.18×), lifts a shadow and catches a sheen.
+- **Library:** every installed app that isn't a favourite and isn't hidden, in alphabetical order, 6 per row in the same columns as the dock. At rest only about 15% of the first row peeks above the bottom edge. The focused app's name appears below it.
+- **Shapes:** tiles, the dock, panels and dialogs use squircle (continuous-curvature) corners. Capsules keep fully rounded ends.
+- **Motion:** quick and smooth, with transform and opacity only. Focus scales in about 170 ms, selection indicators slide in about 220 ms, and the page scrolls in about 340 ms.
 
 ## Library scrolled
 
-Down from favourites scrolls the page up as one block, so the focused library row sits in view, and crossfades in a pre-rendered dimmed and blurred copy of the wallpaper behind the grid. Back, or Up from the first library row, returns to the favourites at rest. The top bar stays visible.
+Down from favourites scrolls the page up as one block and crossfades in a pre-rendered dimmed and blurred copy of the wallpaper behind the grid. While the first rows fit, the dock stays visible just below the top bar. Further down, the dock fades away and the rows start directly below the top bar, so no empty band opens. Back, or Up from the first library row, returns to the favourites at rest. The top bar stays visible.
 
 ## Inputs tab
 
@@ -50,9 +52,16 @@ Settings reuses CleanFrame's grouped Settings and adds:
 - Sleep timer and TV settings shortcuts.
 - **Samsung Home**, the escape route. Back from the favourites row still offers the existing "stay or open Samsung Home" choice.
 
-## Ambient mode
+## Screensaver (ambient mode)
 
-After a set idle time on Home (default 5 minutes), the top bar and rows fade out and only the photo remains, with a small clock and weather. The clock drifts a few pixels every few minutes using `transform`, to protect the OLED from burn-in. Any key brings the UI back without acting on that key. The TV's own screensaver stays enabled.
+After a set idle time on Home (default 5 minutes), the top bar and rows fade out and the photo slowly zooms in (to about 106% over 2.4 s) while the text rises into place, for a parallax feel. On exit the photo eases back out quickly.
+
+- **Bottom left:** the time, large, with the date below it ("Saturday, October 31st").
+- **Bottom right:** the photo's title and credit ("Desert stars / Photographed by Mohammad Alizade"). The bundled CleanFrame photos all have credits.
+- **No weather** in the screensaver.
+- **Slideshow:** the photos rotate while it runs, and Home returns to its chosen photo afterwards.
+
+The text drifts a few pixels every few minutes using `transform`, to protect the OLED from burn-in. Any key brings the UI back without acting on that key. The TV's own screensaver stays enabled.
 
 ## Remote navigation
 

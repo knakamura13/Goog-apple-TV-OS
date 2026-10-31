@@ -7,7 +7,7 @@
   --solid-ink:#141618;
   --snap:cubic-bezier(.2,.9,.3,1);
   --glide:cubic-bezier(.25,.8,.25,1);
-  --focus-t:170ms;
+  --focus-t:200ms;
   --slide-t:220ms;
   --scroll-t:340ms;
 }
@@ -45,8 +45,11 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .rim{position:absolute;left:0;top:0;width:100%;height:100%;fill:none;stroke:rgba(255,255,255,.18);stroke-width:2;pointer-events:none}
 .nav::after,.status::after{content:"";position:absolute;left:0;top:0;right:0;bottom:0;border-radius:inherit;box-shadow:inset 0 1px 0 rgba(255,255,255,.24),inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
 
-/* Sliding selection indicators move with transform; the items above them only change text colour. */
+/* Sliding selection indicators move with transform. Each solid indicator carries a dark-ink copy of the labels,
+   shifted the opposite way, so text turns dark exactly where the indicator covers it, frame by frame. */
 .ind{position:absolute;left:0;top:0;will-change:transform;transition:transform var(--slide-t) var(--glide),opacity 140ms linear}
+.ind .ind-ink{position:absolute;left:0;top:0;will-change:transform;transition:transform var(--slide-t) var(--glide)}
+.nav-focus,.p-ind,.d-ind{overflow:hidden;pointer-events:none}
 
 /* ---------- Top bar ---------- */
 .ui{position:absolute;left:0;top:0;width:1920px;height:1080px;transition:opacity 400ms linear 250ms}
@@ -59,16 +62,16 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .pills{position:relative;display:flex}
 .pill{width:150px;height:52px;line-height:52px;text-align:center;font-size:28px;font-weight:500;letter-spacing:-.2px;color:var(--ink-soft);white-space:nowrap;transition:color 160ms linear}
 .pill.is-active{color:#fff}
-.pill.is-focus{color:var(--solid-ink)}
+.ind-ink .pill{color:var(--solid-ink)}
 
 /* Settings, weather and time share one gap; the capsule is anchored to the right edge. */
 .status{position:absolute;right:90px;top:48px;height:64px;padding:0 26px 0 6px;border-radius:32px;display:flex;align-items:center}
 .st{position:relative}
-.gear{width:52px;height:52px;border-radius:26px;margin-right:24px;background:rgba(255,255,255,.14);color:#fff;transition:color 160ms linear}
+.gear{width:52px;height:52px;border-radius:26px;margin-right:24px;background:rgba(255,255,255,.14);color:#fff}
 .gear::before{content:"";position:absolute;left:0;top:0;width:52px;height:52px;border-radius:26px;background:var(--solid);opacity:0;transition:opacity 140ms linear}
 .gear .ico{position:absolute;left:11px;top:11px;width:30px;height:30px}
-.gear.is-focus{color:var(--solid-ink)}
-.gear.is-focus::before{opacity:1}
+.gear .ico-dark{color:var(--solid-ink);opacity:0;transition:opacity 140ms linear}
+.gear.is-focus::before,.gear.is-focus .ico-dark{opacity:1}
 .is-panel .gear{background:rgba(255,255,255,.30)}
 .weather{display:flex;align-items:center;margin-right:24px;font-size:28px;font-weight:500;color:var(--ink-soft)}
 .weather .ico{width:32px;height:32px;margin-right:8px}
@@ -77,7 +80,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 
 /* ---------- Page: favourites dock and library grid, scrolled as one block ---------- */
 .page{position:absolute;left:0;top:0;width:1920px;height:1080px;transition:transform var(--scroll-t) var(--glide);will-change:transform}
-.dock{position:absolute;left:48px;top:780px;width:1824px;height:230px;transition:opacity 200ms linear}
+.dock{position:absolute;left:48px;top:762px;width:1824px;height:230px;transition:opacity 200ms linear}
 .dock.is-above{opacity:0}
 .dock-glass{position:absolute;left:0;top:0;width:1824px;height:230px;-webkit-mask-image:var(--dock-mask);mask-image:var(--dock-mask)}
 .dock-glass .glass-layer{transition:transform var(--scroll-t) var(--glide);will-change:transform}
@@ -86,21 +89,23 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .in-tiles,.tab-inputs .fav-tiles{opacity:0;pointer-events:none}
 .tab-inputs .in-tiles{opacity:1;pointer-events:auto}
 
-.library{position:absolute;left:90px;top:1058px;width:1740px;transition:opacity 160ms linear}
+.library{position:absolute;left:90px;top:1035px;width:1740px;transition:opacity 160ms linear}
 .tab-inputs .library{opacity:0;pointer-events:none}
 .lib-row{position:absolute;left:0;width:1740px;height:150px;transition:opacity 200ms linear}
 .lib-row.is-above{opacity:0}
 
 /* ---------- Tiles: squircle faces; the focused tile grows, lifts its shadow and catches a sheen ---------- */
-.tile{position:absolute;top:0;width:250px;height:150px;transition:transform var(--focus-t) var(--snap);will-change:transform;-webkit-backface-visibility:hidden;backface-visibility:hidden}
+.tile{position:absolute;top:0;width:250px;height:150px;transition:transform var(--focus-t) var(--glide);will-change:transform;-webkit-backface-visibility:hidden;backface-visibility:hidden}
 .tile::before{content:"";position:absolute;left:10%;right:10%;top:30%;bottom:-4px;border-radius:40px;box-shadow:0 24px 48px rgba(0,0,0,.6);opacity:0;transition:opacity var(--focus-t) linear}
 .t-face{position:absolute;left:0;top:0;width:250px;height:150px;-webkit-mask-image:var(--tile-mask);mask-image:var(--tile-mask)}
 .t-sheen{position:absolute;left:0;top:0;width:250px;height:150px;background:linear-gradient(160deg,rgba(255,255,255,.30),rgba(255,255,255,.06) 40%,rgba(255,255,255,0) 60%);opacity:0;transition:opacity var(--focus-t) linear}
 .t-face .rim{stroke:rgba(255,255,255,.16)}
 .tile.is-focus{transform:scale(1.18);z-index:1}
 .tile.is-focus::before,.tile.is-focus .t-sheen{opacity:1}
-.tile.is-press{animation:press 260ms var(--snap)}
-@keyframes press{0%{transform:scale(1.18)}45%{transform:scale(1.08)}100%{transform:scale(1.18)}}
+/* OK feedback is a glow, never a size change, so it cannot fight the focus scale. */
+.t-glow{position:absolute;left:0;top:0;width:250px;height:150px;background:rgba(255,255,255,.28);opacity:0}
+.tile.is-press .t-glow{animation:glow 320ms ease-out}
+@keyframes glow{0%{opacity:0}30%{opacity:1}100%{opacity:0}}
 
 .mark{position:absolute;left:39px;top:29px;width:172px;height:92px}
 .mk{position:absolute;display:block;background:var(--mk);-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
@@ -131,11 +136,11 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .p-title{position:relative;padding:52px 56px 0;font-size:40px;line-height:48px;font-weight:600;letter-spacing:-.8px}
 .p-rows{position:relative;margin:32px 24px 0}
 .p-ind{width:652px;height:88px;border-radius:44px;background:var(--solid)}
-.p-row{position:relative;display:flex;align-items:center;justify-content:space-between;height:88px;padding:0 32px;font-size:30px;font-weight:500;transition:color 160ms linear}
+.p-row{position:relative;display:flex;align-items:center;justify-content:space-between;width:652px;height:88px;padding:0 32px;font-size:30px;font-weight:500}
 .p-row+.p-row{margin-top:8px}
-.p-value{margin-left:24px;font-size:28px;color:var(--ink-quiet);white-space:nowrap;transition:color 160ms linear}
-.p-row.is-focus{color:var(--solid-ink)}
-.p-row.is-focus .p-value{color:rgba(20,22,24,.62)}
+.p-value{margin-left:24px;font-size:28px;color:var(--ink-quiet);white-space:nowrap}
+.ind-ink .p-row{color:var(--solid-ink)}
+.ind-ink .p-value{color:rgba(20,22,24,.62)}
 .p-status{position:absolute;left:56px;right:56px;bottom:52px;font-size:26px;line-height:34px;font-weight:500;color:var(--ink-soft);opacity:0;transition:opacity 160ms linear}
 .p-status.is-on{opacity:1}
 
@@ -149,9 +154,10 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .d-actions::before{left:0}
 .d-actions::after{left:316px}
 .d-ind{width:300px;height:72px;border-radius:36px;background:var(--solid)}
-.d-btn{position:relative;width:300px;height:72px;line-height:72px;text-align:center;font-size:30px;font-weight:500;transition:color 160ms linear}
+.d-ind .ind-ink{display:flex}
+.d-btn{position:relative;flex:none;width:300px;height:72px;line-height:72px;text-align:center;font-size:30px;font-weight:500}
 .d-btn+.d-btn{margin-left:16px}
-.d-btn.is-focus{color:var(--solid-ink)}
+.ind-ink .d-btn{color:var(--solid-ink)}
 
 /* ---------- Toast for actions that need the TV ---------- */
 .toast{position:absolute;left:560px;top:140px;width:800px;text-align:center;z-index:7;opacity:0;transition:opacity 160ms linear;pointer-events:none}

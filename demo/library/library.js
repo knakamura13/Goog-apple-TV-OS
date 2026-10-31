@@ -10,8 +10,8 @@
   // Stage geometry in 1920 x 1080 pixels, proportioned after the tvOS Home screen.
   // Favourites and library share six columns starting at the 90px side margin.
   var TILE_W = 250, TILE_H = 150, TILE_R = 32, PITCH = 298, COLS = 6, GRID_LEFT = 90;
-  var DOCK_W = 1824, DOCK_H = 230, DOCK_R = 56, DOCK_TOP = 780;
-  var LIB_TOP = 1058, ROW_PITCH = 236, LABEL_GAP = 24, LABEL_H = 36, ROW_SPAN = TILE_H + LABEL_GAP + LABEL_H;
+  var DOCK_W = 1824, DOCK_H = 230, DOCK_R = 56, DOCK_TOP = 762;
+  var LIB_TOP = 1035, ROW_PITCH = 236, LABEL_GAP = 24, LABEL_H = 36, ROW_SPAN = TILE_H + LABEL_GAP + LABEL_H;
   var TOP_LINE = 152, SAFE_BOTTOM = 1026, TOP_EDGE = 140;
   var SHALLOW = TOP_LINE - DOCK_TOP; // The dock sits just below the top bar while the first library rows show.
   var DEEP_ROWS = Math.floor((SAFE_BOTTOM - TOP_LINE - ROW_SPAN) / ROW_PITCH) + 1; // Rows that fit once the dock scrolls away.
@@ -70,6 +70,7 @@
   var stage = $('stage'), page = $('page'), dock = $('dock'), dockLayer = $('dockLayer'), library = $('library');
   var favRow = $('favRow'), inRow = $('inRow'), focusName = $('focusName'), gear = $('gear'), toastEl = $('toast'), panelStatus = $('panelStatus');
   var navActive = $('navActive'), navFocus = $('navFocus'), panelInd = $('panelInd'), dialogInd = $('dialogInd');
+  var navInk = $('navInk'), panelInk = $('panelInk'), dialogInk = $('dialogInk');
   var timeEl = $('time'), statusEl = stage.querySelector('.status'), ambTime = $('ambTime'), ambDate = $('ambDate'), ambTitle = $('ambTitle'), ambCredit = $('ambCredit'), ambDrift = $('ambDrift');
   var front = $('photoA'), back = $('photoB'), blurImg = $('blur');
   var pills, panelRows, dialogBtns, tileRim = '', focused = null, lastZone = null, credits = {}, wallToken = 0, statusWidth = 0;
@@ -133,7 +134,7 @@
   }
   function tileHtml(cls, zone, i, col, style, inner, faceStyle) {
     return '<div class="tile' + cls + '" data-z="' + zone + '" data-i="' + i + '" style="left:' + col * PITCH + 'px;' + style + '">'
-      + '<div class="t-face squircle"' + (faceStyle ? ' style="' + faceStyle + '"' : '') + '>' + inner + '<div class="t-sheen"></div>' + tileRim + '</div></div>';
+      + '<div class="t-face squircle"' + (faceStyle ? ' style="' + faceStyle + '"' : '') + '>' + inner + '<div class="t-sheen"></div><div class="t-glow"></div>' + tileRim + '</div></div>';
   }
   function appHtml(a, zone, i, col) {
     return tileHtml('', zone, i, col, '--mk:' + a.ink, a.mark ? markHtml(a.mark) : '<span class="t-text">' + esc(a.name) + '</span>', 'background:' + a.bg);
@@ -152,10 +153,12 @@
       return '<div class="lib-row" style="top:' + r * ROW_PITCH + 'px">' + row.map(function (a, c) { return appHtml(a, 'lib', r * COLS + c, c); }).join('') + '</div>';
     }).join('');
     $('pills').innerHTML = TABS.map(function (t, i) { return '<div class="pill" data-z="nav" data-i="' + i + '">' + t + '</div>'; }).join('');
+    navInk.innerHTML = TABS.map(function (t) { return '<div class="pill">' + t + '</div>'; }).join('');
     $('panelRows').innerHTML = SETTINGS.map(function (s, i) { return '<div class="p-row" data-z="panel" data-i="' + i + '"><span class="p-label">' + s.label + '</span><span class="p-value"></span></div>'; }).join('');
+    panelInk.innerHTML = SETTINGS.map(function (s) { return '<div class="p-row"><span class="p-label">' + s.label + '</span><span class="p-value"></span></div>'; }).join('');
     pills = $('pills').children;
     panelRows = $('panelRows').children;
-    dialogBtns = stage.querySelectorAll('.d-btn');
+    dialogBtns = stage.querySelectorAll('.d-actions > .d-btn');
   }
 
   // Each glass layer shows the part of the photo directly behind its element.
@@ -182,13 +185,15 @@
     }
   }
   // A selection indicator slides to its new item; it jumps without animating when focus first enters its group.
-  function place(el, x, y, instant) {
-    var t = 'translate3d(' + x + 'px,' + y + 'px,0)';
-    if (!instant) { el.style.transform = t; return; }
-    el.style.transition = 'none';
-    el.style.transform = t;
+  // Its dark-ink label copy moves the opposite way on the same curve, so the labels appear to stay still.
+  function place(el, ink, x, y, instant) {
+    var both = ink ? [el, ink] : [el], i;
+    for (i = 0; i < both.length && instant; i++) both[i].style.transition = 'none';
+    el.style.transform = 'translate3d(' + x + 'px,' + y + 'px,0)';
+    if (ink) ink.style.transform = 'translate3d(' + (-x) + 'px,' + (-y) + 'px,0)';
+    if (!instant) return;
     void el.offsetWidth;
-    el.style.transition = '';
+    for (i = 0; i < both.length; i++) both[i].style.transition = '';
   }
   function rowTop(r) { return LIB_TOP + r * ROW_PITCH; }
   function libScroll(r) {
@@ -221,11 +226,11 @@
       focused = el;
     }
     for (i = 0; i < pills.length; i++) toggle(pills[i], 'is-active', i === S.tab);
-    for (i = 0; i < panelRows.length; i++) panelRows[i].lastChild.textContent = SETTINGS[i].value();
-    place(navActive, S.tab * PILL_W, 0, false);
-    if (S.zone === 'nav') place(navFocus, S.nav * PILL_W, 0, entered);
-    if (S.zone === 'panel') place(panelInd, 0, S.panel * PANEL_PITCH, entered);
-    if (S.zone === 'dialog') place(dialogInd, S.dialog * DIALOG_PITCH, 0, entered);
+    for (i = 0; i < panelRows.length; i++) panelRows[i].lastChild.textContent = panelInk.children[i].lastChild.textContent = SETTINGS[i].value();
+    place(navActive, null, S.tab * PILL_W, 0, false);
+    if (S.zone === 'nav') place(navFocus, navInk, S.nav * PILL_W, 0, entered);
+    if (S.zone === 'panel') place(panelInd, panelInk, 0, S.panel * PANEL_PITCH, entered);
+    if (S.zone === 'dialog') place(dialogInd, dialogInk, S.dialog * DIALOG_PITCH, 0, entered);
     toggle(navFocus, 'is-on', S.zone === 'nav');
     toggle(stage, 'tab-inputs', S.tab === 1);
     toggle(stage, 'is-library', S.zone === 'lib');
@@ -417,12 +422,14 @@
     if (e.repeat && (k === 'ok' || k === 'back')) return;
     act(k);
   });
+  // A click acts like the remote: the first click moves focus, a click on the focused item is OK.
   stage.addEventListener('click', function (e) {
     var el = e.target, z, i;
     if (S.ambient) { exitAmbient(); return; }
     armIdle();
     while (el && el !== stage && !el.getAttribute('data-z')) el = el.parentNode;
     if (!el || el === stage) return;
+    if (el === focused) { act('ok'); return; }
     z = el.getAttribute('data-z'); i = +el.getAttribute('data-i');
     if ((z === 'panel' && S.zone !== 'panel') || (z === 'dialog' && S.zone !== 'dialog')) return;
     if (z === 'nav') S.nav = i;
@@ -433,7 +440,6 @@
     else if (z === 'dialog') S.dialog = i;
     S.zone = z;
     render();
-    act('ok');
   });
 
   function fit() {

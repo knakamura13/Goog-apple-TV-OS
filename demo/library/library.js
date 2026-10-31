@@ -5,7 +5,8 @@
 
   var ASSETS = '/home/assets/', ICONS = ASSETS + 'icons/';
   var KEYS = { 37: 'left', 38: 'up', 39: 'right', 40: 'down', 13: 'ok', 27: 'back', 8: 'back', 10009: 'back', 461: 'back' };
-  var KEY_AMBIENT = 65, KEY_HINTS = 72;
+  // Code between preview markers is for the browser preview only; scripts/build-demo.py strips it from the TV build.
+  /* preview */var KEY_AMBIENT = 65, KEY_HINTS = 72;/* /preview */
 
   // Stage geometry in 1920 x 1080 pixels, proportioned after the tvOS Home screen.
   // Favourites and library share six columns starting at the 90px side margin.
@@ -30,20 +31,21 @@
     { id: 'primevideo', name: 'Prime Video', mark: 'primevideo', bg: '#1a98ff', ink: '#fff' },
     { id: 'appletv', name: 'Apple TV', mark: 'appletv', bg: '#000', ink: '#fff' },
     { id: 'applemusic', name: 'Apple Music', mark: 'applemusic', bg: 'linear-gradient(160deg,#fb5c74,#fa233b)', ink: '#fff' },
-    { id: 'crunchyroll', name: 'Crunchyroll', bg: '#f47521', ink: '#fff' },
+    { id: 'crunchyroll', name: 'Crunchyroll', mark: 'crunchyroll', bg: '#f47521', ink: '#fff' },
+    // No free source has ESPN's full wordmark, and its lone "E" isn't a logo ESPN uses, so the name stands in.
     { id: 'espn', name: 'ESPN', bg: '#1d1d1f', ink: '#ff2a3b' },
-    { id: 'hulu', name: 'Hulu', bg: '#1ce783', ink: '#0b0c0f' },
-    { id: 'jellyfin', name: 'Jellyfin', bg: 'linear-gradient(160deg,#aa5cc3,#00a4dc)', ink: '#fff' },
-    { id: 'paramount', name: 'Paramount+', bg: '#0064ff', ink: '#fff' },
-    { id: 'pbs', name: 'PBS', bg: '#2638c4', ink: '#fff' },
-    { id: 'peacock', name: 'Peacock', bg: '#000', ink: '#fff' },
-    { id: 'plex', name: 'Plex', bg: '#1f2326', ink: '#e5a00d' },
-    { id: 'plutotv', name: 'Pluto TV', bg: '#fff200', ink: '#000' },
+    { id: 'hulu', name: 'Hulu', mark: 'hulu', bg: '#1ce783', ink: '#0b0c0f' },
+    { id: 'jellyfin', name: 'Jellyfin', mark: 'jellyfin', bg: 'linear-gradient(160deg,#aa5cc3,#00a4dc)', ink: '#fff' },
+    { id: 'paramount', name: 'Paramount+', mark: 'paramountplus', bg: '#0064ff', ink: '#fff' },
+    { id: 'pbs', name: 'PBS', mark: 'pbs', bg: '#2638c4', ink: '#fff' },
+    { id: 'peacock', name: 'Peacock', mark: 'peacock', bg: '#000', ink: '#fff' },
+    { id: 'plex', name: 'Plex', mark: 'plex', bg: '#1f2326', ink: '#e5a00d' },
+    { id: 'plutotv', name: 'Pluto TV', mark: 'plutotv', bg: '#fff200', ink: '#000' },
     { id: 'spotify', name: 'Spotify', mark: 'spotify', bg: '#121212', ink: '#1ed760' },
     { id: 'stremio', name: 'Stremio', mark: 'stremio', bg: '#19122f', ink: '#8a5cf6' },
     { id: 'tubi', name: 'Tubi', mark: 'tubi', bg: '#7408ff', ink: '#ffff13' },
-    { id: 'twitch', name: 'Twitch', bg: '#9146ff', ink: '#fff' },
-    { id: 'youtubetv', name: 'YouTube TV', bg: '#fff', ink: '#ff0033' }
+    { id: 'twitch', name: 'Twitch', mark: 'twitch', bg: '#9146ff', ink: '#fff' },
+    { id: 'youtubetv', name: 'YouTube TV', mark: 'youtubetv', bg: '#fff', ink: '#ff0033' }
   ];
   var DEFAULT_FAVS = ['netflix', 'youtube', 'disneyplus', 'hbomax', 'primevideo', 'appletv'], FAV_MAX = 6, STORE = 'library-prototype.v1';
   // HDMI ports as the TV reports them; names and visibility are the owner's choices.
@@ -72,8 +74,11 @@
     { label: 'Weather', kind: 'page', value: function () { return S.weather.zip ? S.weather.zip + ' · °' + S.weather.units : 'Set location'; }, ok: function () { pushPage('weather'); } },
     { label: 'Screensaver', value: function () { return AMBIENT[S.amb].name; }, ok: function () { S.amb = (S.amb + 1) % AMBIENT.length; armIdle(); } },
     { label: 'Picture and sound', kind: 'link', ok: function () { toast('Opens Samsung’s picture and sound settings on the TV.'); } },
-    { label: 'Samsung Home', kind: 'link', ok: function () { toast('Opens Samsung Home on the TV.'); } }
+    { label: 'Samsung Home', kind: 'link', ok: function () { toast('Opens Samsung Home on the TV.'); } },
+    { label: 'About', kind: 'page', ok: function () { tvReadAbout(); pushPage('about'); } }
   ];
+  // Build details come from scripts/build-demo.py; TV details are read each time About opens.
+  var BUILD = window.LibraryBuild || null, about = { model: '', firmware: '', tizen: '', storage: '' };
   // Rows that open a Samsung screen show an outward arrow; rows that open a screen of ours show a chevron.
   var LINK_ICON = '<svg class="ico p-link" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>';
   var CHEVRON = '<svg class="ico p-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
@@ -431,7 +436,24 @@
         ];
       }
     },
-    rename: { title: 'Name', custom: 'rename', note: 'Type a name, then press OK. Leave it empty to use the port name.' }
+    rename: { title: 'Name', custom: 'rename', note: 'Type a name, then press OK. Leave it empty to use the port name.' },
+    about: {
+      title: 'About',
+      rows: function () {
+        var engine = /Chrom(?:e|ium)\/(\d+)/.exec(window.navigator.userAgent);
+        function tv(key) { return function () { return !window.tizen ? 'TV only' : about[key] || 'Reading…'; }; }
+        return [
+          { label: 'Version', value: function () { return BUILD ? BUILD.commit + ' · ' + BUILD.date : 'Browser preview'; } },
+          { label: 'App size', value: function () { return BUILD ? BUILD.size : 'Not built'; } },
+          { label: 'Storage', value: tv('storage') },
+          { label: 'TV model', value: tv('model') },
+          { label: 'Firmware', value: tv('firmware') },
+          { label: 'Tizen', value: tv('tizen') },
+          { label: 'Web engine', value: function () { return engine ? 'Chromium ' + engine[1] : 'Unknown'; } },
+          { label: 'Page size', value: function () { return window.innerWidth + ' × ' + window.innerHeight; } }
+        ];
+      }
+    }
   };
   function curPage() { return S.pages[S.pages.length - 1]; }
   function pageDef() { return PAGES[curPage().id]; }
@@ -503,7 +525,7 @@
     rows = pageRows();
     if (k === 'up') cur.i = Math.max(0, cur.i - 1);
     else if (k === 'down') cur.i = Math.min(rows.length - 1, cur.i + 1);
-    else if (k === 'ok') rows[cur.i].ok();
+    else if (k === 'ok' && rows[cur.i].ok) rows[cur.i].ok();
     else if (k === 'back' || k === 'left') popPage();
   }
   // ZIP code entry works with arrows alone, because the TV's own keyboard is slow with a remote.
@@ -790,17 +812,18 @@
       if (k === 'ok' || (k === 'back' && e.keyCode !== 8)) { e.preventDefault(); act(k); }
       return;
     }
-    if (e.keyCode === KEY_HINTS) { $('hints').classList.toggle('is-off'); return; }
+    /* preview */if (e.keyCode === KEY_HINTS) { $('hints').classList.toggle('is-off'); return; }/* /preview */
     if (tvWindowOn) { e.preventDefault(); tvHideSource(); return; }
     if (S.ambient) { e.preventDefault(); if (!e.repeat) exitAmbient(); return; }
     if (S.zone === 'panel' && pageDef().custom === 'zip' && ((e.keyCode >= 48 && e.keyCode <= 57) || (e.keyCode >= 96 && e.keyCode <= 105))) { zipDigit(e.keyCode - (e.keyCode >= 96 ? 96 : 48)); return; }
-    if (e.keyCode === KEY_AMBIENT) { enterAmbient(); return; }
+    /* preview */if (e.keyCode === KEY_AMBIENT) { enterAmbient(); return; }/* /preview */
     if (!k) return;
     e.preventDefault();
     armIdle();
     if (e.repeat && (k === 'ok' || k === 'back')) return;
     act(k);
   });
+  /* preview */
   // A click focuses the item and presses OK on it, so one click switches a tab or launches an app.
   stage.addEventListener('click', function (e) {
     var el = e.target, z, i;
@@ -826,6 +849,7 @@
     act('ok');
     quietPress = false;
   });
+  /* /preview */
 
   function fit() {
     var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
@@ -835,14 +859,29 @@
     stage.style.top = (window.innerHeight - 1080 * s) / 2 + 'px';
   }
 
-  // On the TV, the number buttons must be registered before the app receives them (ZIP entry uses them),
-  // and the browser-only key hints stay hidden.
+  // On the TV, the number buttons must be registered before the app receives them (ZIP entry uses them).
   function tvSetup() {
     var i;
     if (!window.tizen || !window.tizen.tvinputdevice) return;
     for (i = 0; i <= 9; i++) { try { window.tizen.tvinputdevice.registerKey(String(i)); } catch (e) { /* Older firmware without the key keeps arrow entry. */ } }
-    $('hints').classList.add('is-off');
+    /* preview */$('hints').classList.add('is-off');/* /preview */
     tvReadSources();
+  }
+  // Settings › About. Free storage decides how many photos the TV build can carry (about 1 MB each with
+  // their glass layers); the page size shows whether photos larger than 1920×1080 would add any detail.
+  function tvReadAbout() {
+    var si = window.tizen && window.tizen.systeminfo;
+    if (!si) return;
+    try { about.tizen = si.getCapability('http://tizen.org/feature/platform.version'); } catch (e) { about.tizen = e.name; }
+    try {
+      si.getPropertyValue('BUILD', function (b) { about.model = b.model; about.firmware = b.buildVersion; render(); }, function (err) { about.model = about.firmware = err.name; render(); });
+      si.getPropertyValue('STORAGE', function (st) {
+        var free = 0, total = 0;
+        (st.units || []).forEach(function (u) { if (!u.isRemovable) { free += u.availableCapacity; total += u.capacity; } });
+        about.storage = (free / 1e9).toFixed(1) + ' GB free of ' + (total / 1e9).toFixed(1) + ' GB';
+        render();
+      }, function (err) { about.storage = err.name; render(); });
+    } catch (e) { about.model = about.firmware = about.storage = e.name; }
   }
 
   // ---------- TV inputs (only on the TV) ----------
@@ -879,9 +918,10 @@
   }
 
   function start() {
-    var want = /[?&]wall=([a-z]+)/.exec(window.location.search), first = 0, i;
+    var want = 'valley', first = 0, i;
+    /* preview */want = (/[?&]wall=([a-z]+)/.exec(window.location.search) || [0, want])[1];/* /preview */
     tvSetup();
-    for (i = 0; i < WALLS.length; i++) if (WALLS[i].id === (want ? want[1] : 'valley')) first = i;
+    for (i = 0; i < WALLS.length; i++) if (WALLS[i].id === want) first = i;
     load();
     build();
     fit();

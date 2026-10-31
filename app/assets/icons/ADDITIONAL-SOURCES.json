@@ -16,5 +16,65 @@
     "source": "https://github.com/simple-icons/simple-icons/blob/develop/icons/tubi.svg",
     "licence": "CC0-1.0",
     "note": "Shape unchanged; white fill for launcher."
+  },
+  {
+    "icon": "crunchyroll",
+    "source": "https://github.com/simple-icons/simple-icons/blob/90646e4bf7f3b89df6c37e65baf3e7bc759a517c/icons/crunchyroll.svg",
+    "licence": "CC0-1.0",
+    "note": "Shape unchanged; white fill for launcher."
+  },
+  {
+    "icon": "jellyfin",
+    "source": "https://github.com/simple-icons/simple-icons/blob/90646e4bf7f3b89df6c37e65baf3e7bc759a517c/icons/jellyfin.svg",
+    "licence": "CC0-1.0",
+    "note": "Shape unchanged; white fill for launcher."
+  },
+  {
+    "icon": "paramountplus",
+    "source": "https://github.com/simple-icons/simple-icons/blob/90646e4bf7f3b89df6c37e65baf3e7bc759a517c/icons/paramountplus.svg",
+    "licence": "CC0-1.0",
+    "note": "Shape unchanged; white fill for launcher."
+  },
+  {
+    "icon": "plex",
+    "source": "https://github.com/simple-icons/simple-icons/blob/90646e4bf7f3b89df6c37e65baf3e7bc759a517c/icons/plex.svg",
+    "licence": "CC0-1.0",
+    "note": "Shape unchanged; white fill for launcher."
+  },
+  {
+    "icon": "twitch",
+    "source": "https://github.com/simple-icons/simple-icons/blob/90646e4bf7f3b89df6c37e65baf3e7bc759a517c/icons/twitch.svg",
+    "licence": "CC0-1.0",
+    "note": "Shape unchanged; white fill for launcher."
+  },
+  {
+    "icon": "youtubetv",
+    "source": "https://github.com/simple-icons/simple-icons/blob/90646e4bf7f3b89df6c37e65baf3e7bc759a517c/icons/youtubetv.svg",
+    "licence": "CC0-1.0",
+    "note": "Shape unchanged; white fill for launcher."
+  },
+  {
+    "icon": "hulu",
+    "source": "https://github.com/elax46/custom-brand-icons/blob/97f1a3907cd56653b4dc0b18487fa339691916c6/icon-svg/hulu.svg",
+    "licence": "MIT",
+    "note": "Shape unchanged; recoloured white for launcher."
+  },
+  {
+    "icon": "pbs",
+    "source": "https://github.com/elax46/custom-brand-icons/blob/97f1a3907cd56653b4dc0b18487fa339691916c6/icon-svg/pbs.svg",
+    "licence": "MIT",
+    "note": "Shape unchanged; recoloured white for launcher."
+  },
+  {
+    "icon": "peacock",
+    "source": "https://github.com/elax46/custom-brand-icons/blob/97f1a3907cd56653b4dc0b18487fa339691916c6/icon-svg/peacock.svg",
+    "licence": "MIT",
+    "note": "Shape unchanged; recoloured white for launcher."
+  },
+  {
+    "icon": "plutotv",
+    "source": "https://github.com/elax46/custom-brand-icons/blob/97f1a3907cd56653b4dc0b18487fa339691916c6/icon-svg/plutotv.svg",
+    "licence": "MIT",
+    "note": "Shape unchanged; recoloured white for launcher."
   }
 ]

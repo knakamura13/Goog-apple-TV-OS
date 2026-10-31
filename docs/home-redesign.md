@@ -31,6 +31,7 @@ Goals: no ads, no apps the owners don't use, no autoplay, a fast feel on the TV,
 - **Top right:** one semi-transparent capsule holding the Settings button, the weather (icon and temperature) and the time in the corner, with equal gaps between all three. Weather and time can't be focused. Settings is the only focusable item there.
 - **Favourites dock:** a near-full-width semi-transparent bar, after the tvOS dock, holding at most 6 apps so it never scrolls sideways. The focused app grows (about 1.18×), lifts a shadow and catches a sheen.
 - **Library:** every installed app that isn't a favourite and isn't hidden, in alphabetical order, 6 per row in the same columns as the dock. At rest about 40% of the first row peeks above the bottom edge. The focused app's name appears below it.
+- **App list and icons:** the TV supplies the list of installed apps, as CleanFrame's `device.js` already does, leaving out Samsung's internal ones. An app with a bundled logo (Simple Icons or Custom Brand Icons, single colour on its brand-coloured tile) shows that logo. Any other app shows the TV's own icon for it, or its name if that icon can't load. Apps installed later appear in the library on their own.
 - **Shapes:** tiles, the dock, panels and dialogs use squircle (continuous-curvature) corners. Capsules keep fully rounded ends.
 - **Motion:** quick and smooth, with transform and opacity only. Focus scales in about 170 ms, selection indicators slide in about 220 ms, and the page scrolls in about 340 ms.
 
@@ -55,6 +56,7 @@ The gear opens a glass panel on the right. Rows that only change a value do it i
 | Screensaver | Steps through After 1 min, 5 min, 15 min, Off |
 | Picture and sound ↗ | Samsung's picture and sound settings |
 | Samsung Home ↗ | The escape route. Back from the favourites row still offers the "stay or open Samsung Home" choice |
+| About › | Read-only details for troubleshooting: build version and time, app size, free storage, TV model, firmware, Tizen and web engine versions, page size. TV values appear only on the TV |
 
 **Inputs** (from the Edit inputs tile): one row per HDMI port; each opens a page with **Name ›** (typed with the TV keyboard) and **Show on Inputs** (On or Off).
 
@@ -87,7 +89,7 @@ The text drifts a few pixels every few minutes using `transform`, to protect the
 | Nav pills / Settings | Down | Favourites (Home tab) or the first input (Inputs tab) |
 | Nav pill | OK | Switch tab. Focus alone does not switch, matching CleanFrame's rule that focus never acts |
 | Favourites | Back | Existing "stay or open Samsung Home" choice |
-| Any app tile | OK | Launch. Nothing ever autoplays or launches from focus |
+| Any app tile | OK | Launch, with no message. A message appears only if the launch fails. Nothing ever autoplays or launches from focus |
 
 ## Reused from CleanFrame
 
@@ -113,11 +115,12 @@ List and Dock stay available as layouts, and the new layout is added as **Librar
 
 `demo/library/` is a throwaway browser prototype for settling this spec. It isn't packaged into the TV app. Run `npm run dev:public` and open `http://127.0.0.1:4795/demo/library/`.
 
-- **Keys:** arrows move, Enter is OK, Escape is Back, A starts ambient mode, H hides the key hints.
+- **Keys:** arrows move, Enter is OK, Escape is Back, A starts ambient mode, H hides the key hints. Clicking a tile focuses it and presses OK. The TV build has none of these extras.
 - **Real:** CleanFrame's photos, pre-rendered glass, brand marks and fonts; remote navigation; ambient mode; the settings panel.
-- **Sample data:** the apps, HDMI inputs and weather.
+- **Sample data:** the apps, HDMI inputs and weather. Messages such as "Opens Netflix on the TV." stand in for launches the browser can't do.
 - **Options:** `?wall=<id>` picks a wallpaper, for example `?wall=night`. Settings → Apps → Tile style switches between Color and Glass tiles.
-- **TV build:** `npm run build:demo` assembles `dist/library-demo/`, a self-contained Tizen web app (about 15 MB) with relative asset paths and its own `config.xml` (SDK-generated identity `xTZbrxm7Ut.LibraryDemo`, CleanFrame's proven profile, privileges and settings). It is unsigned; sign it with the owner's certificate profile, for example `tizen package -t wgt -s <profile> -- dist/library-demo`. On the TV, the number buttons are registered for ZIP entry and the key hints stay hidden.
+- **TV build:** `npm run build:demo` assembles `dist/library-demo/`, a self-contained Tizen web app (about 15 MB) with relative asset paths and its own `config.xml` (SDK-generated identity `xTZbrxm7Ut.LibraryDemo`, CleanFrame's proven profile, privileges and settings). It is unsigned; sign it with the owner's certificate profile, for example `tizen package -t wgt -s <profile> -- dist/library-demo`. Code between `preview` markers (key hints, the A and H keys, mouse clicks, `?wall=`) is stripped, and only the logos in use are copied. `build-info.js` records the commit, build time and size for Settings › About. On the TV, the number buttons are registered for ZIP entry.
+- **Package size:** 15.2 MB, of which code is 86 KB. Each photo costs about 1 MB: the 1920×1080 photo about 690 KB, three pre-rendered glass layers about 236 KB and the thumbnail about 38 KB. The two variable fonts take 0.6 MB as TTF files.
 - **HDMI probe (TV only):** the Inputs tab reads which HDMI ports really have a device (`tizen.systeminfo` VIDEOSOURCE). OK on a connected input tries `tizen.tvwindow.setSource` and shows it full screen; any button closes it. Success or the exact error appears as a message, which answers open check 2 on the first run.
 - **Performance so far:** with Chrome's CPU throttled 6×, every interaction reached its next frame in 17–30 ms (median), worst 50 ms (a settings page slide), with no main-thread task over 50 ms. That covers JavaScript, style and layout only; the GPU cost of full-screen photo layers, glass copies and squircle masks still needs measuring on the TV.
 
@@ -134,7 +137,7 @@ The prototype only explores the design. Once the spec is locked, the launcher is
 
 ## Open checks on the TV
 
-1. Tizen version and web engine on this firmware.
+1. Tizen version, web engine, page size and free storage on this firmware (all shown in Settings › About). Free storage sets how many photos the build can carry.
 2. Whether `tizen.tvwindow.setSource` changes the real input or only a preview window, and which privilege it needs. Fallback: launch Samsung's source list.
 3. Whether a sleep timer is reachable from a web app. Fallback: a TV settings shortcut.
 4. Weather network access from the signed app (`<access origin>` in `config.xml`).

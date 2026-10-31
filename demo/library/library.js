@@ -27,7 +27,7 @@
     { id: 'netflix', name: 'Netflix', mark: 'netflix', bg: '#000', ink: '#e50914' },
     { id: 'youtube', name: 'YouTube', mark: 'youtube', bg: '#fff', ink: '#ff0033' },
     { id: 'disneyplus', name: 'Disney+', mark: 'disneyplus', bg: 'linear-gradient(160deg,#1d3a8f,#0a1236 75%)', ink: '#fff' },
-    { id: 'hbomax', name: 'HBO Max', mark: 'hbomax', bg: '#0b25cf', ink: '#fff' },
+    { id: 'hbomax', name: 'HBO Max', aka: ['max'], mark: 'hbomax', bg: '#0b25cf', ink: '#fff' },
     { id: 'primevideo', name: 'Prime Video', mark: 'primevideo', bg: '#1a98ff', ink: '#fff' },
     { id: 'appletv', name: 'Apple TV', mark: 'appletv', bg: '#000', ink: '#fff' },
     { id: 'applemusic', name: 'Apple Music', mark: 'applemusic', bg: 'linear-gradient(160deg,#fb5c74,#fa233b)', ink: '#fff' },
@@ -37,8 +37,8 @@
     { id: 'hulu', name: 'Hulu', mark: 'hulu', bg: '#1ce783', ink: '#0b0c0f' },
     { id: 'jellyfin', name: 'Jellyfin', mark: 'jellyfin', bg: 'linear-gradient(160deg,#aa5cc3,#00a4dc)', ink: '#fff' },
     { id: 'paramount', name: 'Paramount+', mark: 'paramountplus', bg: '#0064ff', ink: '#fff' },
-    { id: 'pbs', name: 'PBS', mark: 'pbs', bg: '#2638c4', ink: '#fff' },
-    { id: 'peacock', name: 'Peacock', mark: 'peacock', bg: '#000', ink: '#fff' },
+    { id: 'pbs', name: 'PBS', aka: ['pbs video'], mark: 'pbs', bg: '#2638c4', ink: '#fff' },
+    { id: 'peacock', name: 'Peacock', aka: ['peacock tv'], mark: 'peacock', bg: '#000', ink: '#fff' },
     { id: 'plex', name: 'Plex', mark: 'plex', bg: '#1f2326', ink: '#e5a00d' },
     { id: 'plutotv', name: 'Pluto TV', mark: 'plutotv', bg: '#fff200', ink: '#000' },
     { id: 'spotify', name: 'Spotify', mark: 'spotify', bg: '#121212', ink: '#1ed760' },
@@ -73,8 +73,8 @@
     { label: 'Apps', kind: 'screen', value: function () { return S.favIds.length + ' favorites'; }, ok: openEditor },
     { label: 'Weather', kind: 'page', value: function () { return S.weather.zip ? S.weather.zip + ' · °' + S.weather.units : 'Set location'; }, ok: function () { pushPage('weather'); } },
     { label: 'Screensaver', value: function () { return AMBIENT[S.amb].name; }, ok: function () { S.amb = (S.amb + 1) % AMBIENT.length; armIdle(); } },
-    { label: 'Picture and sound', kind: 'link', ok: function () { toast('Opens Samsung’s picture and sound settings on the TV.'); } },
-    { label: 'Samsung Home', kind: 'link', ok: function () { toast('Opens Samsung Home on the TV.'); } },
+    { label: 'Picture and sound', kind: 'link', ok: function () { openSamsung('Samsung’s picture and sound settings', window.FrameDevice.settings); } },
+    { label: 'Samsung Home', kind: 'link', ok: samsungHome },
     { label: 'About', kind: 'page', ok: function () { tvReadAbout(); pushPage('about'); } }
   ];
   // Build details come from scripts/build-demo.py; TV details are read each time About opens.
@@ -158,8 +158,10 @@
     return '<div class="tile' + cls + '" data-z="' + zone + '" data-i="' + i + '" style="left:' + col * PITCH + 'px;' + style + '">'
       + '<div class="t-face squircle"' + (faceStyle ? ' style="' + faceStyle + '"' : '') + '>' + inner + '<div class="t-sheen"></div>' + tileRim + '</div></div>';
   }
+  // A TV app without a logo here shows the TV's own icon, with its name underneath in case the icon fails.
   function appHtml(a, zone, i, col) {
-    return tileHtml('', zone, i, col, '--mk:' + a.ink, a.mark ? markHtml(a.mark) : '<span class="t-text">' + esc(a.name) + '</span>', 'background:' + a.bg);
+    var inner = a.mark ? markHtml(a.mark) : (a.icon ? '<img class="t-icon" alt="" src="' + esc(a.icon) + '">' : '') + '<span class="t-text">' + esc(a.name) + '</span>';
+    return tileHtml('', zone, i, col, '--mk:' + a.ink, inner, 'background:' + a.bg);
   }
   var PENCIL = '<svg class="ico in-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg>';
   function inputHtml(s, i) {
@@ -203,8 +205,11 @@
   function load() {
     var d, ok = function (id) { return !!byId(id); };
     try { d = JSON.parse(window.localStorage.getItem(STORE) || 'null'); } catch (e) { d = null; }
+    // Favorites (saved, or the defaults on a first run) keep only installed apps and never end up empty.
+    if (d && d.fav) S.favIds = d.fav;
+    S.favIds = S.favIds.filter(ok).slice(0, FAV_MAX);
+    if (!S.favIds.length) S.favIds = APPS.map(function (a) { return a.id; }).sort(byName).slice(0, FAV_MAX);
     if (!d) return;
-    if (d.fav && d.fav.filter(ok).length) S.favIds = d.fav.filter(ok).slice(0, FAV_MAX);
     if (d.hid) S.hiddenIds = d.hid.filter(function (id) { return ok(id) && S.favIds.indexOf(id) < 0; });
     S.glassTiles = !!d.glass;
     if (d.weather) S.weather = { zip: /^\d{5}$/.test(d.weather.zip) ? d.weather.zip : '', units: d.weather.units === 'C' ? 'C' : 'F' };
@@ -338,7 +343,7 @@
         else if (k === 'right') S.fav = Math.min(FAVS.length - 1, S.fav + 1);
         else if (k === 'up') { S.zone = 'nav'; S.nav = S.tab; }
         else if (k === 'down' && ROWS.length) { S.zone = 'lib'; S.lr = 0; S.lc = Math.min(S.fav, rowLen(0) - 1); }
-        else if (k === 'ok') launch(focused, FAVS[S.fav].name);
+        else if (k === 'ok') launch(focused, FAVS[S.fav]);
         else if (k === 'back') { S.zone = 'dialog'; S.dialog = 0; }
         break;
       case 'lib':
@@ -347,7 +352,7 @@
         else if (k === 'up' && S.lr === 0) { S.zone = 'fav'; S.fav = Math.min(S.lc, FAVS.length - 1); }
         else if (k === 'up') { S.lr--; S.lc = Math.min(S.lc, rowLen(S.lr) - 1); }
         else if (k === 'down' && S.lr < ROWS.length - 1) { S.lr++; S.lc = Math.min(S.lc, rowLen(S.lr) - 1); }
-        else if (k === 'ok') launch(focused, ROWS[S.lr][S.lc].name);
+        else if (k === 'ok') launch(focused, ROWS[S.lr][S.lc]);
         else if (k === 'back') { S.zone = 'fav'; S.fav = Math.min(S.lc, FAVS.length - 1); }
         break;
       case 'inputs':
@@ -370,7 +375,7 @@
         if (k === 'left') S.dialog = 0;
         else if (k === 'right') S.dialog = 1;
         else if (k === 'back') S.zone = 'fav';
-        else if (k === 'ok') { if (S.dialog === 1) toast('Opens Samsung Home on the TV.'); S.zone = 'fav'; }
+        else if (k === 'ok') { if (S.dialog === 1) samsungHome(); S.zone = 'fav'; }
         break;
     }
     render();
@@ -382,10 +387,17 @@
     void tile.offsetWidth;
     tile.classList.add('is-press');
   }
-  function launch(tile, name) {
+  // On the TV an app opens without a message; one appears only if it fails. Sample apps only say what would open.
+  function launch(tile, a) {
     press(tile);
-    toast('Opens ' + name + ' on the TV.');
+    if (!a.appId) { toast('Opens ' + a.name + ' on the TV.'); return; }
+    window.FrameDevice.launchApp(a.appId, function (err) { if (err) toast(err.message); });
   }
+  function openSamsung(name, open) {
+    if (!window.tizen) { toast('Opens ' + name + ' on the TV.'); return; }
+    open(function (err) { if (err) toast(err.message); });
+  }
+  function samsungHome() { openSamsung('Samsung Home', window.FrameDevice.home); }
   function chooseInput(s) {
     press(focused);
     if (s.edit) openPanel('inputs', 'inputs');
@@ -917,7 +929,34 @@
     try { window.tizen.tvwindow.hide(function () {}, function (err) { toast('Hide failed: ' + err.name); }, 'MAIN'); } catch (e) { toast('Hide failed: ' + e.message); }
   }
 
+  // ---------- Installed apps (only on the TV) ----------
+
+  // CleanFrame's device.js lists the installed apps without Samsung's internal ones and names the brands it
+  // knows. Any other app matches a logo here by name ("Tubi - Free Movies & TV" is "tubi"); the rest, ESPN
+  // included, keep the TV's name and icon.
+  function plainName(name) { return String(name).toLowerCase().replace(/\s*[:|].*$|\s+[-–].*$/, '').replace(/\s+/g, ' ').trim(); }
+  function tvApp(entry, brands) {
+    var n = plainName(entry.name), icon = entry.icon, b, i;
+    for (i = 0; i < brands.length; i++) {
+      b = brands[i];
+      if (b.mark && (b.id === entry.brand || plainName(b.name) === n || (b.aka && b.aka.indexOf(n) >= 0))) return { id: b.id, appId: entry.appId, name: b.name, mark: b.mark, bg: b.bg, ink: b.ink };
+    }
+    // Same rule as CleanFrame: only an absolute or packaged path is used as an image source.
+    if (typeof icon !== 'string' || icon.length > 2048 || !/^(?:\/[^\/]|file:\/\/\/|wgt-package:\/\/\/)/.test(icon)) icon = '';
+    return { id: entry.appId, appId: entry.appId, name: String(entry.name).slice(0, 40), icon: icon, bg: '#24272b', ink: '#fff' };
+  }
   function start() {
+    if (!window.tizen || !window.tizen.application || !window.FrameDevice) { begin(); return; }
+    window.FrameDevice.apps(function (err, entries) {
+      var brands = APPS, seen = {};
+      if (!err && entries.length) {
+        APPS = entries.map(function (e) { return tvApp(e, brands); }).filter(function (a) { var dup = seen[a.id]; seen[a.id] = true; return !dup; });
+      }
+      begin();
+      if (err || !entries.length) toast('Could not read the TV’s apps' + (err ? ': ' + err.message : '') + '. Showing sample apps.');
+    });
+  }
+  function begin() {
     var want = 'valley', first = 0, i;
     /* preview */want = (/[?&]wall=([a-z]+)/.exec(window.location.search) || [0, want])[1];/* /preview */
     tvSetup();
@@ -934,6 +973,7 @@
     armIdle();
     stage.focus();
     window.addEventListener('resize', fit);
+    stage.addEventListener('error', function (e) { if (e.target.className === 't-icon') e.target.parentNode.parentNode.classList.add('no-icon'); }, true);
   }
   start();
 }());

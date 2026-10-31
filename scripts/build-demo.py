@@ -37,7 +37,7 @@ def build(out):
         shutil.rmtree(out)
     out.mkdir(parents=True)
     for name in ('index.html', 'library.css', 'library.js'):
-        text = PREVIEW.sub('', (DEMO / name).read_text()).replace('/home/assets/', 'assets/')
+        text = PREVIEW.sub('', (DEMO / name).read_text()).replace('/home/assets/', 'assets/').replace('/home/device.js', 'device.js')
         if 'preview -->' in text or 'preview */' in text:
             raise SystemExit(f'Unmatched preview marker in {name}')
         if name == 'index.html':
@@ -48,6 +48,7 @@ def build(out):
         (out / name).write_text(text)
     shutil.copy2(DEMO / 'config.xml', out / 'config.xml')
     shutil.copy2(ROOT / 'app/icon.png', out / 'icon.png')
+    shutil.copy2(ROOT / 'app/device.js', out / 'device.js')  # CleanFrame's installed-app list and launching
 
     for relative in ('fonts.css', 'typefaces.css', 'manrope.woff2', 'manrope-OFL.txt', 'icons/metrics.js', 'wallpapers/catalog.js', 'wallpapers/SOURCES.json'):
         copy(relative, out)
@@ -63,9 +64,9 @@ def build(out):
             copy(f'materials/{wall}-{material}.jpg', out)
     shutil.copy2(ROOT / 'THIRD_PARTY_NOTICES.md', out / 'THIRD_PARTY_NOTICES.md')
 
-    leftover = [name for name in ('index.html', 'library.js') if '/home/assets/' in (out / name).read_text()]
+    leftover = [name for name in ('index.html', 'library.js') if '/home/' in (out / name).read_text()]
     if leftover:
-        raise SystemExit('Absolute asset paths remain in: ' + ', '.join(leftover))
+        raise SystemExit('Preview-server paths remain in: ' + ', '.join(leftover))
     size = sum(path.stat().st_size for path in out.rglob('*') if path.is_file())
     commit = subprocess.run(['git', 'describe', '--always', '--dirty'], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
     info = {'commit': commit, 'date': datetime.now().strftime('%b %-d, %-I:%M %p'), 'size': f'{size / 1e6:.1f} MB'}

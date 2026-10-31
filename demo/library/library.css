@@ -118,6 +118,10 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .mark{position:absolute;left:39px;top:29px;width:172px;height:92px}
 .mk{position:absolute;display:block;background:var(--mk);-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
 .t-text{position:absolute;left:14px;right:14px;top:0;height:150px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:32px;line-height:36px;font-weight:700;letter-spacing:-.6px;color:var(--mk)}
+.t-icon{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover}
+.t-icon+.t-text{visibility:hidden}
+.no-icon .t-icon{display:none}
+.no-icon .t-icon+.t-text{visibility:visible}
 
 /* Glass tiles: CleanFrame's monochrome marks on translucent faces. */
 .tiles-glass .t-face{background:rgba(255,255,255,.14)!important}

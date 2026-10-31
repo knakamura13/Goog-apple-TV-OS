@@ -22,29 +22,37 @@
   <div class="ui">
     <div class="page" id="page">
       <div class="dock" id="dock">
-        <div class="glass dock-glass"><img class="glass-img" id="dockGlass" data-material="soft" alt=""><div class="glass-veil"></div></div>
+        <div class="glass dock-glass squircle">
+          <div class="glass-layer" id="dockLayer"><img class="glass-img" data-material="clear" alt=""><img class="glass-img glass-alt" data-material="blur" alt=""></div>
+          <div class="glass-tint"></div><div class="glass-hl"></div><div class="glass-dim"></div><svg class="rim" id="dockRim" aria-hidden="true"></svg>
+        </div>
         <div class="tiles fav-tiles" id="favRow"></div>
         <div class="tiles in-tiles" id="inRow"></div>
       </div>
       <div class="library" id="library"></div>
       <div class="focus-name" id="focusName" aria-hidden="true"></div>
     </div>
+    <div class="modal-dim"></div>
 
     <header class="topbar">
       <nav class="nav glass" aria-label="Sections">
-        <img class="glass-img" data-material="frost" alt=""><div class="glass-veil"></div>
+        <div class="glass-layer"><img class="glass-img" data-material="clear" alt=""><img class="glass-img glass-alt" data-material="blur" alt=""></div>
+        <div class="glass-tint"></div><div class="glass-hl"></div><div class="glass-dim"></div>
+        <div class="ind nav-active" id="navActive"></div>
+        <div class="ind nav-focus" id="navFocus"></div>
         <div class="pills" id="pills"></div>
       </nav>
-      <div class="status">
-        <div class="gear glass" id="gear" data-z="gear" role="button" aria-label="Settings">
-          <img class="glass-img" data-material="frost" alt=""><div class="glass-veil"></div>
+      <div class="status glass">
+        <div class="glass-layer"><img class="glass-img" data-material="clear" alt=""><img class="glass-img glass-alt" data-material="blur" alt=""></div>
+        <div class="glass-tint"></div><div class="glass-hl"></div><div class="glass-dim"></div>
+        <div class="st gear" id="gear" data-z="gear" role="button" aria-label="Settings">
           <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3-.6 2.4-2 1.2L4 6l-2 3.5L3.8 11v2L2 14.5 4 18l2.4-.6 2 1.2L9 21h6l.6-2.4 2-1.2 2.4.6 2-3.5-1.8-1.5v-2L22 9.5 20 6l-2.4.6-2-1.2L15 3Z"/><circle cx="12" cy="12" r="3.2"/></svg>
         </div>
-        <div class="weather" aria-label="Partly cloudy, 64 degrees">
+        <div class="st weather" aria-label="Partly cloudy, 64 degrees">
           <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2.6v1.6M3.3 4.6l1.1 1.1M1.6 9.2h1.6M12.7 4.6l-1.1 1.1"/><path d="M4.9 11.6A3.7 3.7 0 0 1 11.7 7"/><path d="M7.6 20.4h9.9a4 4 0 0 0 .7-7.9 5.4 5.4 0 0 0-10.4 1A3.5 3.5 0 0 0 7.6 20.4Z"/></svg>
           <span>64°</span>
         </div>
-        <div class="time" id="time"></div>
+        <div class="st time" id="time"></div>
       </div>
     </header>
   </div>
@@ -52,37 +60,34 @@
   <div class="ambient" aria-hidden="true">
     <div class="amb-shade"></div>
     <div class="amb-drift" id="ambDrift">
+      <div class="amb-clock"><div class="amb-time" id="ambTime"></div><div class="amb-date" id="ambDate"></div></div>
       <div class="amb-caption"><div class="amb-title" id="ambTitle"></div><div class="amb-credit" id="ambCredit"></div></div>
-      <div class="amb-clock">
-        <div class="amb-weather">
-          <svg class="ico" viewBox="0 0 24 24"><path d="M8 2.6v1.6M3.3 4.6l1.1 1.1M1.6 9.2h1.6M12.7 4.6l-1.1 1.1"/><path d="M4.9 11.6A3.7 3.7 0 0 1 11.7 7"/><path d="M7.6 20.4h9.9a4 4 0 0 0 .7-7.9 5.4 5.4 0 0 0-10.4 1A3.5 3.5 0 0 0 7.6 20.4Z"/></svg>
-          <span>64°</span>
-        </div>
-        <div class="amb-time" id="ambTime"></div>
-      </div>
     </div>
   </div>
 
-  <aside class="panel glass" aria-label="Settings">
-    <img class="glass-img" data-material="frost" alt=""><div class="glass-veil"></div>
+  <aside class="panel glass squircle" aria-label="Settings">
+    <div class="glass-layer"><img class="glass-img" data-material="frost" alt=""></div>
+    <div class="glass-tint"></div><svg class="rim" id="panelRim" aria-hidden="true"></svg>
     <h2 class="p-title">Settings</h2>
-    <div class="p-rows" id="panelRows"></div>
+    <div class="p-rows"><div class="ind p-ind" id="panelInd"></div><div id="panelRows"></div></div>
+    <p class="p-status" id="panelStatus" aria-live="polite"></p>
   </aside>
 
-  <div class="dialog glass" role="dialog" aria-labelledby="dialogTitle">
-    <img class="glass-img" data-material="frost" alt=""><div class="glass-veil"></div>
+  <div class="dialog glass squircle" role="dialog" aria-labelledby="dialogTitle">
+    <div class="glass-layer"><img class="glass-img" data-material="frost" alt=""></div>
+    <div class="glass-tint"></div><svg class="rim" id="dialogRim" aria-hidden="true"></svg>
     <h2 class="d-title" id="dialogTitle">Open Samsung Home?</h2>
     <p class="d-text">Press Home on the remote to come back here.</p>
-    <div class="d-actions" id="dialogActions">
-      <div class="d-btn" data-z="dialog" data-i="0">Stay here</div>
-      <div class="d-btn" data-z="dialog" data-i="1">Samsung Home</div>
+    <div class="d-actions">
+      <div class="ind d-ind" id="dialogInd"></div>
+      <div class="d-btn" data-z="dialog" data-i="0">Stay here</div><div class="d-btn" data-z="dialog" data-i="1">Samsung Home</div>
     </div>
   </div>
 
   <div class="toast" id="toast" aria-live="polite"><span></span></div>
 </main>
 
-<div class="hints" id="hints"><b>Arrows</b> move · <b>Enter</b> OK · <b>Esc</b> Back · <b>A</b> ambient · <b>H</b> hide this · Sample apps, inputs and weather</div>
+<div class="hints" id="hints"><b>Arrows</b> move · <b>Enter</b> OK · <b>Esc</b> Back · <b>A</b> screensaver · <b>H</b> hide this · Sample apps, inputs and weather</div>
 
 <script src="/home/assets/icons/metrics.js"></script>
 <script src="/home/assets/wallpapers/catalog.js"></script>

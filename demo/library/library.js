@@ -7,10 +7,16 @@
   var KEYS = { 37: 'left', 38: 'up', 39: 'right', 40: 'down', 13: 'ok', 27: 'back', 8: 'back', 10009: 'back', 461: 'back' };
   var KEY_AMBIENT = 65, KEY_HINTS = 72;
 
-  // Stage geometry, in 1920 x 1080 pixels. Favourites and library share the same six columns.
-  var TILE_W = 250, TILE_H = 150, PITCH = 278, COLS = 6, GRID_LEFT = 140;
-  var DOCK_TOP = 724, DOCK_H = 206, LIB_TOP = 1002, ROW_PITCH = 222;
-  var LIB_SCROLL = -540, LABEL_GAP = 22, LABEL_BOTTOM = 1048, TOP_EDGE = 150;
+  // Stage geometry in 1920 x 1080 pixels, proportioned after the tvOS Home screen.
+  // Favourites and library share six columns starting at the 90px side margin.
+  var TILE_W = 250, TILE_H = 150, TILE_R = 32, PITCH = 298, COLS = 6, GRID_LEFT = 90;
+  var DOCK_W = 1824, DOCK_H = 230, DOCK_R = 56, DOCK_TOP = 780;
+  var LIB_TOP = 1058, ROW_PITCH = 236, LABEL_GAP = 24, LABEL_H = 36, ROW_SPAN = TILE_H + LABEL_GAP + LABEL_H;
+  var TOP_LINE = 152, SAFE_BOTTOM = 1026, TOP_EDGE = 140;
+  var SHALLOW = TOP_LINE - DOCK_TOP; // The dock sits just below the top bar while the first library rows show.
+  var DEEP_ROWS = Math.floor((SAFE_BOTTOM - TOP_LINE - ROW_SPAN) / ROW_PITCH) + 1; // Rows that fit once the dock scrolls away.
+  var PANEL = { w: 700, h: 896, r: 48 }, DIALOG = { w: 840, h: 340, r: 48 };
+  var PILL_W = 150, PANEL_PITCH = 96, DIALOG_PITCH = 316, SMOOTHING = 0.6;
 
   var FAVOURITES = [
     { name: 'Netflix', mark: 'netflix', bg: '#000', ink: '#e50914' },
@@ -40,30 +46,33 @@
   var INPUTS = [
     { port: 'HDMI 1', name: 'PlayStation 5' },
     { port: 'HDMI 2', name: 'Mac mini' },
-    { port: 'HDMI 3', name: 'Nothing connected', empty: true },
+    { port: 'HDMI 3', name: 'No device', empty: true },
     { port: 'Samsung', name: 'Source list', list: true }
   ];
   var TABS = ['Home', 'Inputs'];
   var SLEEP = ['Off', '30 min', '1 hour', '90 min', '2 hours'];
   var AMBIENT = [{ name: 'After 1 min', ms: 60000 }, { name: 'After 5 min', ms: 300000 }, { name: 'After 15 min', ms: 900000 }, { name: 'Off', ms: 0 }];
+  var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   var WALLS = window.CleanFrameWallpapers || [];
   var ROWS = chunk(LIBRARY, COLS);
 
-  var S = { tab: 0, zone: 'fav', nav: 0, fav: 0, lr: 0, lc: 0, inp: 0, panel: 0, dialog: 0, glassTiles: false, wall: 0, sleep: 0, amb: 0, ambient: false, scroll: 0 };
+  var S = { tab: 0, zone: 'fav', nav: 0, fav: 0, lr: 0, lc: 0, inp: 0, panel: 0, dialog: 0, glassTiles: false, wall: 0, homeWall: 0, sleep: 0, amb: 1, ambient: false, scroll: 0 };
   var SETTINGS = [
     { label: 'Sleep timer', value: function () { return SLEEP[S.sleep]; }, ok: function () { S.sleep = (S.sleep + 1) % SLEEP.length; } },
     { label: 'Wallpaper', value: function () { return WALLS[S.wall] ? WALLS[S.wall].name : ''; }, ok: function () { setWall(S.wall + 1); } },
     { label: 'App tiles', value: function () { return S.glassTiles ? 'Glass' : 'Color'; }, ok: function () { S.glassTiles = !S.glassTiles; } },
-    { label: 'Ambient mode', value: function () { return AMBIENT[S.amb].name; }, ok: function () { S.amb = (S.amb + 1) % AMBIENT.length; armIdle(); } },
-    { label: 'Picture and sound', value: function () { return 'Samsung'; }, ok: function () { toast('On the TV, this opens Samsung’s picture and sound settings.'); } },
-    { label: 'Samsung Home', value: function () { return ''; }, ok: function () { toast('On the TV, this opens Samsung Home.'); } }
+    { label: 'Screensaver', value: function () { return AMBIENT[S.amb].name; }, ok: function () { S.amb = (S.amb + 1) % AMBIENT.length; armIdle(); } },
+    { label: 'Picture and sound', value: function () { return 'Samsung'; }, ok: function () { toast('Opens Samsung’s picture and sound settings on the TV.'); } },
+    { label: 'Samsung Home', value: function () { return ''; }, ok: function () { toast('Opens Samsung Home on the TV.'); } }
   ];
 
-  var stage = $('stage'), page = $('page'), dock = $('dock'), dockGlass = $('dockGlass'), library = $('library');
-  var favRow = $('favRow'), inRow = $('inRow'), focusName = $('focusName'), gear = $('gear'), toastEl = $('toast');
-  var timeEl = $('time'), ambTime = $('ambTime'), ambTitle = $('ambTitle'), ambCredit = $('ambCredit'), ambDrift = $('ambDrift');
+  var stage = $('stage'), page = $('page'), dock = $('dock'), dockLayer = $('dockLayer'), library = $('library');
+  var favRow = $('favRow'), inRow = $('inRow'), focusName = $('focusName'), gear = $('gear'), toastEl = $('toast'), panelStatus = $('panelStatus');
+  var navActive = $('navActive'), navFocus = $('navFocus'), panelInd = $('panelInd'), dialogInd = $('dialogInd');
+  var timeEl = $('time'), statusEl = stage.querySelector('.status'), ambTime = $('ambTime'), ambDate = $('ambDate'), ambTitle = $('ambTitle'), ambCredit = $('ambCredit'), ambDrift = $('ambDrift');
   var front = $('photoA'), back = $('photoB'), blurImg = $('blur');
-  var pills, panelRows, dialogBtns, focused = null, credits = {}, wallToken = 0;
+  var pills, panelRows, dialogBtns, tileRim = '', focused = null, lastZone = null, credits = {}, wallToken = 0, statusWidth = 0;
   var idleTimer = null, driftTimer = null, rotateTimer = null, toastTimer = null;
 
   function $(id) { return document.getElementById(id); }
@@ -71,6 +80,44 @@
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function toggle(el, cls, on) { if (on) el.classList.add(cls); else el.classList.remove(cls); }
+  function n2(v) { return Math.round(v * 100) / 100; }
+
+  // ---------- Squircles ----------
+
+  // Continuous-curvature rounded rectangle, after Figma's corner smoothing (as used for Apple's icon shapes).
+  // A plain arc covers the middle of each corner; Bezier segments ease into the straight edges.
+  function squircle(w, h, r, smoothing) {
+    var rad = Math.PI / 180, budget = Math.min(w, h) / 2, s, p, arcDeg, L, c, d, b, a, A, AB, ABC, C, D, BC, R;
+    r = Math.min(r, budget);
+    s = Math.min(smoothing, Math.max(0, budget / r - 1));
+    p = Math.min((1 + s) * r, budget);
+    arcDeg = 90 * (1 - s);
+    L = Math.sin(arcDeg / 2 * rad) * r * Math.SQRT2;
+    c = r * Math.tan((90 - arcDeg) / 4 * rad) * Math.cos(45 * s * rad);
+    d = c * Math.tan(45 * s * rad);
+    b = (p - L - c - d) / 3;
+    a = 2 * b;
+    A = n2(a); AB = n2(a + b); ABC = n2(a + b + c); C = n2(c); D = n2(d); BC = n2(b + c); R = n2(r); L = n2(L);
+    return 'M' + n2(w - p) + ' 0'
+      + 'c' + A + ' 0 ' + AB + ' 0 ' + ABC + ' ' + D + 'a' + R + ' ' + R + ' 0 0 1 ' + L + ' ' + L + 'c' + D + ' ' + C + ' ' + D + ' ' + BC + ' ' + D + ' ' + ABC
+      + 'L' + w + ' ' + n2(h - p)
+      + 'c0 ' + A + ' 0 ' + AB + ' ' + (-D) + ' ' + ABC + 'a' + R + ' ' + R + ' 0 0 1 ' + (-L) + ' ' + L + 'c' + (-C) + ' ' + D + ' ' + (-BC) + ' ' + D + ' ' + (-ABC) + ' ' + D
+      + 'L' + n2(p) + ' ' + h
+      + 'c' + (-A) + ' 0 ' + (-AB) + ' 0 ' + (-ABC) + ' ' + (-D) + 'a' + R + ' ' + R + ' 0 0 1 ' + (-L) + ' ' + (-L) + 'c' + (-D) + ' ' + (-C) + ' ' + (-D) + ' ' + (-BC) + ' ' + (-D) + ' ' + (-ABC)
+      + 'L0 ' + n2(p)
+      + 'c0 ' + (-A) + ' 0 ' + (-AB) + ' ' + D + ' ' + (-ABC) + 'a' + R + ' ' + R + ' 0 0 1 ' + L + ' ' + (-L) + 'c' + C + ' ' + (-D) + ' ' + BC + ' ' + (-D) + ' ' + ABC + ' ' + (-D)
+      + 'Z';
+  }
+  function maskUrl(w, h, path) {
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '"><path d="' + path + '"/></svg>';
+    return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
+  }
+  function shape(name, w, h, r, rimId) {
+    var path = squircle(w, h, r, SMOOTHING), rim = rimId && $(rimId);
+    stage.style.setProperty('--' + name + '-mask', maskUrl(w, h, path));
+    if (rim) { rim.setAttribute('viewBox', '0 0 ' + w + ' ' + h); rim.innerHTML = '<path d="' + path + '"/>'; }
+    return path;
+  }
 
   // ---------- Markup ----------
 
@@ -84,15 +131,21 @@
     } else st = 'width:' + w + 'px;height:' + h + 'px;left:0;top:0';
     return '<span class="mark"><span class="mk" style="' + st + ';-webkit-mask-image:url(' + ICONS + id + '.svg);mask-image:url(' + ICONS + id + '.svg)"></span></span>';
   }
+  function tileHtml(cls, zone, i, col, style, inner, faceStyle) {
+    return '<div class="tile' + cls + '" data-z="' + zone + '" data-i="' + i + '" style="left:' + col * PITCH + 'px;' + style + '">'
+      + '<div class="t-face squircle"' + (faceStyle ? ' style="' + faceStyle + '"' : '') + '>' + inner + '<div class="t-sheen"></div>' + tileRim + '</div></div>';
+  }
   function appHtml(a, zone, i, col) {
-    return '<div class="tile" data-z="' + zone + '" data-i="' + i + '" style="left:' + col * PITCH + 'px;--mk:' + a.ink + '">'
-      + '<div class="t-face" style="background:' + a.bg + '">' + (a.mark ? markHtml(a.mark) : '<span class="t-text">' + esc(a.name) + '</span>') + '</div></div>';
+    return tileHtml('', zone, i, col, '--mk:' + a.ink, a.mark ? markHtml(a.mark) : '<span class="t-text">' + esc(a.name) + '</span>', 'background:' + a.bg);
   }
   function inputHtml(s, i) {
-    return '<div class="tile in-tile' + (s.empty ? ' is-empty' : '') + '" data-z="inputs" data-i="' + i + '" style="left:' + i * PITCH + 'px">'
-      + '<div class="t-face"><span class="in-port">' + esc(s.port) + '</span><span class="in-name">' + esc(s.name) + '</span></div></div>';
+    return tileHtml(' in-tile' + (s.empty ? ' is-empty' : ''), 'inputs', i, i, '', '<span class="in-port">' + esc(s.port) + '</span><span class="in-name">' + esc(s.name) + '</span>', '');
   }
   function build() {
+    tileRim = '<svg class="rim" viewBox="0 0 ' + TILE_W + ' ' + TILE_H + '" aria-hidden="true"><path d="' + shape('tile', TILE_W, TILE_H, TILE_R) + '"/></svg>';
+    shape('dock', DOCK_W, DOCK_H, DOCK_R, 'dockRim');
+    shape('panel', PANEL.w, PANEL.h, PANEL.r, 'panelRim');
+    shape('dialog', DIALOG.w, DIALOG.h, DIALOG.r, 'dialogRim');
     favRow.innerHTML = FAVOURITES.map(function (a, i) { return appHtml(a, 'fav', i, i); }).join('');
     inRow.innerHTML = INPUTS.map(inputHtml).join('');
     library.innerHTML = ROWS.map(function (row, r) {
@@ -102,16 +155,16 @@
     $('panelRows').innerHTML = SETTINGS.map(function (s, i) { return '<div class="p-row" data-z="panel" data-i="' + i + '"><span class="p-label">' + s.label + '</span><span class="p-value"></span></div>'; }).join('');
     pills = $('pills').children;
     panelRows = $('panelRows').children;
-    dialogBtns = $('dialogActions').children;
+    dialogBtns = stage.querySelectorAll('.d-btn');
   }
 
-  // Each glass layer shows the part of the pre-blurred photo directly behind it.
+  // Each glass layer shows the part of the photo directly behind its element.
   function stagePos(el) { var x = 0, y = 0; while (el && el !== stage) { x += el.offsetLeft; y += el.offsetTop; el = el.offsetParent; } return { x: x, y: y }; }
   function registerGlass() {
-    var list = stage.querySelectorAll('.glass'), i, p, img;
+    var list = stage.querySelectorAll('.glass'), i, p, layer;
     for (i = 0; i < list.length; i++) {
-      p = stagePos(list[i]); img = list[i].querySelector('.glass-img');
-      img.style.left = -p.x + 'px'; img.style.top = -p.y + 'px';
+      p = stagePos(list[i]); layer = list[i].querySelector('.glass-layer');
+      layer.style.left = -p.x + 'px'; layer.style.top = -p.y + 'px';
     }
   }
 
@@ -128,27 +181,40 @@
       default: return dialogBtns[S.dialog];
     }
   }
-  function libScroll(r) { return Math.min(LIB_SCROLL, LABEL_BOTTOM - (TILE_H + LABEL_GAP + 36) - (LIB_TOP + r * ROW_PITCH)); }
+  // A selection indicator slides to its new item; it jumps without animating when focus first enters its group.
+  function place(el, x, y, instant) {
+    var t = 'translate3d(' + x + 'px,' + y + 'px,0)';
+    if (!instant) { el.style.transform = t; return; }
+    el.style.transition = 'none';
+    el.style.transform = t;
+    void el.offsetWidth;
+    el.style.transition = '';
+  }
+  function rowTop(r) { return LIB_TOP + r * ROW_PITCH; }
+  function libScroll(r) {
+    if (rowTop(r) + SHALLOW + ROW_SPAN <= SAFE_BOTTOM) return SHALLOW;
+    return TOP_LINE - rowTop(Math.max(0, r - DEEP_ROWS + 1));
+  }
   function scrollTo(t) {
     var r;
     if (t === S.scroll) return;
     S.scroll = t;
     page.style.transform = 'translate3d(0,' + t + 'px,0)';
-    dockGlass.style.transform = 'translate3d(0,' + (-t) + 'px,0)';
-    toggle(dock, 'is-above', t < LIB_SCROLL);
-    for (r = 0; r < ROWS.length; r++) toggle(library.children[r], 'is-above', LIB_TOP + r * ROW_PITCH + t < TOP_EDGE);
+    dockLayer.style.transform = 'translate3d(0,' + (-t) + 'px,0)';
+    toggle(dock, 'is-above', t < SHALLOW);
+    for (r = 0; r < ROWS.length; r++) toggle(library.children[r], 'is-above', rowTop(r) + t < TOP_EDGE);
   }
   function label() {
-    var a = null, x = 0, y = 0;
-    if (S.zone === 'fav') { a = FAVOURITES[S.fav]; x = GRID_LEFT + S.fav * PITCH; y = DOCK_TOP + DOCK_H + 14; }
-    else if (S.zone === 'lib') { a = ROWS[S.lr][S.lc]; x = GRID_LEFT + S.lc * PITCH; y = LIB_TOP + S.lr * ROW_PITCH + TILE_H + LABEL_GAP; }
-    toggle(focusName, 'is-on', !!a);
-    if (!a) return;
+    var on = S.zone === 'lib', a, x;
+    toggle(focusName, 'is-on', on);
+    if (!on) return;
+    a = ROWS[S.lr][S.lc];
+    x = GRID_LEFT + S.lc * PITCH + TILE_W / 2 - 210;
     focusName.textContent = a.name;
-    focusName.style.transform = 'translate3d(' + (x + TILE_W / 2 - 210) + 'px,' + y + 'px,0)';
+    focusName.style.transform = 'translate3d(' + x + 'px,' + (rowTop(S.lr) + TILE_H + LABEL_GAP) + 'px,0)';
   }
   function render() {
-    var el = focusEl(), i;
+    var el = focusEl(), entered = S.zone !== lastZone, i;
     if (focused !== el) {
       if (focused) focused.classList.remove('is-focus');
       el.classList.add('is-focus');
@@ -156,6 +222,11 @@
     }
     for (i = 0; i < pills.length; i++) toggle(pills[i], 'is-active', i === S.tab);
     for (i = 0; i < panelRows.length; i++) panelRows[i].lastChild.textContent = SETTINGS[i].value();
+    place(navActive, S.tab * PILL_W, 0, false);
+    if (S.zone === 'nav') place(navFocus, S.nav * PILL_W, 0, entered);
+    if (S.zone === 'panel') place(panelInd, 0, S.panel * PANEL_PITCH, entered);
+    if (S.zone === 'dialog') place(dialogInd, S.dialog * DIALOG_PITCH, 0, entered);
+    toggle(navFocus, 'is-on', S.zone === 'nav');
     toggle(stage, 'tab-inputs', S.tab === 1);
     toggle(stage, 'is-library', S.zone === 'lib');
     toggle(stage, 'is-panel', S.zone === 'panel');
@@ -163,6 +234,7 @@
     toggle(stage, 'tiles-glass', S.glassTiles);
     scrollTo(S.zone === 'lib' ? libScroll(S.lr) : 0);
     label();
+    lastZone = S.zone;
   }
 
   // ---------- Remote ----------
@@ -216,7 +288,7 @@
         if (k === 'left') S.dialog = 0;
         else if (k === 'right') S.dialog = 1;
         else if (k === 'back') S.zone = 'fav';
-        else if (k === 'ok') { if (S.dialog === 1) toast('On the TV, this opens Samsung Home.'); S.zone = 'fav'; }
+        else if (k === 'ok') { if (S.dialog === 1) toast('Opens Samsung Home on the TV.'); S.zone = 'fav'; }
         break;
     }
     render();
@@ -225,18 +297,20 @@
     tile.classList.remove('is-press');
     void tile.offsetWidth;
     tile.classList.add('is-press');
-    toast('Opening ' + name + '. On the TV, this launches the app.');
+    toast('Opens ' + name + ' on the TV.');
   }
   function chooseInput(s) {
     if (s.empty) toast('Nothing is connected to ' + s.port + '.');
-    else if (s.list) toast('On the TV, this opens Samsung’s source list.');
-    else toast('On the TV, this switches to ' + s.name + ' on ' + s.port + '.');
+    else if (s.list) toast('Opens Samsung’s source list on the TV.');
+    else toast('Switches to ' + s.name + ' (' + s.port + ') on the TV.');
   }
+  // Messages appear inside the settings panel while it is open, so they never cover it.
   function toast(text) {
-    toastEl.firstChild.textContent = text;
-    toastEl.classList.add('is-on');
+    var el = S.zone === 'panel' ? panelStatus : toastEl;
+    (el === toastEl ? toastEl.firstChild : el).textContent = text;
+    el.classList.add('is-on');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { toastEl.classList.remove('is-on'); }, 2800);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('is-on'); panelStatus.classList.remove('is-on'); }, 2800);
   }
 
   // ---------- Wallpaper ----------
@@ -249,13 +323,22 @@
       im.src = u;
     });
   }
+  function photoClasses(w) {
+    var keep = [], i;
+    for (i = 0; i < stage.classList.length; i++) if (stage.classList[i].indexOf('tone-') !== 0) keep.push(stage.classList[i]);
+    keep.push('tone-' + (w.tone || 'dark'));
+    stage.className = keep.join(' ');
+    // CleanFrame's per-photo frost veil sets how much the glass tint must darken to keep text readable.
+    stage.style.setProperty('--tint', (0.26 + (w.frostVeil || 0.12) * 0.6).toFixed(3));
+    stage.style.setProperty('--dock-tint', (0.20 + (w.frostVeil || 0.12) * 0.5).toFixed(3));
+  }
   function setWall(i) {
-    var w, base, token;
+    var w, base, urls, token;
     if (!WALLS.length) return;
     i = (i % WALLS.length + WALLS.length) % WALLS.length;
     w = WALLS[i]; base = ASSETS + 'materials/' + w.id; token = ++wallToken;
-    var urls = { photo: ASSETS + 'wallpapers/' + w.id + '.jpg', blur: base + '-field-blur.jpg', frost: base + '-field-frost.jpg', soft: base + '-study-soft.jpg' };
-    preload([urls.photo, urls.blur, urls.frost, urls.soft], function () {
+    urls = { photo: ASSETS + 'wallpapers/' + w.id + '.jpg', clear: base + '-field-clear.jpg', blur: base + '-field-blur.jpg', frost: base + '-field-frost.jpg' };
+    preload([urls.photo, urls.clear, urls.blur, urls.frost], function () {
       var glass = stage.querySelectorAll('.glass-img'), n, swap;
       if (token !== wallToken) return;
       S.wall = i;
@@ -265,8 +348,9 @@
       swap = front; front = back; back = swap;
       blurImg.src = urls.blur;
       for (n = 0; n < glass.length; n++) glass[n].src = urls[glass[n].getAttribute('data-material')];
+      photoClasses(w);
       ambTitle.textContent = w.name;
-      ambCredit.textContent = credits[w.id] ? 'Photograph by ' + credits[w.id] : '';
+      ambCredit.textContent = credits[w.id] ? 'Photographed by ' + credits[w.id] : '';
       render();
     });
   }
@@ -280,36 +364,43 @@
     xhr.send();
   }
 
-  // ---------- Clock and ambient mode ----------
+  // ---------- Clock and screensaver ----------
 
+  function ordinal(n) { var v = n % 100, s = ['th', 'st', 'nd', 'rd']; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
   function tick() {
-    var d = new Date(), h = d.getHours(), m = d.getMinutes(), hm = (h % 12 || 12) + ':' + (m < 10 ? '0' : '') + m;
-    timeEl.innerHTML = hm + '<span class="mer">' + (h < 12 ? 'AM' : 'PM') + '</span>';
-    ambTime.textContent = hm;
+    var d = new Date(), h = d.getHours(), m = d.getMinutes(), hm = (h % 12 || 12) + ':' + (m < 10 ? '0' : '') + m, mer = '<span class="mer">' + (h < 12 ? 'AM' : 'PM') + '</span>';
+    timeEl.innerHTML = hm + mer;
+    ambTime.innerHTML = hm + mer;
+    ambDate.textContent = DAYS[d.getDay()] + ', ' + MONTHS[d.getMonth()] + ' ' + ordinal(d.getDate());
+    // The status capsule grows when the hour gains a digit; its glass must follow its new left edge.
+    if (statusEl.offsetWidth !== statusWidth) { statusWidth = statusEl.offsetWidth; registerGlass(); }
   }
   function armIdle() {
     clearTimeout(idleTimer);
     if (AMBIENT[S.amb].ms && !S.ambient) idleTimer = setTimeout(enterAmbient, AMBIENT[S.amb].ms);
   }
-  // A slow drift keeps the clock and caption from burning a fixed shape into the OLED panel.
-  function drift() { ambDrift.style.transform = 'translate3d(' + Math.round(Math.random() * 48 - 24) + 'px,' + Math.round(Math.random() * 28 - 14) + 'px,0)'; }
+  // A slow drift keeps the clock from burning a fixed shape into the OLED panel.
+  function drift() { ambDrift.style.transform = 'translate3d(' + Math.round(Math.random() * 40 - 20) + 'px,' + Math.round(Math.random() * 24 - 12) + 'px,0)'; }
   function enterAmbient() {
     if (S.ambient) return;
     if (S.zone === 'panel') S.zone = 'gear';
     if (S.zone === 'dialog') S.zone = 'fav';
     S.ambient = true;
+    S.homeWall = S.wall;
     clearTimeout(idleTimer);
     render();
     stage.classList.add('is-ambient');
     driftTimer = setInterval(drift, 20000);
     rotateTimer = setInterval(function () { setWall(S.wall + 1); }, 40000);
   }
+  // Home keeps its chosen photo; the screensaver's slideshow is temporary.
   function exitAmbient() {
     S.ambient = false;
     stage.classList.remove('is-ambient');
     clearInterval(driftTimer);
     clearInterval(rotateTimer);
     ambDrift.style.transform = '';
+    if (S.wall !== S.homeWall) setWall(S.homeWall);
     armIdle();
   }
 
@@ -361,7 +452,7 @@
     tick();
     render();
     registerGlass();
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(registerGlass);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { statusWidth = 0; tick(); });
     loadCredits(function () { setWall(first); });
     setInterval(tick, 5000);
     armIdle();

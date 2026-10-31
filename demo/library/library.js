@@ -611,7 +611,7 @@
     return { pos: pos, rows: rows, hidLabel: hidLabel, hidY: hidY };
   }
   function renderEditor() {
-    var L = edLists(), lay = edLayout(L), c = S.ed.carry, id, p, slot, y, s;
+    var L = edLists(), lay = edLayout(L), c = S.ed.carry, id, p, slot, y, s, i;
     S.ed.layout = lay;
     toggle(editorEl, 'is-instant', S.ed.first);
     for (id in edSlots) {
@@ -622,6 +622,7 @@
       toggle(slot, 'is-hidden', L.hid.indexOf(id) >= 0);
     }
     edFavLabel.innerHTML = 'Favorites<span>' + L.fav.length + ' of ' + FAV_MAX + '</span>';
+    for (i = 0; i < FAV_MAX; i++) toggle($('edFree').children[i], 'is-used', i < L.fav.length);
     edLibLabel.innerHTML = 'Library<span>' + count(L.lib.length) + ', A–Z</span>';
     edHidLabel.innerHTML = 'Hidden<span>' + (L.hid.length ? count(L.hid.length) : '') + '</span>';
     edHidLabel.style.transform = 'translate3d(0,' + lay.hidLabel + 'px,0)';

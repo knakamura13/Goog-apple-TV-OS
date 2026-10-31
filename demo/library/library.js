@@ -76,7 +76,7 @@
   var timeEl = $('time'), statusEl = stage.querySelector('.status'), ambTime = $('ambTime'), ambDate = $('ambDate'), ambTitle = $('ambTitle'), ambCredit = $('ambCredit'), ambDrift = $('ambDrift');
   var front = $('photoA'), back = $('photoB'), blurImg = $('blur');
   var pills, panelRows, dialogBtns, tileRim = '', focused = null, lastZone = null, credits = {}, wallToken = 0, statusWidth = 0;
-  var idleTimer = null, driftTimer = null, rotateTimer = null, toastTimer = null, pressLate = false;
+  var idleTimer = null, driftTimer = null, rotateTimer = null, toastTimer = null;
 
   function $(id) { return document.getElementById(id); }
   function chunk(list, n) { var out = [], i; for (i = 0; i < list.length; i += n) out.push(list.slice(i, i + n)); return out; }
@@ -223,7 +223,7 @@
   function render() {
     var el = focusEl(), entered = S.zone !== lastZone, i;
     if (focused !== el) {
-      if (focused) focused.classList.remove('is-focus');
+      if (focused) focused.classList.remove('is-focus', 'is-press-first');
       el.classList.add('is-focus');
       focused = el;
     }
@@ -300,12 +300,11 @@
     }
     render();
   }
-  // Restart the press animation; after a click that just moved focus, it waits for the tile to finish growing.
+  // Restart the press animation on the face.
   function press(tile) {
-    tile.classList.remove('is-press', 'is-press-late');
+    tile.classList.remove('is-press');
     void tile.offsetWidth;
     tile.classList.add('is-press');
-    if (pressLate) tile.classList.add('is-press-late');
   }
   function launch(tile, name) {
     press(tile);
@@ -447,11 +446,11 @@
     else if (z === 'inputs') S.inp = i;
     else if (z === 'panel') S.panel = i;
     else if (z === 'dialog') S.dialog = i;
-    pressLate = el !== focused;
+    // Clicking an unfocused tile presses it before it grows into focus (see is-press-first in the CSS).
+    if (el !== focused && el.classList.contains('tile')) el.classList.add('is-press-first');
     S.zone = z;
     render();
     act('ok');
-    pressLate = false;
   });
 
   function fit() {

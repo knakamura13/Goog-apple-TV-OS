@@ -110,10 +110,11 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .tile.is-focus::before,.tile.is-focus .t-sheen{opacity:1}
 /* OK presses the face in and lets it spring back while the shadow tucks under it. The press scales the face and
    the focus scale stays on the tile, so the two compose instead of overriding each other. A click on an unfocused
-   tile grows it first, then presses (is-press-late). */
+   tile holds its focus growth until the face has pressed in (is-press-first), so it reads as one motion:
+   press down, then rise straight into focus. */
 .tile.is-press .t-face,.tile.is-press::before{animation:press-face 360ms both}
 .tile.is-press::before{animation-name:press-shadow}
-.tile.is-press-late .t-face,.tile.is-press-late::before{animation-delay:200ms}
+.tile.is-press-first,.tile.is-press-first::before,.tile.is-press-first .t-sheen{transition-delay:110ms}
 @keyframes press-face{0%{transform:scale(1);animation-timing-function:cubic-bezier(.4,0,.6,1)}32%{transform:scale(.93);animation-timing-function:cubic-bezier(.25,.8,.3,1)}100%{transform:scale(1)}}
 @keyframes press-shadow{0%{transform:scale(1);animation-timing-function:cubic-bezier(.4,0,.6,1)}32%{transform:translate3d(0,-12px,0) scale(.84);animation-timing-function:cubic-bezier(.25,.8,.3,1)}100%{transform:scale(1)}}
 

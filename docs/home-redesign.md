@@ -116,7 +116,9 @@ List and Dock stay available as layouts, and the new layout is added as **Librar
 - **Keys:** arrows move, Enter is OK, Escape is Back, A starts ambient mode, H hides the key hints.
 - **Real:** CleanFrame's photos, pre-rendered glass, brand marks and fonts; remote navigation; ambient mode; the settings panel.
 - **Sample data:** the apps, HDMI inputs and weather.
-- **Options:** `?wall=<id>` picks a wallpaper, for example `?wall=night`. Settings → App tiles switches between Color and Glass tiles.
+- **Options:** `?wall=<id>` picks a wallpaper, for example `?wall=night`. Settings → Apps → Tile style switches between Color and Glass tiles.
+- **TV build:** `npm run build:demo` assembles `dist/library-demo/`, a self-contained Tizen web app (about 15 MB) with relative asset paths and its own `config.xml` (SDK-generated identity `xTZbrxm7Ut.LibraryDemo`, CleanFrame's proven profile, privileges and settings). It is unsigned; sign it with the owner's certificate profile, for example `tizen package -t wgt -s <profile> -- dist/library-demo`. On the TV, the number buttons are registered for ZIP entry and the key hints stay hidden.
+- **Performance so far:** with Chrome's CPU throttled 6×, every interaction reached its next frame in 17–30 ms (median), worst 50 ms (a settings page slide), with no main-thread task over 50 ms. That covers JavaScript, style and layout only; the GPU cost of full-screen photo layers, glass copies and squircle masks still needs measuring on the TV.
 
 ## Quality bar for the production build
 

@@ -17,7 +17,8 @@
     "check:tools": "python3 -B scripts/test-tools.py",
     "lint": "eslint app",
     "check:device": "node --test scripts/test-device.mjs",
-    "check:performance": "node scripts/check-performance.mjs"
+    "check:performance": "node scripts/check-performance.mjs",
+    "build:demo": "python3 scripts/build-demo.py"
   },
   "devDependencies": {
     "eslint": "10.13.0",

@@ -28,7 +28,7 @@
     { id: 'youtube', name: 'YouTube', mark: 'youtube', bg: '#fff', ink: '#ff0033' },
     { id: 'disneyplus', name: 'Disney+', mark: 'disneyplus', bg: 'linear-gradient(160deg,#1d3a8f,#0a1236 75%)', ink: '#fff' },
     { id: 'hbomax', name: 'HBO Max', aka: ['max'], mark: 'hbomax', bg: '#0b25cf', ink: '#fff' },
-    { id: 'primevideo', name: 'Prime Video', mark: 'primevideo', bg: '#1a98ff', ink: '#fff' },
+    { id: 'primevideo', name: 'Prime Video', mark: 'primevideo-wordmark', bg: '#fff', ink: '#0b79ff' },
     { id: 'appletv', name: 'Apple TV', mark: 'appletv', bg: '#000', ink: '#fff' },
     { id: 'applemusic', name: 'Apple Music', mark: 'applemusic', bg: 'linear-gradient(160deg,#fb5c74,#fa233b)', ink: '#fff' },
     { id: 'crunchyroll', name: 'Crunchyroll', mark: 'crunchyroll', bg: '#f47521', ink: '#fff' },

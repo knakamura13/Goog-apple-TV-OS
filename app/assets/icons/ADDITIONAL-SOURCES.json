@@ -76,5 +76,11 @@
     "source": "https://github.com/elax46/custom-brand-icons/blob/97f1a3907cd56653b4dc0b18487fa339691916c6/icon-svg/plutotv.svg",
     "licence": "MIT",
     "note": "Shape unchanged; recoloured white for launcher."
+  },
+  {
+    "icon": "primevideo-wordmark",
+    "source": "https://github.com/simple-icons/simple-icons/blob/11.15.0/icons/primevideo.svg",
+    "licence": "CC0-1.0",
+    "note": "Complete \"prime video\" wordmark with the smile, white fill for the Library layout. primevideo.svg keeps the smile alone for CleanFrame."
   }
 ]

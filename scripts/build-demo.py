@@ -55,7 +55,7 @@ def build(out):
     for font in ('geist', 'newsreader'):
         for path in (ASSETS / 'fonts' / font).iterdir():
             copy(path.relative_to(ASSETS), out)
-    for mark in sorted(set(re.findall(r"mark: '([a-z0-9]+)'", (DEMO / 'library.js').read_text()))):
+    for mark in sorted(set(re.findall(r"mark: '([a-z0-9-]+)'", (DEMO / 'library.js').read_text()))):
         copy(f'icons/{mark}.svg', out)
     for wall in wallpaper_ids():
         copy(f'wallpapers/{wall}.jpg', out)

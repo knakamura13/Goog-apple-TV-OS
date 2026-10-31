@@ -76,7 +76,7 @@
   var timeEl = $('time'), statusEl = stage.querySelector('.status'), ambTime = $('ambTime'), ambDate = $('ambDate'), ambTitle = $('ambTitle'), ambCredit = $('ambCredit'), ambDrift = $('ambDrift');
   var front = $('photoA'), back = $('photoB'), blurImg = $('blur');
   var pills, panelRows, dialogBtns, tileRim = '', focused = null, lastZone = null, credits = {}, wallToken = 0, statusWidth = 0;
-  var idleTimer = null, driftTimer = null, rotateTimer = null, toastTimer = null;
+  var idleTimer = null, driftTimer = null, rotateTimer = null, toastTimer = null, pressLate = false;
 
   function $(id) { return document.getElementById(id); }
   function chunk(list, n) { var out = [], i; for (i = 0; i < list.length; i += n) out.push(list.slice(i, i + n)); return out; }
@@ -136,7 +136,7 @@
   }
   function tileHtml(cls, zone, i, col, style, inner, faceStyle) {
     return '<div class="tile' + cls + '" data-z="' + zone + '" data-i="' + i + '" style="left:' + col * PITCH + 'px;' + style + '">'
-      + '<div class="t-face squircle"' + (faceStyle ? ' style="' + faceStyle + '"' : '') + '>' + inner + '<div class="t-sheen"></div><div class="t-glow"></div>' + tileRim + '</div></div>';
+      + '<div class="t-face squircle"' + (faceStyle ? ' style="' + faceStyle + '"' : '') + '>' + inner + '<div class="t-sheen"></div>' + tileRim + '</div></div>';
   }
   function appHtml(a, zone, i, col) {
     return tileHtml('', zone, i, col, '--mk:' + a.ink, a.mark ? markHtml(a.mark) : '<span class="t-text">' + esc(a.name) + '</span>', 'background:' + a.bg);
@@ -300,13 +300,19 @@
     }
     render();
   }
-  function launch(tile, name) {
-    tile.classList.remove('is-press');
+  // Restart the press animation; after a click that just moved focus, it waits for the tile to finish growing.
+  function press(tile) {
+    tile.classList.remove('is-press', 'is-press-late');
     void tile.offsetWidth;
     tile.classList.add('is-press');
+    if (pressLate) tile.classList.add('is-press-late');
+  }
+  function launch(tile, name) {
+    press(tile);
     toast('Opens ' + name + ' on the TV.');
   }
   function chooseInput(s) {
+    press(focused);
     if (s.empty) toast('Nothing is connected to ' + s.port + '.');
     else if (s.list) toast('Opens Samsung’s source list on the TV.');
     else toast('Switches to ' + s.name + ' (' + s.port + ') on the TV.');
@@ -441,9 +447,11 @@
     else if (z === 'inputs') S.inp = i;
     else if (z === 'panel') S.panel = i;
     else if (z === 'dialog') S.dialog = i;
+    pressLate = el !== focused;
     S.zone = z;
     render();
     act('ok');
+    pressLate = false;
   });
 
   function fit() {

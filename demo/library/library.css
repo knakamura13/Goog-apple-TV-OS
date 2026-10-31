@@ -108,10 +108,14 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .t-face .rim{stroke:rgba(255,255,255,.16)}
 .tile.is-focus{transform:scale(1.18);z-index:1}
 .tile.is-focus::before,.tile.is-focus .t-sheen{opacity:1}
-/* OK feedback is a faint, slow glow, never a size change, so it cannot fight the focus scale. */
-.t-glow{position:absolute;left:0;top:0;width:250px;height:150px;background:rgba(255,255,255,.12);opacity:0}
-.tile.is-press .t-glow{animation:glow 700ms cubic-bezier(.4,0,.2,1)}
-@keyframes glow{0%{opacity:0}45%{opacity:1}100%{opacity:0}}
+/* OK presses the face in and lets it spring back while the shadow tucks under it. The press scales the face and
+   the focus scale stays on the tile, so the two compose instead of overriding each other. A click on an unfocused
+   tile grows it first, then presses (is-press-late). */
+.tile.is-press .t-face,.tile.is-press::before{animation:press-face 360ms both}
+.tile.is-press::before{animation-name:press-shadow}
+.tile.is-press-late .t-face,.tile.is-press-late::before{animation-delay:200ms}
+@keyframes press-face{0%{transform:scale(1);animation-timing-function:cubic-bezier(.4,0,.6,1)}32%{transform:scale(.93);animation-timing-function:cubic-bezier(.25,.8,.3,1)}100%{transform:scale(1)}}
+@keyframes press-shadow{0%{transform:scale(1);animation-timing-function:cubic-bezier(.4,0,.6,1)}32%{transform:translate3d(0,-12px,0) scale(.84);animation-timing-function:cubic-bezier(.25,.8,.3,1)}100%{transform:scale(1)}}
 
 .mark{position:absolute;left:39px;top:29px;width:172px;height:92px}
 .mk{position:absolute;display:block;background:var(--mk);-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}

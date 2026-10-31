@@ -32,20 +32,15 @@
     { id: 'appletv', name: 'Apple TV', mark: 'appletv', bg: '#000', ink: '#fff' },
     { id: 'applemusic', name: 'Apple Music', mark: 'applemusic', bg: 'linear-gradient(160deg,#fb5c74,#fa233b)', ink: '#fff' },
     { id: 'crunchyroll', name: 'Crunchyroll', mark: 'crunchyroll', bg: '#f47521', ink: '#fff' },
-    // No free source has ESPN's full wordmark, and its lone "E" isn't a logo ESPN uses, so the name stands in.
-    { id: 'espn', name: 'ESPN', bg: '#1d1d1f', ink: '#ff2a3b' },
     { id: 'hulu', name: 'Hulu', mark: 'hulu', bg: '#1ce783', ink: '#0b0c0f' },
-    { id: 'jellyfin', name: 'Jellyfin', mark: 'jellyfin', bg: 'linear-gradient(160deg,#aa5cc3,#00a4dc)', ink: '#fff' },
     { id: 'paramount', name: 'Paramount+', mark: 'paramountplus', bg: '#0064ff', ink: '#fff' },
     { id: 'pbs', name: 'PBS', aka: ['pbs video'], mark: 'pbs', bg: '#2638c4', ink: '#fff' },
     { id: 'peacock', name: 'Peacock', aka: ['peacock tv'], mark: 'peacock', bg: '#000', ink: '#fff' },
     { id: 'plex', name: 'Plex', mark: 'plex', bg: '#1f2326', ink: '#e5a00d' },
     { id: 'plutotv', name: 'Pluto TV', mark: 'plutotv', bg: '#fff200', ink: '#000' },
     { id: 'spotify', name: 'Spotify', mark: 'spotify', bg: '#121212', ink: '#1ed760' },
-    { id: 'stremio', name: 'Stremio', mark: 'stremio', bg: '#19122f', ink: '#8a5cf6' },
     { id: 'tubi', name: 'Tubi', mark: 'tubi', bg: '#7408ff', ink: '#ffff13' },
-    { id: 'twitch', name: 'Twitch', mark: 'twitch', bg: '#9146ff', ink: '#fff' },
-    { id: 'youtubetv', name: 'YouTube TV', mark: 'youtubetv', bg: '#fff', ink: '#ff0033' }
+    { id: 'twitch', name: 'Twitch', mark: 'twitch', bg: '#9146ff', ink: '#fff' }
   ];
   var DEFAULT_FAVS = ['netflix', 'youtube', 'disneyplus', 'hbomax', 'primevideo', 'appletv'], FAV_MAX = 6, STORE = 'library-prototype.v1';
   // HDMI ports as the TV reports them; names and visibility are the owner's choices.
@@ -932,8 +927,8 @@
   // ---------- Installed apps (only on the TV) ----------
 
   // CleanFrame's device.js lists the installed apps without Samsung's internal ones and names the brands it
-  // knows. Any other app matches a logo here by name ("Tubi - Free Movies & TV" is "tubi"); the rest, ESPN
-  // included, keep the TV's name and icon.
+  // knows. Any other app matches a logo here by name ("Tubi - Free Movies & TV" is "tubi"); the rest keep the
+  // TV's name and icon.
   function plainName(name) { return String(name).toLowerCase().replace(/\s*[:|].*$|\s+[-–].*$/, '').replace(/\s+/g, ' ').trim(); }
   function tvApp(entry, brands) {
     var n = plainName(entry.name), icon = entry.icon, b, i;

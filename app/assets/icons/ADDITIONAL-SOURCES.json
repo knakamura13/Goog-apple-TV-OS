@@ -24,12 +24,6 @@
     "note": "Shape unchanged; white fill for launcher."
   },
   {
-    "icon": "jellyfin",
-    "source": "https://github.com/simple-icons/simple-icons/blob/90646e4bf7f3b89df6c37e65baf3e7bc759a517c/icons/jellyfin.svg",
-    "licence": "CC0-1.0",
-    "note": "Shape unchanged; white fill for launcher."
-  },
-  {
     "icon": "paramountplus",
     "source": "https://github.com/simple-icons/simple-icons/blob/90646e4bf7f3b89df6c37e65baf3e7bc759a517c/icons/paramountplus.svg",
     "licence": "CC0-1.0",
@@ -44,12 +38,6 @@
   {
     "icon": "twitch",
     "source": "https://github.com/simple-icons/simple-icons/blob/90646e4bf7f3b89df6c37e65baf3e7bc759a517c/icons/twitch.svg",
-    "licence": "CC0-1.0",
-    "note": "Shape unchanged; white fill for launcher."
-  },
-  {
-    "icon": "youtubetv",
-    "source": "https://github.com/simple-icons/simple-icons/blob/90646e4bf7f3b89df6c37e65baf3e7bc759a517c/icons/youtubetv.svg",
     "licence": "CC0-1.0",
     "note": "Shape unchanged; white fill for launcher."
   },

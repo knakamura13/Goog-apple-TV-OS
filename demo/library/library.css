@@ -1,0 +1,156 @@
+/* Library Home prototype. The TV animates transform and opacity only; every blur is a pre-rendered image. */
+:root{
+  --ink:#f4f4f1;
+  --ink-soft:rgba(244,244,241,.80);
+  --ink-quiet:rgba(244,244,241,.64);
+  --solid:#f3f3ef;
+  --solid-ink:#141618;
+  --ease:cubic-bezier(.2,.7,.2,1);
+  --scroll:420ms;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#000}
+body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+
+.stage{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden;transform-origin:0 0;background:#10161a;color:var(--ink);font-size:30px;line-height:1.2;outline:0;-webkit-user-select:none;user-select:none}
+.stage [data-z]{cursor:pointer}
+.ico{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* ---------- Background: photo, its pre-blurred twin for the library, and legibility shades ---------- */
+.bg,.bg>*{position:absolute;left:0;top:0;width:1920px;height:1080px}
+.bg-photo{max-width:none;object-fit:cover;opacity:0;transition:opacity 900ms linear}
+.bg-photo.is-front{opacity:1}
+.bg-blur{max-width:none;opacity:0;transition:opacity 320ms linear}
+.bg-veil{background:rgba(6,10,14,.40);opacity:0;transition:opacity 320ms linear}
+.bg-shade{height:300px;background:linear-gradient(to bottom,rgba(4,8,12,.46),rgba(4,8,12,.18) 170px,rgba(4,8,12,0));transition:opacity 900ms linear}
+.bg-scrim{top:520px;height:560px;background:linear-gradient(to bottom,rgba(4,8,12,0),rgba(4,8,12,.30) 55%,rgba(4,8,12,.50));transition:opacity 900ms linear}
+.is-library .bg-blur,.is-library .bg-veil{opacity:1}
+
+/* ---------- Glass: a clipped, registered copy of a pre-blurred photo ---------- */
+.glass{overflow:hidden;transform:translateZ(0)}
+.glass-img{position:absolute;left:0;top:0;width:1920px;height:1080px;max-width:none}
+.glass-veil{position:absolute;left:0;top:0;right:0;bottom:0;background:rgba(255,255,255,.10);transition:background-color 140ms linear}
+.glass::after{content:"";position:absolute;left:0;top:0;right:0;bottom:0;border-radius:inherit;box-shadow:inset 0 1px 0 rgba(255,255,255,.30),inset 0 0 0 1px rgba(255,255,255,.10);pointer-events:none}
+
+/* ---------- Top bar: section pills on the left; settings, weather and time on the right ---------- */
+.ui{position:absolute;left:0;top:0;width:1920px;height:1080px;transition:opacity 900ms linear}
+.topbar{position:absolute;left:0;top:0;width:1920px;height:160px;z-index:3}
+.nav{position:absolute;left:112px;top:52px;height:72px;padding:6px;border-radius:36px}
+.pills{position:relative;display:flex}
+.pill{height:60px;padding:0 30px;border-radius:30px;font-size:29px;line-height:60px;font-weight:500;letter-spacing:-.2px;color:var(--ink-soft);white-space:nowrap;transition:background-color 140ms linear,color 140ms linear}
+.pill+.pill{margin-left:4px}
+.pill.is-active{background:rgba(255,255,255,.20);color:#fff}
+.pill.is-focus{background:var(--solid);color:var(--solid-ink)}
+
+.status{position:absolute;right:112px;top:52px;height:72px;display:flex;align-items:center;text-shadow:0 1px 3px rgba(0,0,0,.32)}
+.gear{position:relative;width:72px;height:72px;border-radius:36px;margin-right:40px;color:#fff;text-shadow:none}
+.gear .ico{position:absolute;left:18px;top:18px;width:36px;height:36px}
+.gear.is-focus{color:var(--solid-ink)}
+.gear.is-focus .glass-veil{background:var(--solid)}
+.weather{display:flex;align-items:center;margin-right:26px;font-size:36px;font-weight:500;color:var(--ink-soft)}
+.weather .ico{width:40px;height:40px;margin-right:10px}
+.time{min-width:176px;text-align:right;font-size:40px;font-weight:600;letter-spacing:-.6px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.time .mer{margin-left:6px;font-size:24px;font-weight:500;letter-spacing:0;color:var(--ink-quiet)}
+
+/* ---------- Page: favourites dock and library grid, scrolled as one block ---------- */
+.page{position:absolute;left:0;top:0;width:1920px;height:1080px;transition:transform var(--scroll) var(--ease),opacity 200ms linear;will-change:transform}
+.dock{position:absolute;left:112px;top:724px;width:1696px;height:206px;transition:opacity 220ms linear}
+.dock.is-above{opacity:0}
+.dock-glass{position:absolute;left:0;top:0;width:1696px;height:206px;border-radius:46px}
+.dock-glass .glass-img{transition:transform var(--scroll) var(--ease);will-change:transform}
+.dock-glass .glass-veil{background:rgba(255,255,255,.08)}
+.tiles{position:absolute;left:28px;top:28px;width:1640px;height:150px;transition:opacity 180ms linear}
+.in-tiles,.tab-inputs .fav-tiles{opacity:0;pointer-events:none}
+.tab-inputs .in-tiles{opacity:1;pointer-events:auto}
+
+.library{position:absolute;left:140px;top:1002px;width:1640px;transition:opacity 180ms linear}
+.tab-inputs .library{opacity:0;pointer-events:none}
+.lib-row{position:absolute;left:0;width:1640px;height:150px;transition:opacity 220ms linear}
+.lib-row.is-above{opacity:0}
+
+/* ---------- Tiles: the focused tile grows, gains a shadow, a sheen and its name ---------- */
+.tile{position:absolute;top:0;width:250px;height:150px;transition:transform 220ms var(--ease)}
+.tile::before{content:"";position:absolute;left:8%;right:8%;bottom:2px;height:70%;border-radius:28px;box-shadow:0 26px 50px rgba(0,0,0,.55);opacity:0;transition:opacity 220ms linear}
+.t-face{position:absolute;left:0;top:0;width:250px;height:150px;border-radius:26px;overflow:hidden;transform:translateZ(0)}
+.t-face::before{content:"";position:absolute;left:0;top:0;right:0;bottom:0;border-radius:inherit;box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+.t-face::after{content:"";position:absolute;left:0;top:0;right:0;bottom:0;border-radius:inherit;background:linear-gradient(165deg,rgba(255,255,255,.26),rgba(255,255,255,0) 46%);box-shadow:inset 0 1px 0 rgba(255,255,255,.36);opacity:0;transition:opacity 220ms linear}
+.tile.is-focus{transform:scale(1.14);z-index:1}
+.tile.is-focus::before,.tile.is-focus .t-face::after{opacity:1}
+.tile.is-press{animation:press 320ms var(--ease)}
+@keyframes press{0%{transform:scale(1.14)}40%{transform:scale(1.04)}100%{transform:scale(1.14)}}
+
+.mark{position:absolute;left:39px;top:29px;width:172px;height:92px}
+.mk{position:absolute;display:block;background:var(--mk);-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
+.t-text{position:absolute;left:14px;right:14px;top:0;height:150px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:32px;line-height:36px;font-weight:700;letter-spacing:-.6px;color:var(--mk)}
+
+/* Glass tiles: CleanFrame's monochrome marks on frosted plates, solid when focused. */
+.tiles-glass .t-face{background:rgba(255,255,255,.13)!important}
+.tiles-glass .mk{background:var(--ink)!important}
+.tiles-glass .t-text{color:var(--ink)!important}
+.tiles-glass .tile.is-focus .t-face{background:var(--solid)!important}
+.tiles-glass .tile.is-focus .mk{background:var(--solid-ink)!important}
+.tiles-glass .tile.is-focus .t-text{color:var(--solid-ink)!important}
+
+/* Input tiles stay typographic: the device name matters more than the port. */
+.in-tile .t-face{display:flex;flex-direction:column;justify-content:flex-end;padding:0 26px 22px;background:rgba(10,14,18,.42);color:var(--ink)}
+.in-port{font-size:20px;line-height:26px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-quiet)}
+.in-name{font-size:32px;line-height:40px;font-weight:600;letter-spacing:-.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.in-tile.is-focus .t-face{background:var(--solid);color:var(--solid-ink)}
+.in-tile.is-focus .in-port{color:rgba(20,22,24,.62)}
+.in-tile.is-empty .t-face{opacity:.5}
+
+.focus-name{position:absolute;left:0;top:0;width:420px;text-align:center;font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.2px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity 140ms linear}
+.focus-name.is-on{opacity:1}
+
+/* ---------- Settings panel ---------- */
+.panel{position:absolute;right:32px;top:32px;width:680px;height:1016px;border-radius:44px;z-index:5;opacity:0;transform:translate3d(48px,0,0);transition:opacity 200ms linear,transform 260ms var(--ease);pointer-events:none}
+.panel .glass-veil{background:rgba(12,16,20,.48)}
+.is-panel .panel{opacity:1;transform:translate3d(0,0,0);pointer-events:auto}
+.is-panel .page{opacity:.5}
+.p-title{position:relative;padding:56px 56px 0;font-size:40px;line-height:48px;font-weight:600;letter-spacing:-.8px}
+.p-rows{position:relative;margin-top:36px;padding:0 24px}
+.p-row{display:flex;align-items:center;justify-content:space-between;height:88px;padding:0 32px;border-radius:44px;font-size:30px;font-weight:500;transition:background-color 120ms linear,color 120ms linear}
+.p-row+.p-row{margin-top:8px}
+.p-value{margin-left:24px;font-size:28px;color:var(--ink-quiet);white-space:nowrap}
+.p-row.is-focus{background:var(--solid);color:var(--solid-ink)}
+.p-row.is-focus .p-value{color:rgba(20,22,24,.62)}
+
+/* ---------- Samsung Home dialog ---------- */
+.dialog{position:absolute;left:560px;top:372px;width:800px;height:336px;border-radius:44px;z-index:6;opacity:0;transform:scale(.96);transition:opacity 180ms linear,transform 220ms var(--ease);pointer-events:none}
+.dialog .glass-veil{background:rgba(12,16,20,.52)}
+.is-dialog .dialog{opacity:1;transform:scale(1);pointer-events:auto}
+.is-dialog .page{opacity:.35}
+.d-title{position:relative;padding:52px 56px 0;font-size:40px;line-height:48px;font-weight:600;letter-spacing:-.8px}
+.d-text{position:relative;padding:12px 56px 0;font-size:28px;line-height:36px;color:var(--ink-soft)}
+.d-actions{position:absolute;left:44px;bottom:44px;display:flex}
+.d-btn{height:72px;padding:0 36px;border-radius:36px;font-size:30px;line-height:72px;font-weight:500;background:rgba(255,255,255,.12);transition:background-color 120ms linear,color 120ms linear}
+.d-btn+.d-btn{margin-left:16px}
+.d-btn.is-focus{background:var(--solid);color:var(--solid-ink)}
+
+/* ---------- Toast for actions that need the TV ---------- */
+.toast{position:absolute;left:580px;top:60px;width:760px;text-align:center;z-index:7;opacity:0;transition:opacity 180ms linear;pointer-events:none}
+.toast span{display:inline-block;padding:14px 28px;border-radius:32px;background:rgba(12,16,20,.76);font-size:26px;line-height:34px;font-weight:500;color:#fff}
+.toast.is-on{opacity:1}
+
+/* ---------- Ambient: the photograph, a gallery caption, and a drifting clock ---------- */
+.ambient{position:absolute;left:0;top:0;width:1920px;height:1080px;z-index:4;opacity:0;transition:opacity 1200ms linear;pointer-events:none}
+.amb-shade{position:absolute;left:0;top:620px;width:1920px;height:460px;background:linear-gradient(to bottom,rgba(4,8,12,0),rgba(4,8,12,.46))}
+.amb-drift{position:absolute;left:0;top:0;width:1920px;height:1080px;transition:transform 8s linear}
+.amb-caption{position:absolute;left:112px;bottom:92px}
+.amb-title{font-family:'Study Newsreader',Georgia,serif;font-size:56px;line-height:64px;font-weight:400;letter-spacing:-.5px;color:rgba(255,255,255,.88)}
+.amb-credit{margin-top:8px;font-size:24px;line-height:32px;font-weight:500;color:rgba(255,255,255,.62)}
+.amb-clock{position:absolute;right:112px;bottom:88px;display:flex;align-items:flex-end;color:rgba(255,255,255,.80)}
+.amb-weather{display:flex;align-items:center;margin:0 28px 10px 0;font-size:40px;font-weight:500}
+.amb-weather .ico{width:44px;height:44px;margin-right:10px}
+.amb-time{font-size:96px;line-height:96px;font-weight:400;letter-spacing:-2.5px;font-variant-numeric:tabular-nums}
+.is-ambient .ambient{opacity:1}
+.is-ambient .ui,.is-ambient .bg-shade,.is-ambient .bg-scrim,.is-ambient .bg-blur,.is-ambient .bg-veil{opacity:0}
+
+/* ---------- Prototype-only key hints, outside the TV stage ---------- */
+.hints{position:fixed;left:50%;bottom:12px;z-index:10;transform:translateX(-50%);padding:8px 18px;border-radius:999px;background:rgba(0,0,0,.70);color:#d6d6d2;font:500 13px/18px Manrope,Arial,sans-serif;white-space:nowrap}
+.hints b{color:#fff;font-weight:700}
+.hints.is-off{display:none}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:1ms!important;animation-duration:1ms!important}
+}

@@ -31,11 +31,14 @@ class Preview(SimpleHTTPRequestHandler):
 
     def translate_path(self, path):
         route = urlsplit(path).path
-        # Serve only the packaged UI and offline material-builder inputs.
+        # Serve only the packaged UI, unpackaged design demos and offline material-builder inputs.
         if route == '/' or route == '/home':
             return str(ROOT / 'app/index.html')
         if route.startswith('/home/'):
             self.directory = str(ROOT / 'app')
+            return super().translate_path(route[5:])
+        if route.startswith('/demo/'):
+            self.directory = str(ROOT / 'demo')
             return super().translate_path(route[5:])
         if route.startswith('/build/'):
             self.directory = str(ROOT / 'scripts/materials')

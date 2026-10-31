@@ -104,14 +104,14 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 /* The shadow is a soft gradient blob behind the face: no box edge, so nothing shows through glass faces. */
 .tile::before{content:"";position:absolute;left:-8%;right:-8%;top:24%;bottom:-30%;background:radial-gradient(closest-side,rgba(0,0,0,.52),rgba(0,0,0,.26) 58%,rgba(0,0,0,0));opacity:0;transition:opacity var(--focus-t) linear}
 .t-face{position:absolute;left:0;top:0;width:250px;height:150px;-webkit-mask-image:var(--tile-mask);mask-image:var(--tile-mask)}
-.t-sheen{position:absolute;left:0;top:0;width:250px;height:150px;background:linear-gradient(160deg,rgba(255,255,255,.30),rgba(255,255,255,.06) 40%,rgba(255,255,255,0) 60%);opacity:0;transition:opacity var(--focus-t) linear}
+.t-sheen{position:absolute;left:0;top:0;width:250px;height:150px;background:linear-gradient(160deg,rgba(255,255,255,.14),rgba(255,255,255,.03) 40%,rgba(255,255,255,0) 60%);opacity:0;transition:opacity 320ms ease-out}
 .t-face .rim{stroke:rgba(255,255,255,.16)}
 .tile.is-focus{transform:scale(1.18);z-index:1}
 .tile.is-focus::before,.tile.is-focus .t-sheen{opacity:1}
-/* OK feedback is a glow, never a size change, so it cannot fight the focus scale. */
-.t-glow{position:absolute;left:0;top:0;width:250px;height:150px;background:rgba(255,255,255,.28);opacity:0}
-.tile.is-press .t-glow{animation:glow 320ms ease-out}
-@keyframes glow{0%{opacity:0}30%{opacity:1}100%{opacity:0}}
+/* OK feedback is a faint, slow glow, never a size change, so it cannot fight the focus scale. */
+.t-glow{position:absolute;left:0;top:0;width:250px;height:150px;background:rgba(255,255,255,.12);opacity:0}
+.tile.is-press .t-glow{animation:glow 700ms cubic-bezier(.4,0,.2,1)}
+@keyframes glow{0%{opacity:0}45%{opacity:1}100%{opacity:0}}
 
 .mark{position:absolute;left:39px;top:29px;width:172px;height:92px}
 .mk{position:absolute;display:block;background:var(--mk);-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}

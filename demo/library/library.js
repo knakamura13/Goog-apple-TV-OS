@@ -20,7 +20,7 @@
   // Apps editor: a favourites plate like the dock, then Library and Hidden grids with names under each app.
   var ED_PLATE_H = 262, ED_FAV_Y = 340, ED_LIB_Y = 664, ED_ROW = 222, ED_LABEL_GAP = 60, ED_TOP_SAFE = 256, ED_SPAN = 210, RING_PAD = 8;
   // Wallpaper picker: a glass panel on the left with two columns of photos; the rest of the screen previews.
-  var PICKER = { w: 760, h: 896, r: 48 }, THUMB_W = 312, THUMB_H = 176, THUMB_R = 28, PK_LEFT = 56, PK_GAP = 24, PK_TOP = 16, PK_ROW = 244;
+  var PICKER = { w: 760, h: 762, r: 48 }, THUMB_W = 312, THUMB_H = 176, THUMB_R = 28, PK_LEFT = 56, PK_GAP = 24, PK_TOP = 16, PK_ROW = 244;
 
   var APPS = [
     { id: 'netflix', name: 'Netflix', mark: 'netflix', bg: '#000', ink: '#e50914' },
@@ -576,7 +576,7 @@
         edSlots[edTiles.children[i].getAttribute('data-id')] = edTiles.children[i];
         edTiles.children[i].firstChild.insertAdjacentHTML('beforeend', ringSvg);
       }
-      for (i = 0; i < FAV_MAX; i++) $('edFree').insertAdjacentHTML('beforeend', '<svg class="ed-free" viewBox="0 0 ' + TILE_W + ' ' + TILE_H + '" style="left:' + (GRID_LEFT + i * PITCH) + 'px" aria-hidden="true"><path d="' + tilePath + '"/></svg>');
+      for (i = 0; i < FAV_MAX; i++) $('edFree').insertAdjacentHTML('beforeend', '<svg class="ed-free" viewBox="0 0 ' + TILE_W + ' ' + TILE_H + '" style="left:' + (GRID_LEFT + i * PITCH) + 'px" aria-hidden="true"><path d="' + tilePath + '"/><text x="125" y="84">Free</text></svg>');
     }
     S.ed = { focus: S.favIds[0], col: 0, carry: null, scroll: 0, hint: ED_HINT, first: true };
     S.zone = 'apps';
@@ -637,7 +637,10 @@
     S.ed.scroll = Math.min(0, s);
     edPage.style.transform = 'translate3d(0,' + S.ed.scroll + 'px,0)';
     // Anything that has scrolled above the view fades out whole, so no slivers show under the header.
-    for (id in edSlots) toggle(edSlots[id], 'is-above', lay.pos[id].y + S.ed.scroll < ED_TOP_SAFE - 8);
+    for (id in edSlots) {
+      toggle(edSlots[id], 'is-above', lay.pos[id].y + S.ed.scroll < ED_TOP_SAFE - 8);
+      toggle(edSlots[id], 'is-low', lay.pos[id].y + S.ed.scroll + ED_SPAN > SAFE_BOTTOM + 10); // Partly visible rows peek without names.
+    }
     toggle(edFavBox, 'is-above', ED_FAV_Y + S.ed.scroll < ED_TOP_SAFE - 8);
     toggle(edLibLabel, 'is-above', ED_LIB_Y - ED_LABEL_GAP + S.ed.scroll < ED_TOP_SAFE - 30);
     toggle(edHidLabel, 'is-above', lay.hidLabel + S.ed.scroll < ED_TOP_SAFE - 30);

@@ -59,14 +59,17 @@
   </div>
 
   <section class="editor" id="editor" aria-label="Apps">
+    <p class="ed-crumb">Settings</p>
     <h2 class="ed-title">Apps</h2>
     <p class="ed-hint" id="edHint" aria-live="polite"></p>
     <div class="ed-style" id="edStyle" data-z="edstyle" role="button"></div>
     <div class="ed-view">
       <div class="ed-page" id="edPage">
-        <div class="ed-plate squircle"></div>
-        <div class="ed-free-row" id="edFree"></div>
-        <div class="ed-label" id="edFavLabel"></div>
+        <div class="ed-fav" id="edFavBox">
+          <div class="ed-plate squircle"></div>
+          <div class="ed-free-row" id="edFree"></div>
+          <div class="ed-label" id="edFavLabel"></div>
+        </div>
         <div class="ed-label ed-lib-label" id="edLibLabel"></div>
         <div class="ed-label" id="edHidLabel"></div>
         <p class="ed-empty" id="edEmpty">Nothing hidden. Move an app here to keep it off Home.</p>

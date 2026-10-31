@@ -18,9 +18,9 @@
   var PANEL = { w: 700, h: 866, r: 48 }, DIALOG = { w: 728, h: 340, r: 48 };
   var PILL_W = 150, PANEL_PITCH = 88, DIALOG_PITCH = 316, SMOOTHING = 0.6, ZIP_LEN = 5;
   // Apps editor: a favourites plate like the dock, then Library and Hidden grids with names under each app.
-  var ED_PLATE_H = 262, ED_FAV_Y = 300, ED_LIB_Y = 624, ED_ROW = 222, ED_LABEL_GAP = 60, ED_TOP_SAFE = 256, ED_SPAN = 210, RING_PAD = 8;
+  var ED_PLATE_H = 262, ED_FAV_Y = 340, ED_LIB_Y = 664, ED_ROW = 222, ED_LABEL_GAP = 60, ED_TOP_SAFE = 256, ED_SPAN = 210, RING_PAD = 8;
   // Wallpaper picker: a glass panel on the left with two columns of photos; the rest of the screen previews.
-  var PICKER = { w: 760, h: 896, r: 48 }, THUMB_W = 312, THUMB_H = 176, THUMB_R = 28, PK_LEFT = 56, PK_GAP = 24, PK_TOP = 16, PK_ROW = 244, PK_VIEW = 708;
+  var PICKER = { w: 760, h: 896, r: 48 }, THUMB_W = 312, THUMB_H = 176, THUMB_R = 28, PK_LEFT = 56, PK_GAP = 24, PK_TOP = 16, PK_ROW = 244;
 
   var APPS = [
     { id: 'netflix', name: 'Netflix', mark: 'netflix', bg: '#000', ink: '#e50914' },
@@ -88,9 +88,9 @@
   var panelBody = $('panelBody'), panelCrumb = $('panelCrumb'), panelTitle = $('panelTitle'), panelRowsBox = $('panelRowsBox'), panelCustom = $('panelCustom'), panelNote = $('panelNote');
   var tempEl = stage.querySelector('.weather span');
   var editorEl = $('editor'), edPage = $('edPage'), edTiles = $('edTiles'), edStyle = $('edStyle'), edHint = $('edHint');
-  var edFavLabel = $('edFavLabel'), edLibLabel = $('edLibLabel'), edHidLabel = $('edHidLabel'), edEmpty = $('edEmpty'), edSlots = {};
+  var edFavLabel = $('edFavLabel'), edLibLabel = $('edLibLabel'), edHidLabel = $('edHidLabel'), edEmpty = $('edEmpty'), edFavBox = $('edFavBox'), edSlots = {};
   var pills, panelRows = $('panelRows').children, dialogBtns, tileRim = '', thumbRim = '', tilePath = '', ringSvg = '', focused = null, lastZone = null, credits = {}, wallToken = 0, statusWidth = 0;
-  var idleTimer = null, driftTimer = null, rotateTimer = null, toastTimer = null, quietPress = false;
+  var idleTimer = null, driftTimer = null, rotateTimer = null, toastTimer = null, quietPress = false, statusAt = 0;
 
   function $(id) { return document.getElementById(id); }
   function chunk(list, n) { var out = [], i; for (i = 0; i < list.length; i += n) out.push(list.slice(i, i + n)); return out; }
@@ -155,7 +155,9 @@
   function appHtml(a, zone, i, col) {
     return tileHtml('', zone, i, col, '--mk:' + a.ink, a.mark ? markHtml(a.mark) : '<span class="t-text">' + esc(a.name) + '</span>', 'background:' + a.bg);
   }
+  var PENCIL = '<svg class="ico in-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg>';
   function inputHtml(s, i) {
+    if (s.edit) return tileHtml(' in-tile in-edit', 'inputs', i, i, '', PENCIL + '<span class="in-name">' + esc(s.name) + '</span>', '');
     return tileHtml(' in-tile' + (s.empty ? ' is-empty' : ''), 'inputs', i, i, '', '<span class="in-port">' + esc(s.port) + '</span><span class="in-name">' + esc(s.name) + '</span>', '');
   }
   function build() {
@@ -388,6 +390,7 @@
   // Messages appear inside the settings panel while it is open, so they never cover it.
   function toast(text) {
     var el = S.zone === 'panel' ? panelStatus : toastEl;
+    statusAt = Date.now();
     (el === toastEl ? toastEl.firstChild : el).textContent = text;
     el.classList.add('is-on');
     clearTimeout(toastTimer);
@@ -439,6 +442,7 @@
     buildPanelPage();
   }
   function closePanel() {
+    panelStatus.classList.remove('is-on');
     if (S.panelFrom === 'inputs') buildInputs();
     S.zone = S.panelFrom;
   }
@@ -472,11 +476,12 @@
     panelRowsBox.style.display = rows.length ? '' : 'none';
     panelCustom.innerHTML = d.custom === 'zip' ? zipHtml() : d.custom === 'rename' ? '<input class="p-field" type="text" maxlength="24" spellcheck="false" autocomplete="off" aria-label="Input name">' : '';
     panelNote.textContent = d.note || '';
+    if (Date.now() - statusAt > 500) panelStatus.classList.remove('is-on'); // A message just shown (e.g. "saved") outlives the page change.
     S.pageEntered = true;
     if (d.custom === 'rename') {
       field = panelCustom.firstChild;
       field.value = S.inputs[S.inputAt].name;
-      setTimeout(function () { field.focus(); field.select(); }, 0);
+      setTimeout(function () { field.focus({ preventScroll: true }); field.select(); field.parentNode.closest('.panel').scrollLeft = 0; }, 0);
     } else if (document.activeElement !== stage) stage.focus();
   }
   function updatePanel() {
@@ -521,7 +526,7 @@
       pkGrid.innerHTML = WALLS.map(function (w, n) {
         return '<div class="pk-item" data-z="pk" data-i="' + n + '" style="transform:translate3d(' + (PK_LEFT + (n % 2) * (THUMB_W + PK_GAP)) + 'px,' + (PK_TOP + Math.floor(n / 2) * PK_ROW) + 'px,0)">'
           + '<div class="pk-thumb"><div class="pk-face squircle"><img alt="" src="' + ASSETS + 'wallpapers/' + w.id + '-thumb.jpg"><div class="t-sheen"></div>' + thumbRim + '</div>'
-          + '<span class="pk-check">' + CHECK_ICON + '</span></div><div class="pk-name">' + esc(w.name) + '</div></div>';
+          + '<span class="pk-check">' + CHECK_ICON + '</span></div><div class="pk-name"><span>' + esc(w.name) + '</span></div></div>';
       }).join('');
     }
     S.pk = { i: S.wall, scroll: 0, first: true };
@@ -533,11 +538,9 @@
     S.zone = 'panel';
   }
   function renderPicker() {
-    var items = pkGrid.children, w = WALLS[S.pk.i], y = PK_TOP + Math.floor(S.pk.i / 2) * PK_ROW, s = S.pk.scroll, i;
+    var items = pkGrid.children, w = WALLS[S.pk.i], lastFirst = Math.max(0, Math.ceil(WALLS.length / 2) - 2), i;
     for (i = 0; i < items.length; i++) toggle(items[i], 'is-applied', i === S.wall);
-    if (y + s < PK_TOP) s = PK_TOP - y;
-    if (y + PK_ROW + s > PK_VIEW) s = PK_VIEW - PK_ROW - y;
-    S.pk.scroll = Math.min(0, s);
+    S.pk.scroll = -clamp(Math.floor(S.pk.i / 2) - 1, 0, lastFirst) * PK_ROW;
     toggle(pickerEl, 'is-instant', S.pk.first);
     pkGrid.style.transform = 'translate3d(0,' + S.pk.scroll + 'px,0)';
     if (S.pk.first) { void pickerEl.offsetWidth; pickerEl.classList.remove('is-instant'); S.pk.first = false; }
@@ -566,7 +569,7 @@
   function openEditor() {
     var i;
     if (!edTiles.firstChild) {
-      edTiles.innerHTML = APPS.map(function (a, n) { return '<div class="ed-slot" data-id="' + a.id + '">' + appHtml(a, 'edapp', n, 0) + '<div class="ed-name">' + esc(a.name) + '</div></div>'; }).join('');
+      edTiles.innerHTML = APPS.map(function (a, n) { return '<div class="ed-slot" data-id="' + a.id + '">' + appHtml(a, 'edapp', n, 0) + '<div class="ed-name"><span>' + esc(a.name) + '</span></div></div>'; }).join('');
       for (i = 0; i < edTiles.children.length; i++) {
         edSlots[edTiles.children[i].getAttribute('data-id')] = edTiles.children[i];
         edTiles.children[i].firstChild.insertAdjacentHTML('beforeend', ringSvg);
@@ -631,6 +634,11 @@
     if (y + ED_SPAN + s > SAFE_BOTTOM) s = SAFE_BOTTOM - ED_SPAN - y;
     S.ed.scroll = Math.min(0, s);
     edPage.style.transform = 'translate3d(0,' + S.ed.scroll + 'px,0)';
+    // Anything that has scrolled above the view fades out whole, so no slivers show under the header.
+    for (id in edSlots) toggle(edSlots[id], 'is-above', lay.pos[id].y + S.ed.scroll < ED_TOP_SAFE - 8);
+    toggle(edFavBox, 'is-above', ED_FAV_Y + S.ed.scroll < ED_TOP_SAFE - 8);
+    toggle(edLibLabel, 'is-above', ED_LIB_Y - ED_LABEL_GAP + S.ed.scroll < ED_TOP_SAFE - 30);
+    toggle(edHidLabel, 'is-above', lay.hidLabel + S.ed.scroll < ED_TOP_SAFE - 30);
     if (S.ed.first) { void editorEl.offsetWidth; editorEl.classList.remove('is-instant'); S.ed.first = false; }
   }
   function editorKey(k) {
@@ -772,7 +780,7 @@
 
   document.addEventListener('keydown', function (e) {
     var k = KEYS[e.keyCode];
-    if (document.activeElement && document.activeElement.className === 'p-field') {
+    if (document.activeElement && document.activeElement.classList.contains('p-field')) {
       if (k === 'ok' || (k === 'back' && e.keyCode !== 8)) { e.preventDefault(); act(k); }
       return;
     }
@@ -820,8 +828,18 @@
     stage.style.top = (window.innerHeight - 1080 * s) / 2 + 'px';
   }
 
+  // On the TV, the number buttons must be registered before the app receives them (ZIP entry uses them),
+  // and the browser-only key hints stay hidden.
+  function tvSetup() {
+    var i;
+    if (!window.tizen || !window.tizen.tvinputdevice) return;
+    for (i = 0; i <= 9; i++) { try { window.tizen.tvinputdevice.registerKey(String(i)); } catch (e) { /* Older firmware without the key keeps arrow entry. */ } }
+    $('hints').classList.add('is-off');
+  }
+
   function start() {
     var want = /[?&]wall=([a-z]+)/.exec(window.location.search), first = 0, i;
+    tvSetup();
     for (i = 0; i < WALLS.length; i++) if (WALLS[i].id === (want ? want[1] : 'valley')) first = i;
     load();
     build();

@@ -76,7 +76,7 @@
   var timeEl = $('time'), statusEl = stage.querySelector('.status'), ambTime = $('ambTime'), ambDate = $('ambDate'), ambTitle = $('ambTitle'), ambCredit = $('ambCredit'), ambDrift = $('ambDrift');
   var front = $('photoA'), back = $('photoB'), blurImg = $('blur');
   var pills, panelRows, dialogBtns, tileRim = '', focused = null, lastZone = null, credits = {}, wallToken = 0, statusWidth = 0;
-  var idleTimer = null, driftTimer = null, rotateTimer = null, toastTimer = null;
+  var idleTimer = null, driftTimer = null, rotateTimer = null, toastTimer = null, quietPress = false;
 
   function $(id) { return document.getElementById(id); }
   function chunk(list, n) { var out = [], i; for (i = 0; i < list.length; i += n) out.push(list.slice(i, i + n)); return out; }
@@ -223,7 +223,7 @@
   function render() {
     var el = focusEl(), entered = S.zone !== lastZone, i;
     if (focused !== el) {
-      if (focused) focused.classList.remove('is-focus', 'is-press-first');
+      if (focused) focused.classList.remove('is-focus');
       el.classList.add('is-focus');
       focused = el;
     }
@@ -300,8 +300,9 @@
     }
     render();
   }
-  // Restart the press animation on the face.
+  // Restart the press animation on the face. A click that moves focus only grows the tile, without a press.
   function press(tile) {
+    if (quietPress) return;
     tile.classList.remove('is-press');
     void tile.offsetWidth;
     tile.classList.add('is-press');
@@ -446,11 +447,11 @@
     else if (z === 'inputs') S.inp = i;
     else if (z === 'panel') S.panel = i;
     else if (z === 'dialog') S.dialog = i;
-    // Clicking an unfocused tile presses it before it grows into focus (see is-press-first in the CSS).
-    if (el !== focused && el.classList.contains('tile')) el.classList.add('is-press-first');
+    quietPress = el !== focused;
     S.zone = z;
     render();
     act('ok');
+    quietPress = false;
   });
 
   function fit() {

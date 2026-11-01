@@ -1,6 +1,6 @@
 # Home redesign: Library layout
 
-Status: draft spec with a browser prototype, 31 October 2026. Target TV: QN65S90DAFXZA (not a Frame). The owners rarely need Samsung Home, but it must stay reachable.
+Status: the owners' decisions were settled on 31 October 2026 (see Owners' decisions), and the checks on the TV are still open. Target TV: QN65S90DAFXZA (not a Frame). The owners rarely need Samsung Home, but it must stay reachable.
 
 Goals: no ads, no apps the owners don't use, no autoplay, a fast feel on the TV, and more useful than Smart Hub.
 
@@ -27,7 +27,7 @@ Goals: no ads, no apps the owners don't use, no autoplay, a fast feel on the TV,
 └──────────────────────────────────────────────────────────────┘  below the screen edge
 ```
 
-- **Top left:** nav pills on a semi-transparent bar that the photo clearly shows through. Proposed tabs: **Home** and **Inputs**. A translucent indicator marks the active tab and a solid one marks focus. Both slide between pills rather than jumping.
+- **Top left:** nav pills on a semi-transparent bar that the photo clearly shows through. Tabs: **Home** and **Inputs**. A translucent indicator marks the active tab and a solid one marks focus. Both slide between pills rather than jumping.
 - **Top right:** one semi-transparent capsule holding the Settings button, the weather (icon and temperature) and the time in the corner, with equal gaps between all three. Weather and time can't be focused. Settings is the only focusable item there.
 - **Favourites dock:** a near-full-width semi-transparent bar, after the tvOS dock, holding at most 6 apps so it never scrolls sideways. The focused app grows (about 1.18×), lifts a shadow and catches a sheen.
 - **Library:** every installed app that isn't a favourite and isn't hidden, in alphabetical order, 6 per row in the same columns as the dock. At rest about 40% of the first row peeks above the bottom edge. The focused app's name appears below it.
@@ -90,6 +90,7 @@ The text drifts a few pixels every few minutes using `transform`, to protect the
 | Nav pill | OK | Switch tab. Focus alone does not switch, matching CleanFrame's rule that focus never acts |
 | Favourites | Back | Existing "stay or open Samsung Home" choice |
 | Any app tile | OK | Launch, with no message. A message appears only if the launch fails. Nothing ever autoplays or launches from focus |
+| Any app tile | hold OK | A small menu: **Move**, **Hide**, and **Add to Favorites** or **Remove from Favorites**. Move picks the app up as in the Apps editor: the arrows carry it, OK drops it and Back cancels |
 
 ## Reused from CleanFrame
 
@@ -118,7 +119,7 @@ List and Dock stay available as layouts, and the new layout is added as **Librar
 - **Keys:** arrows move, Enter is OK, Escape is Back, A starts ambient mode, H hides the key hints. Clicking a tile focuses it and presses OK. The TV build has none of these extras.
 - **Real:** CleanFrame's photos, pre-rendered glass, brand marks and fonts; remote navigation; ambient mode; the settings panel.
 - **Sample data:** the HDMI inputs and weather, and in the browser the apps. Messages such as "Opens Netflix on the TV." stand in for launches the browser can't do.
-- **On the TV:** Home lists the installed apps as described under App list and icons, OK opens them, and Samsung Home and Picture and sound open Samsung's screens. On a first run, Favorites holds whichever of Netflix, YouTube, Disney+, HBO Max, Prime Video and Apple TV are installed, or else the first six apps A–Z. Preinstalled apps the owners don't use (`DEFAULT_HIDDEN`, by TV app ID) start in Hidden.
+- **On the TV:** Home lists the installed apps as described under App list and icons, OK opens them, and Samsung Home and Picture and sound open Samsung's screens. On a first run, Favorites holds the first six installed apps from the owners' list (see Owners' decisions), the rest of that list fills the library, and every other installed app starts in Hidden. With nothing from the list installed, Favorites holds the first six apps A–Z.
 - **Options:** `?wall=<id>` picks a wallpaper, for example `?wall=night`. Settings → Apps → Tile style switches between Color and Glass tiles.
 - **TV build:** `npm run build:demo` assembles `dist/library-demo/`, a self-contained Tizen web app (about 15 MB) with relative asset paths and its own `config.xml` (SDK-generated identity `xTZbrxm7Ut.LibraryDemo`, CleanFrame's proven profile, privileges and settings). It is unsigned; sign it with the owner's certificate profile, for example `tizen package -t wgt -s <profile> -- dist/library-demo`. Code between `preview` markers (key hints, the A and H keys, mouse clicks, `?wall=`) is stripped, and only the logos in use are copied. `build-info.js` records the commit, build time and size for Settings › About. On the TV, the number buttons are registered for ZIP entry.
 - **Package size:** 15.2 MB, of which code is 86 KB. Each photo costs about 1 MB: the 1920×1080 photo about 690 KB, three pre-rendered glass layers about 236 KB and the thumbnail about 38 KB. The two variable fonts take 0.6 MB as TTF files.
@@ -143,9 +144,12 @@ The prototype only explores the design. Once the spec is locked, the launcher is
 3. Whether a sleep timer is reachable from a web app. Fallback: a TV settings shortcut.
 4. Weather network access from the signed app (`<access origin>` in `config.xml`).
 5. Rendering speed of the scrolled library and the crossfades on the panel.
+6. Whether holding OK on the remote reaches the app as key repeats or a key-up it can time, which editing in place needs.
 
-## Open choices for the owners
+## Owners' decisions (31 October 2026)
 
-- Nav tabs: only Home and Inputs, or a third such as Photos (wallpaper and ambient)?
-- Whether favourites can hold more than 6 apps (that would mean a second favourites row, never sideways scrolling). The editor enforces 6 for now.
-- Ideas offered but not yet chosen: edit apps in place by holding OK on Home; a night look (darker photo and dimmer screen after a set time); two favourite sets for two people; Text size and Reduce motion settings.
+- App name: **Home**. V1 installs under a new SDK-generated identity with that name. `xTZbrxm7Ut.LibraryDemo` stays the prototype's test identity.
+- Tabs: Home and Inputs only.
+- Favourites: at most 6, in one row.
+- Apps: Plex, YouTube, Netflix, Apple TV, Hulu, Prime Video, HBO Max, Spotify, Samsung TV Plus, Amazon Alexa and SmartThings, in that order (`OWNER_APPS`). The first six start as favourites. Every other installed app starts hidden, and apps installed later appear in the library.
+- In V1: editing apps in place by holding OK on Home (see Remote navigation). Not in V1: a night look, two favourite sets for two people, and Text size and Reduce motion settings.

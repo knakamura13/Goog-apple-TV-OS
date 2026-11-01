@@ -1,13 +1,14 @@
 // Development only: check ES5 grammar and common runtime mistakes.
 export default [{
-  files: ['app/**/*.js'],
+  files: ['app/**/*.js', 'demo/library/*.js'],
   languageOptions: {
     ecmaVersion: 5,
     sourceType: 'script',
     globals: {
       window: 'readonly', document: 'readonly', Image: 'readonly', localStorage: 'readonly',
       setTimeout: 'readonly', clearTimeout: 'readonly', Promise: 'readonly',
-      FrameDevice: 'readonly', tizen: 'readonly'
+      FrameDevice: 'readonly', tizen: 'readonly',
+      setInterval: 'readonly', clearInterval: 'readonly', XMLHttpRequest: 'readonly'
     }
   },
   rules: {

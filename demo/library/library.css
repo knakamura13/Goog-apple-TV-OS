@@ -314,3 +314,9 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .t-nomasks .squircle,.t-nomasks .dock-glass,.t-nomasks .t-face{-webkit-mask-image:none!important;mask-image:none!important;border-radius:36px}
 .t-noglass .glass-layer{display:none}
 .t-cold .bg-blur,.t-cold .bg-veil,.t-cold .glass-alt,.t-cold .glass-dim{will-change:auto}
+/* Resume card: the last app opened from Home, above the dock. Fades out as the library scrolls in. */
+.resume{position:absolute;left:66px;top:487px;width:298px;height:236px;opacity:0;pointer-events:none;transition:opacity 160ms linear;will-change:opacity}
+.has-resume:not(.is-library) .resume{opacity:1;pointer-events:auto}
+.re-plate{position:absolute;left:0;top:0;width:298px;height:236px;background:rgba(6,8,10,.34);-webkit-mask-image:var(--replate-mask);mask-image:var(--replate-mask)}
+.re-kicker{position:absolute;left:30px;top:18px;font-size:26px;line-height:32px;font-weight:600;letter-spacing:.2px;color:var(--ink-soft,rgba(255,255,255,.74))}
+.re-slot{position:absolute;left:24px;top:62px}

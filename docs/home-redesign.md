@@ -154,7 +154,7 @@ The prototype only explores the design. Once the spec is locked, the launcher is
 6. Whether holding OK on the remote reaches the app as key repeats or a key-up it can time, which editing in place needs.
 7. Whether an app reopened from Home returns where it was or starts again, and how long the TV keeps apps such as Plex running in the background. The current build answers this through each app's tile, since the resume card makes the same launch call.
 8. How much of the roughly 0.1 s Web Audio delay is audible in normal use (the TV's own menu sounds, via `tizen.tvaudiocontrol`, avoid it but are loud with no volume control; `tizen.feedback` doesn't exist on this TV).
-9. Whether `setScreenSaver` holds off Samsung's screensaver on this firmware, and whether Samsung's auto power-off still applies.
+9. Whether the native screensaver can be held off at all: `setScreenSaver(OFF)` reported success but Samsung's screensaver still took over on the TV, so the hold is now re-asserted every minute while ours runs (under research). Also whether Samsung's auto power-off still applies.
 
 ## Owners' decisions (31 October 2026)
 

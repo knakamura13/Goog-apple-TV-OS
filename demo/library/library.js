@@ -18,6 +18,7 @@
   var DEEP_ROWS = Math.floor((SAFE_BOTTOM - TOP_LINE - ROW_SPAN) / ROW_PITCH) + 1; // Rows that fit once the dock scrolls away.
   var PANEL = { w: 700, h: 866, r: 48 }, DIALOG = { w: 728, h: 340, r: 48 };
   var PILL_W = 150, PANEL_PITCH = 88, DIALOG_PITCH = 316, SMOOTHING = 0.6, ZIP_LEN = 5;
+  var RESUME_W = 298, RESUME_H = 236, RESUME_R = 44; // The resume card plate.
   // Apps editor: a favourites plate like the dock, then Library and Hidden grids with names under each app.
   var ED_PLATE_H = 262, ED_FAV_Y = 340, ED_LIB_Y = 664, ED_ROW = 222, ED_LABEL_GAP = 60, ED_TOP_SAFE = 256, ED_SPAN = 210, RING_PAD = 8;
   // Wallpaper picker: a glass panel on the left with two columns of photos; the rest of the screen previews.
@@ -66,7 +67,7 @@
   var FAVS = [], ROWS = [], INS = []; // Home's favourites, library rows and input tiles, rebuilt from the owner's choices.
 
   var S = { tab: 0, zone: 'fav', nav: 0, fav: 0, lr: 0, lc: 0, inp: 0, panel: 0, dialog: 0, glassTiles: false, wall: 0, homeWall: 0, sleep: 0, amb: 0, ambient: false, scroll: 0,
-    favIds: [], hiddenIds: [], ed: null, pages: [], panelFrom: 'gear', paging: false, pageEntered: false, queued: [],
+    favIds: [], hiddenIds: [], lastId: '', ed: null, pages: [], panelFrom: 'gear', paging: false, pageEntered: false, queued: [],
     weather: { zip: '92626', units: 'F' }, zip: [], zipAt: 0, inputAt: 0, // Default location: Costa Mesa, CA (where the TV is). Real weather fetch is still a V1 item; the temperature is a placeholder.
     inputs: INPUT_DEFAULTS.map(function (p) { return { port: p.port, name: p.name, show: p.show, connected: p.connected }; }) };
   var SETTINGS = [
@@ -87,6 +88,7 @@
 
   var stage = $('stage'), page = $('page'), dock = $('dock'), dockLayer = $('dockLayer'), library = $('library');
   var favRow = $('favRow'), inRow = $('inRow'), focusName = $('focusName'), gear = $('gear'), toastEl = $('toast'), panelStatus = $('panelStatus');
+  var resumeSlot = $('resumeSlot'), resumeTile = null;
   var navActive = $('navActive'), navFocus = $('navFocus'), panelInd = $('panelInd'), dialogInd = $('dialogInd');
   var navInk = $('navInk'), panelInk = $('panelInk'), dialogInk = $('dialogInk');
   var timeEl = $('time'), statusEl = stage.querySelector('.status'), ambTime = $('ambTime'), ambDate = $('ambDate'), ambTitle = $('ambTitle'), ambCredit = $('ambCredit'), ambDrift = $('ambDrift');
@@ -180,7 +182,9 @@
     shape('edplate', DOCK_W, ED_PLATE_H, DOCK_R);
     shape('picker', PICKER.w, PICKER.h, PICKER.r, 'pickerRim');
     thumbRim = '<svg class="rim" viewBox="0 0 ' + THUMB_W + ' ' + THUMB_H + '" aria-hidden="true"><path d="' + shape('thumb', THUMB_W, THUMB_H, THUMB_R) + '"/></svg>';
+    shape('replate', RESUME_W, RESUME_H, RESUME_R);
     buildHome();
+    buildResume();
     buildInputs();
     $('pills').innerHTML = TABS.map(function (t, i) { return '<div class="pill" data-z="nav" data-i="' + i + '">' + t + '</div>'; }).join('');
     navInk.innerHTML = TABS.map(function (t) { return '<div class="pill">' + t + '</div>'; }).join('');
@@ -204,6 +208,13 @@
     S.fav = Math.min(S.fav, FAVS.length - 1);
     S.scroll = null;
   }
+  // The resume card shows the last app opened from Home, when it is still installed.
+  function resumeApp() { return S.lastId ? byId(S.lastId) : null; }
+  function buildResume() {
+    var a = resumeApp();
+    resumeSlot.innerHTML = a ? appHtml(a, 'resume', 0, 0) : '';
+    resumeTile = a ? resumeSlot.querySelector('.tile') : null;
+  }
   function load() {
     var d, ok = function (id) { return !!byId(id); };
     try { d = JSON.parse(window.localStorage.getItem(STORE) || 'null'); } catch (e) { d = null; }
@@ -215,6 +226,7 @@
     S.hiddenIds = S.hiddenIds.filter(function (id) { return ok(id) && S.favIds.indexOf(id) < 0; });
     if (!d) return;
     S.glassTiles = !!d.glass;
+    if (typeof d.last === 'string') S.lastId = d.last;
     if (d.weather) S.weather = { zip: /^\d{5}$/.test(d.weather.zip) ? d.weather.zip : '', units: d.weather.units === 'C' ? 'C' : 'F' };
     if (d.inputs) S.inputs.forEach(function (inp, n) {
       var saved = d.inputs[n];
@@ -225,7 +237,7 @@
   }
   function save() {
     var inputs = S.inputs.map(function (inp) { return { name: inp.name, show: inp.show }; });
-    try { window.localStorage.setItem(STORE, JSON.stringify({ fav: S.favIds, hid: S.hiddenIds, glass: S.glassTiles, weather: S.weather, inputs: inputs })); } catch (e) { /* The prototype still works without saved choices. */ }
+    try { window.localStorage.setItem(STORE, JSON.stringify({ fav: S.favIds, hid: S.hiddenIds, last: S.lastId, glass: S.glassTiles, weather: S.weather, inputs: inputs })); } catch (e) { /* The prototype still works without saved choices. */ }
   }
   function inputName(inp) { return inp.name || (inp.connected ? inp.port : 'No device'); }
   function buildInputs() {
@@ -251,6 +263,7 @@
     switch (S.zone) {
       case 'nav': return pills[S.nav];
       case 'gear': return gear;
+      case 'resume': return resumeTile;
       case 'fav': return favRow.children[S.fav];
       case 'lib': return library.children[S.lr].children[S.lc];
       case 'inputs': return inRow.children[S.inp];
@@ -295,7 +308,9 @@
     focusName.style.transform = 'translate3d(' + x + 'px,' + (rowTop(S.lr) + TILE_H + LABEL_GAP) + 'px,0)';
   }
   function render() {
-    var el = focusEl(), entered = S.zone !== lastZone, i;
+    var el, entered, i;
+    if (S.zone === 'resume' && !resumeTile) S.zone = 'fav';
+    el = focusEl(); entered = S.zone !== lastZone;
     if (focused !== el) {
       if (focused) focused.classList.remove('is-focus');
       el.classList.add('is-focus');
@@ -311,6 +326,7 @@
     if (S.zone === 'dialog') place(dialogInd, dialogInk, S.dialog * DIALOG_PITCH, 0, entered);
     toggle(navFocus, 'is-on', S.zone === 'nav');
     toggle(stage, 'tab-inputs', S.tab === 1);
+    toggle(stage, 'has-resume', !!resumeApp());
     toggle(stage, 'is-library', S.zone === 'lib');
     toggle(stage, 'is-panel', S.zone === 'panel');
     toggle(stage, 'is-dialog', S.zone === 'dialog');
@@ -327,24 +343,31 @@
   // ---------- Remote ----------
 
   function content() { return S.tab === 0 ? 'fav' : 'inputs'; }
+  // The top of the Home column is the resume card when it shows, otherwise the favourites.
+  function topZone() { return S.tab === 0 && resumeApp() ? 'resume' : content(); }
   function rowLen(r) { return ROWS[r].length; }
   function act(k) {
     switch (S.zone) {
       case 'nav':
         if (k === 'left') S.nav = Math.max(0, S.nav - 1);
         else if (k === 'right') { if (S.nav < TABS.length - 1) S.nav++; else S.zone = 'gear'; }
-        else if (k === 'down' || k === 'back') S.zone = content();
+        else if (k === 'down' || k === 'back') S.zone = topZone();
         else if (k === 'ok') S.tab = S.nav;
         break;
       case 'gear':
         if (k === 'left') { S.zone = 'nav'; S.nav = TABS.length - 1; }
-        else if (k === 'down' || k === 'back') S.zone = content();
+        else if (k === 'down' || k === 'back') S.zone = topZone();
         else if (k === 'ok') openPanel('root', 'gear');
+        break;
+      case 'resume':
+        if (k === 'up') { S.zone = 'nav'; S.nav = S.tab; }
+        else if (k === 'down' || k === 'back') S.zone = content();
+        else if (k === 'ok') launch(resumeTile, resumeApp());
         break;
       case 'fav':
         if (k === 'left') S.fav = Math.max(0, S.fav - 1);
         else if (k === 'right') S.fav = Math.min(FAVS.length - 1, S.fav + 1);
-        else if (k === 'up') { S.zone = 'nav'; S.nav = S.tab; }
+        else if (k === 'up') { if (resumeApp()) S.zone = 'resume'; else { S.zone = 'nav'; S.nav = S.tab; } }
         else if (k === 'down' && ROWS.length) { S.zone = 'lib'; S.lr = 0; S.lc = Math.min(S.fav, rowLen(0) - 1); }
         else if (k === 'ok') launch(focused, FAVS[S.fav]);
         else if (k === 'back') { S.zone = 'dialog'; S.dialog = 0; }
@@ -393,6 +416,7 @@
   // On the TV an app opens without a message; one appears only if it fails. Sample apps only say what would open.
   function launch(tile, a) {
     press(tile);
+    if (a.id !== S.lastId) { S.lastId = a.id; save(); buildResume(); }
     if (!a.appId) { toast('Opens ' + a.name + ' on the TV.'); return; }
     window.FrameDevice.launchApp(a.appId, function (err) { if (err) toast(err.message); });
   }
@@ -796,23 +820,36 @@
   // Samsung's own screensaver would cover ours, so it is held off while ours is on and this launcher is in front.
   // It is handed back after two hours without a button press, whenever another app is in front and when ours is
   // set to Off, so a paused video or an unattended TV still gets Samsung's panel protection and power saving.
-  var SAVER_BACKSTOP = 7200000, saverTimer = null, saverHeld = false, saverWhy = 'not asked yet';
+  // setScreenSaver(OFF) reported success but Samsung's screensaver still took over on this firmware, so the hold is
+  // re-asserted every minute in case the TV re-arms it, and handed back after two idle hours, when another app is in
+  // front, and when ours is set to Off. Whether this works at all is a TV open check; the readout shows the count.
+  var SAVER_BACKSTOP = 7200000, SAVER_REASSERT = 60000, saverTimer = null, saverHeld = false, saverWhy = 'not asked yet', saverAsserts = 0, saverSince = 0;
   function tvSaver(on) {
     var ac = window.webapis && window.webapis.appcommon;
     if (!ac || !ac.setScreenSaver) { saverWhy = 'no webapis.appcommon'; return; }
     try {
       ac.setScreenSaver(on ? ac.AppCommonScreenSaverState.SCREEN_SAVER_ON : ac.AppCommonScreenSaverState.SCREEN_SAVER_OFF,
-        function () { saverWhy = on ? 'Samsung\'s is on' : 'Samsung\'s held off'; showDiag(); },
+        function () { if (!on) saverAsserts++; saverWhy = on ? 'Samsung\'s is on' : 'held off, re-asserted ' + saverAsserts + 'x'; showDiag(); },
         function (err) { saverWhy = 'refused: ' + err.name; showDiag(); });
     } catch (e) { saverWhy = 'refused: ' + e.name; }
   }
   function holdSaver() {
     var ours = !!AMBIENT[S.amb].ms && !document.hidden;
-    clearTimeout(saverTimer);
-    if (ours !== saverHeld) { tvSaver(!ours); saverHeld = ours; }
-    if (ours) saverTimer = setTimeout(function () { tvSaver(true); saverHeld = false; }, SAVER_BACKSTOP);
+    clearInterval(saverTimer);
+    if (ours !== saverHeld) { saverHeld = ours; if (ours) { saverSince = Date.now(); saverAsserts = 0; } tvSaver(!ours); }
+    if (!ours) return;
+    saverTimer = setInterval(function () {
+      if (Date.now() - saverSince >= SAVER_BACKSTOP) { clearInterval(saverTimer); saverHeld = false; tvSaver(true); return; }
+      tvSaver(false); // Re-assert in case the TV re-armed its screensaver.
+    }, SAVER_REASSERT);
   }
-  document.addEventListener('visibilitychange', armIdle);
+  // If the native screensaver backgrounds our app, this logs the gap; it helps the TV test see what actually happened.
+  document.addEventListener('visibilitychange', function () {
+    diagLines.unshift((document.hidden ? 'hidden' : 'visible') + '  ' + new Date().toLocaleTimeString());
+    diagLines.length = Math.min(diagLines.length, 12);
+    showDiag();
+    armIdle();
+  });
   // A slow drift keeps the clock from burning a fixed shape into the OLED panel.
   function drift() { ambDrift.style.transform = 'translate3d(' + Math.round(Math.random() * 40 - 20) + 'px,' + Math.round(Math.random() * 24 - 12) + 'px,0)'; }
   function enterAmbient() {
@@ -1080,6 +1117,7 @@
     for (i = 0; i < WALLS.length; i++) if (WALLS[i].id === want) first = i;
     load();
     build();
+    if (resumeApp()) S.zone = 'resume';
     fit();
     tick();
     render();

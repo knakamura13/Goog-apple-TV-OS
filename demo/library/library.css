@@ -294,8 +294,16 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 /* Entering, the photo pushes in slowly while the text rises at its own pace, for depth; leaving, it eases back quickly. */
 /* The photo pans continuously in ambient mode so the OLED panel never sees a still frame and its own
    (undisableable) panel-protection screensaver doesn't take over ours. Transform-only, so it stays GPU-cheap. */
-.is-ambient .bg-photo{animation:amb-pan 44s ease-in-out infinite;transition:opacity 900ms linear}
-@keyframes amb-pan{0%{transform:scale(1.05) translate3d(0,0,0)}50%{transform:scale(1.12) translate3d(-1.4%,-0.8%,0)}100%{transform:scale(1.05) translate3d(0,0,0)}}
+.is-ambient .bg-photo{animation:amb-pan 20s linear infinite;transition:opacity 900ms linear}
+/* Continuous circuit (never still, constant speed) with a larger excursion, so the OLED's still-image
+   detector reads real motion. Translate stays within the scale overflow (min 1.10 -> 5% margin) so no edge shows. */
+@keyframes amb-pan{
+  0%{transform:scale(1.10) translate3d(-3%,-2%,0)}
+  25%{transform:scale(1.16) translate3d(3%,-2%,0)}
+  50%{transform:scale(1.10) translate3d(3%,2%,0)}
+  75%{transform:scale(1.16) translate3d(-3%,2%,0)}
+  100%{transform:scale(1.10) translate3d(-3%,-2%,0)}
+}
 .amb-clock,.amb-caption{transform:translate3d(0,20px,0);transition:transform 300ms var(--glide)}
 .is-ambient .amb-clock,.is-ambient .amb-caption{transform:translate3d(0,0,0);transition:transform 1600ms cubic-bezier(.2,.8,.2,1) 500ms}
 

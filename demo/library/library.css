@@ -44,7 +44,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .status .glass-tint{background:rgba(10,12,14,var(--tint-tr,.36))}
 .glass-hl{background:linear-gradient(to bottom,rgba(255,255,255,.10),rgba(255,255,255,0) 44%)}
 .glass-dim{background:rgba(6,10,14,.42);opacity:0;transition:opacity var(--scroll-t) linear;will-change:opacity}
-.is-library .glass-dim,.is-panel .glass-dim,.is-dialog .glass-dim{opacity:1}
+.is-library .glass-dim,.is-panel .glass-dim,.is-dialog .glass-dim,.is-menu .glass-dim{opacity:1}
 .dock .glass-dim{background:rgba(6,10,14,.18)}
 .rim{position:absolute;left:0;top:0;width:100%;height:100%;fill:none;stroke:rgba(255,255,255,.18);stroke-width:2;pointer-events:none}
 .nav::after,.status::after{content:"";position:absolute;left:0;top:0;right:0;bottom:0;border-radius:inherit;box-shadow:inset 0 1px 0 rgba(255,255,255,.24),inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
@@ -148,7 +148,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 
 /* ---------- Panels and dialogs sit over a dimmed page; the top bar stays readable ---------- */
 .modal-dim{position:absolute;left:0;top:0;width:1920px;height:1080px;background:rgba(4,8,12,.58);opacity:0;transition:opacity 180ms linear;pointer-events:none}
-.is-panel .modal-dim,.is-dialog .modal-dim{opacity:1}
+.is-panel .modal-dim,.is-dialog .modal-dim,.is-menu .modal-dim{opacity:1}
 
 .panel{position:absolute;right:90px;top:136px;width:700px;height:866px;z-index:5;opacity:0;transform:translate3d(40px,0,0);transition:opacity 160ms linear,transform 240ms var(--glide);pointer-events:none;-webkit-mask-image:var(--panel-mask);mask-image:var(--panel-mask)}
 .panel .glass-tint{background:rgba(12,16,20,.56)}
@@ -322,3 +322,11 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .re-plate{position:absolute;left:0;top:0;width:298px;height:236px;background:rgba(6,8,10,.34);-webkit-mask-image:var(--replate-mask);mask-image:var(--replate-mask)}
 .re-kicker{position:absolute;left:30px;top:18px;font-size:26px;line-height:32px;font-weight:600;letter-spacing:.2px;color:var(--ink-soft,rgba(255,255,255,.74))}
 .re-slot{position:absolute;left:24px;top:62px}
+/* Edit-in-place menu: hold OK on a Home tile for Move / Hide / Favorite. */
+.tilemenu{position:absolute;left:680px;top:330px;width:560px;height:420px;z-index:6;opacity:0;transform:scale(.97);transition:opacity 160ms linear,transform 240ms var(--glide);pointer-events:none;-webkit-mask-image:var(--tilemenu-mask);mask-image:var(--tilemenu-mask)}
+.tilemenu .glass-tint{background:rgba(12,16,20,.58)}
+.is-menu .tilemenu{opacity:1;transform:scale(1);pointer-events:auto}
+.tm-title{position:relative;padding:48px 56px 8px;font-size:38px;line-height:46px;font-weight:600;letter-spacing:-.6px}
+.tm-rows{position:relative;margin:12px 24px 0}
+.tm-row{position:relative;height:84px;line-height:84px;padding:0 32px;font-size:30px;font-weight:500;border-radius:24px;color:var(--ink-soft,rgba(255,255,255,.82))}
+.tm-row.is-focus{background:rgba(255,255,255,.14);color:#fff}

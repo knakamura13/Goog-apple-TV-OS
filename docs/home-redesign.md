@@ -96,7 +96,7 @@ The photo does a slow one-shot zoom and the text drifts every few minutes to pro
 | Nav pill | OK | Switch tab. Focus alone does not switch, matching CleanFrame's rule that focus never acts |
 | Favourites | Back | Existing "stay or open Samsung Home" choice |
 | Any app tile | OK | Launch, with no message. A message appears only if the launch fails. Nothing ever autoplays or launches from focus |
-| Any app tile | hold OK | A small menu: **Move**, **Hide**, and **Add to Favorites** or **Remove from Favorites**. Move picks the app up as in the Apps editor: the arrows carry it, OK drops it and Back cancels |
+| Any app tile | hold OK | A small menu: **Move**, **Hide**, and **Add to Favorites** or **Remove from Favorites**. Move opens the Apps editor with the app already picked up (arrows carry it, OK drops it, Back cancels); Hide and the Favorites toggle apply in place. A quick tap still launches; hold vs tap is told apart on OK key-up (TV open check 6) |
 
 ## Reused from CleanFrame
 

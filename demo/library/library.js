@@ -19,6 +19,7 @@
   var PANEL = { w: 700, h: 866, r: 48 }, DIALOG = { w: 728, h: 340, r: 48 };
   var PILL_W = 150, PANEL_PITCH = 88, DIALOG_PITCH = 316, SMOOTHING = 0.6, ZIP_LEN = 5;
   var RESUME_W = 298, RESUME_H = 236, RESUME_R = 44; // The resume card plate.
+  var TM = { w: 560, h: 420, r: 44 }; // The edit-in-place menu.
   // Apps editor: a favourites plate like the dock, then Library and Hidden grids with names under each app.
   var ED_PLATE_H = 262, ED_FAV_Y = 340, ED_LIB_Y = 664, ED_ROW = 222, ED_LABEL_GAP = 60, ED_TOP_SAFE = 256, ED_SPAN = 210, RING_PAD = 8;
   // Wallpaper picker: a glass panel on the left with two columns of photos; the rest of the screen previews.
@@ -67,7 +68,7 @@
   var FAVS = [], ROWS = [], INS = []; // Home's favourites, library rows and input tiles, rebuilt from the owner's choices.
 
   var S = { tab: 0, zone: 'fav', nav: 0, fav: 0, lr: 0, lc: 0, inp: 0, panel: 0, dialog: 0, glassTiles: false, wall: 0, homeWall: 0, sleep: 0, amb: 0, ambient: false, scroll: 0,
-    favIds: [], hiddenIds: [], lastId: '', ed: null, pages: [], panelFrom: 'gear', paging: false, pageEntered: false, queued: [],
+    favIds: [], hiddenIds: [], lastId: '', ed: null, menu: null, menuFrom: 'fav', pages: [], panelFrom: 'gear', paging: false, pageEntered: false, queued: [],
     weather: { zip: '92626', units: 'F' }, zip: [], zipAt: 0, inputAt: 0, // Default location: Costa Mesa, CA (where the TV is). Real weather fetch is still a V1 item; the temperature is a placeholder.
     inputs: INPUT_DEFAULTS.map(function (p) { return { port: p.port, name: p.name, show: p.show, connected: p.connected }; }) };
   var SETTINGS = [
@@ -89,6 +90,7 @@
   var stage = $('stage'), page = $('page'), dock = $('dock'), dockLayer = $('dockLayer'), library = $('library');
   var favRow = $('favRow'), inRow = $('inRow'), focusName = $('focusName'), gear = $('gear'), toastEl = $('toast'), panelStatus = $('panelStatus');
   var resumeSlot = $('resumeSlot'), resumeTile = null;
+  var tilemenuRows = $('tilemenuRows'), tilemenuTitle = $('tilemenuTitle');
   var navActive = $('navActive'), navFocus = $('navFocus'), panelInd = $('panelInd'), dialogInd = $('dialogInd');
   var navInk = $('navInk'), panelInk = $('panelInk'), dialogInk = $('dialogInk');
   var timeEl = $('time'), statusEl = stage.querySelector('.status'), ambTime = $('ambTime'), ambDate = $('ambDate'), ambTitle = $('ambTitle'), ambCredit = $('ambCredit'), ambDrift = $('ambDrift');
@@ -184,6 +186,7 @@
     shape('picker', PICKER.w, PICKER.h, PICKER.r, 'pickerRim');
     thumbRim = '<svg class="rim" viewBox="0 0 ' + THUMB_W + ' ' + THUMB_H + '" aria-hidden="true"><path d="' + shape('thumb', THUMB_W, THUMB_H, THUMB_R) + '"/></svg>';
     shape('replate', RESUME_W, RESUME_H, RESUME_R);
+    shape('tilemenu', TM.w, TM.h, TM.r, 'tilemenuRim');
     buildHome();
     buildResume();
     buildInputs();
@@ -267,6 +270,7 @@
       case 'nav': return pills[S.nav];
       case 'gear': return gear;
       case 'resume': return resumeTile;
+      case 'menu': return tilemenuRows.children[S.menu.i];
       case 'fav': return favRow.children[S.fav];
       case 'lib': return library.children[S.lr].children[S.lc];
       case 'inputs': return inRow.children[S.inp];
@@ -333,6 +337,7 @@
     toggle(stage, 'is-library', S.zone === 'lib');
     toggle(stage, 'is-panel', S.zone === 'panel');
     toggle(stage, 'is-dialog', S.zone === 'dialog');
+    toggle(stage, 'is-menu', S.zone === 'menu');
     toggle(stage, 'tiles-glass', S.glassTiles);
     toggle(stage, 'is-editor', S.zone === 'apps');
     if (S.zone === 'apps') renderEditor();
@@ -366,6 +371,12 @@
         if (k === 'up') { S.zone = 'nav'; S.nav = S.tab; }
         else if (k === 'down' || k === 'back') S.zone = content();
         else if (k === 'ok') launch(resumeTile, resumeApp());
+        break;
+      case 'menu':
+        if (k === 'up') S.menu.i = Math.max(0, S.menu.i - 1);
+        else if (k === 'down') S.menu.i = Math.min(S.menu.items.length - 1, S.menu.i + 1);
+        else if (k === 'ok') S.menu.items[S.menu.i].run();
+        else if (k === 'back') S.zone = S.menuFrom;
         break;
       case 'fav':
         if (k === 'left') S.fav = Math.max(0, S.fav - 1);
@@ -428,6 +439,68 @@
     open(function (err) { if (err) toast(err.message); });
   }
   function samsungHome() { openSamsung('Samsung Home', window.FrameDevice.home); }
+  // Hold OK on a Home tile opens this in-place menu. Move reuses the Apps editor (picks the app up there); Hide and
+  // the Favorites toggle change the lists directly. Confirming a hold vs a tap uses OK key-up timing (TV open check 6).
+  function openTileMenu() {
+    var a = S.zone === 'fav' ? FAVS[S.fav] : S.zone === 'lib' ? ROWS[S.lr][S.lc] : null, isFav, items;
+    if (!a) return;
+    isFav = S.favIds.indexOf(a.id) >= 0;
+    items = [{ label: 'Move', run: function () { tileMove(a.id); } }];
+    items.push(isFav ? { label: 'Remove from Favorites', run: function () { tileUnfav(a.id); } }
+                     : { label: 'Add to Favorites', run: function () { tileFav(a.id); } });
+    items.push({ label: 'Hide', run: function () { tileHide(a.id); } });
+    S.menuFrom = S.zone;
+    S.menu = { i: 0, items: items };
+    tilemenuTitle.textContent = a.name;
+    tilemenuRows.innerHTML = items.map(function (it, n) { return '<div class="tm-row" data-z="menu" data-i="' + n + '">' + esc(it.label) + '</div>'; }).join('');
+    S.zone = 'menu';
+    sound('select');
+    render();
+  }
+  function tileMove(id) {
+    openEditor();
+    S.ed.focus = id;
+    S.ed.carry = { id: id, sec: sectionOf(id), idx: Math.max(0, S.favIds.indexOf(id)), from: sectionOf(id) };
+    S.ed.hint = 'Moving ' + byId(id).name + '. Arrows move it, OK drops it, Back cancels.';
+  }
+  function afterTileEdit(id, msg) {
+    save();
+    buildHome();
+    var fi = S.favIds.indexOf(id);
+    S.zone = 'fav';
+    S.fav = fi >= 0 ? fi : Math.min(S.fav, Math.max(0, FAVS.length - 1));
+    toast(msg);
+  }
+  function tileHide(id) {
+    if (S.favIds.indexOf(id) >= 0 && S.favIds.length <= 1) { toast('Keep at least one favorite.'); return; }
+    S.favIds = S.favIds.filter(function (x) { return x !== id; });
+    if (S.hiddenIds.indexOf(id) < 0) S.hiddenIds.push(id);
+    afterTileEdit(id, byId(id).name + ' hidden.');
+  }
+  function tileUnfav(id) {
+    if (S.favIds.length <= 1) { toast('Keep at least one favorite.'); return; }
+    S.favIds = S.favIds.filter(function (x) { return x !== id; });
+    afterTileEdit(id, byId(id).name + ' removed from Favorites.');
+  }
+  function tileFav(id) {
+    if (S.favIds.length >= FAV_MAX) { toast('Favorites hold ' + FAV_MAX + ' apps. Remove one first.'); return; }
+    S.hiddenIds = S.hiddenIds.filter(function (x) { return x !== id; });
+    S.favIds.push(id);
+    afterTileEdit(id, byId(id).name + ' added to Favorites.');
+  }
+  // OK on a Home tile: a tap launches, a hold opens the menu. Resolved on key-up so a tap never opens the menu.
+  var okTimer = null, okPending = false, okArmed = false;
+  function okHoldStart() {
+    okPending = true; okArmed = false;
+    clearTimeout(okTimer);
+    okTimer = setTimeout(function () { if (okPending) { okArmed = true; openTileMenu(); } }, 450);
+  }
+  function okHoldEnd() {
+    if (!okPending) return;
+    clearTimeout(okTimer);
+    if (!okArmed) { sound('select'); act('ok'); }
+    okPending = false; okArmed = false;
+  }
   function chooseInput(s) {
     press(focused);
     if (s.edit) openPanel('inputs', 'inputs');
@@ -957,11 +1030,13 @@
     e.preventDefault();
     armIdle();
     if (e.repeat && (k === 'ok' || k === 'back')) return;
+    if (k === 'ok' && (S.zone === 'fav' || S.zone === 'lib')) { okHoldStart(); return; }
     if (k === 'ok') sound('select');
     act(k);
     if (k !== 'ok' && focused !== was) sound(k);
     if (focused !== was) measure(wasZone === S.zone ? zoneName(S.zone) : zoneName(wasZone) + ' → ' + zoneName(S.zone));
   });
+  document.addEventListener('keyup', function (e) { if (KEYS[e.keyCode] === 'ok') okHoldEnd(); });
   /* preview */
   // A click focuses the item and presses OK on it, so one click switches a tab or launches an app.
   stage.addEventListener('click', function (e) {
@@ -979,6 +1054,7 @@
     else if (z === 'panel') curPage().i = i;
     else if (z === 'zip') { S.zipAt = i; render(); return; }
     else if (z === 'dialog') S.dialog = i;
+    else if (z === 'menu' && S.menu) S.menu.i = i;
     else if (z === 'edapp') { if (S.zone !== 'apps') return; S.ed.focus = APPS[i].id; z = 'apps'; }
     else if (z === 'edstyle') { if (S.zone !== 'apps') return; S.ed.focus = 'style'; z = 'apps'; }
     else if (z === 'pk') { if (S.zone !== 'wallpaper') return; S.pk.i = i; z = 'wallpaper'; }

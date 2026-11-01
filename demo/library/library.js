@@ -30,6 +30,7 @@
     { id: 'hbomax', name: 'HBO Max', aka: ['max'], mark: 'hbomax', bg: '#0b25cf', ink: '#fff' },
     { id: 'primevideo', name: 'Prime Video', mark: 'primevideo-wordmark', bg: '#fff', ink: '#0b79ff' },
     { id: 'appletv', name: 'Apple TV', mark: 'appletv', bg: '#000', ink: '#fff' },
+    { id: 'alexa', name: 'Amazon Alexa', mark: 'amazonalexa', bg: '#00caff', ink: '#fff' },
     { id: 'applemusic', name: 'Apple Music', mark: 'applemusic', bg: 'linear-gradient(160deg,#fb5c74,#fa233b)', ink: '#fff' },
     { id: 'crunchyroll', name: 'Crunchyroll', mark: 'crunchyroll', bg: '#f47521', ink: '#fff' },
     { id: 'hulu', name: 'Hulu', mark: 'hulu', bg: '#1ce783', ink: '#0b0c0f' },
@@ -38,17 +39,16 @@
     { id: 'peacock', name: 'Peacock', aka: ['peacock tv'], mark: 'peacock', bg: '#000', ink: '#fff' },
     { id: 'plex', name: 'Plex', mark: 'plex', bg: '#1f2326', ink: '#e5a00d' },
     { id: 'plutotv', name: 'Pluto TV', mark: 'plutotv', bg: '#fff200', ink: '#000' },
+    { id: 'smartthings', name: 'SmartThings', mark: 'smartthings', bg: '#15bfff', ink: '#fff' },
     { id: 'spotify', name: 'Spotify', mark: 'spotify', bg: '#121212', ink: '#1ed760' },
     { id: 'tubi', name: 'Tubi', mark: 'tubi', bg: '#7408ff', ink: '#ffff13' },
     { id: 'twitch', name: 'Twitch', mark: 'twitch', bg: '#9146ff', ink: '#fff' },
-    // No free logo, so the TV shows its own icon. The IDs are TV app IDs, so these samples match the TV.
-    { id: 'HEPsqFNie0.tvplusstandalone', name: 'Samsung TV Plus', bg: '#24272b', ink: '#fff' },
-    { id: 'AQKO41xyKP.AmazonAlexa', name: 'Amazon Alexa', bg: '#24272b', ink: '#fff' },
-    { id: 'com.samsung.tv.SmartThingsApp', name: 'SmartThings', bg: '#24272b', ink: '#fff' }
+    // No free logo, so the TV shows its own icon. The ID is the TV app ID, so this sample matches the TV.
+    { id: 'HEPsqFNie0.tvplusstandalone', name: 'Samsung TV Plus', bg: '#24272b', ink: '#fff' }
   ];
   // The owners' apps in their order. A first run makes the first six installed ones favorites and hides every other app. Settings › Apps changes both.
   var OWNER_APPS = ['plex', 'youtube', 'netflix', 'appletv', 'hulu', 'primevideo', 'hbomax', 'spotify',
-    'HEPsqFNie0.tvplusstandalone', 'AQKO41xyKP.AmazonAlexa', 'com.samsung.tv.SmartThingsApp'];
+    'HEPsqFNie0.tvplusstandalone', 'alexa', 'smartthings'];
   var FAV_MAX = 6, STORE = 'library-prototype.v1';
   // HDMI ports as the TV reports them; names and visibility are the owner's choices.
   var INPUT_DEFAULTS = [
@@ -821,8 +821,45 @@
 
   // ---------- Input ----------
 
+  // ---------- Sounds ----------
+  // A tick when focus moves and a click on OK. The TV's own tap sound plays when the TV lets apps use it. Otherwise a short burst of filtered noise is made on the spot, so the sounds cost no files.
+  var tvSound, audio = null, noise = null, soundBroken = false;
+  function sound(kind) {
+    var Ctx = window.AudioContext || window.webkitAudioContext, select = kind === 'select', t, src, band, gain, data, i;
+    if (tvSound === undefined) {
+      try { tvSound = window.tizen && window.tizen.feedback && window.tizen.feedback.isPatternSupported('TAP', 'SOUND') ? window.tizen.feedback : null; } catch (e) { tvSound = null; }
+    }
+    if (tvSound) {
+      try { tvSound.play('TAP', 'SOUND'); return; } catch (e) { tvSound = null; } // A refused call switches to the built-in sound for good.
+    }
+    if (soundBroken || !Ctx) return;
+    try {
+      if (!audio) {
+        audio = new Ctx();
+        noise = audio.createBuffer(1, Math.round(audio.sampleRate * 0.08), audio.sampleRate);
+        data = noise.getChannelData(0);
+        for (i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+      }
+      if (audio.state === 'suspended') audio.resume();
+      t = audio.currentTime;
+      src = audio.createBufferSource();
+      src.buffer = noise;
+      band = audio.createBiquadFilter();
+      band.type = 'bandpass';
+      band.frequency.value = select ? 1500 : 2800;
+      gain = audio.createGain();
+      gain.gain.setValueAtTime(select ? 0.35 : 0.22, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + (select ? 0.07 : 0.035));
+      src.connect(band);
+      band.connect(gain);
+      gain.connect(audio.destination);
+      src.start(t);
+      src.stop(t + 0.08);
+    } catch (e) { soundBroken = true; } // An engine without Web Audio stays silent rather than failing the key press.
+  }
+
   document.addEventListener('keydown', function (e) {
-    var k = KEYS[e.keyCode];
+    var k = KEYS[e.keyCode], was = focused;
     if (document.activeElement && document.activeElement.classList.contains('p-field')) {
       if (k === 'ok' || (k === 'back' && e.keyCode !== 8)) { e.preventDefault(); act(k); }
       return;
@@ -836,7 +873,9 @@
     e.preventDefault();
     armIdle();
     if (e.repeat && (k === 'ok' || k === 'back')) return;
+    if (k === 'ok') sound('select');
     act(k);
+    if (k !== 'ok' && focused !== was) sound('move');
   });
   /* preview */
   // A click focuses the item and presses OK on it, so one click switches a tab or launches an app.

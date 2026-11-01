@@ -70,5 +70,17 @@
     "source": "https://github.com/simple-icons/simple-icons/blob/11.15.0/icons/primevideo.svg",
     "licence": "CC0-1.0",
     "note": "Complete \"prime video\" wordmark with the smile, white fill for the Library layout. primevideo.svg keeps the smile alone for CleanFrame."
+  },
+  {
+    "icon": "smartthings",
+    "source": "https://github.com/simple-icons/simple-icons/blob/11.15.0/icons/smartthings.svg",
+    "licence": "CC0-1.0",
+    "note": "Shape unchanged; white fill for launcher."
+  },
+  {
+    "icon": "amazonalexa",
+    "source": "https://github.com/simple-icons/simple-icons/blob/11.15.0/icons/amazonalexa.svg",
+    "licence": "CC0-1.0",
+    "note": "Shape unchanged; white fill for launcher. Later Simple Icons releases removed it."
   }
 ]

@@ -36,6 +36,7 @@ Goals: no ads, no apps the owners don't use, no autoplay, a fast feel on the TV,
 - **Library:** every installed app that isn't a favourite and isn't hidden, in alphabetical order, 6 per row in the same columns as the dock. At rest about 40% of the first row peeks above the bottom edge. The focused app's name appears below it.
 - **App list and icons:** the TV supplies the list of installed apps, as CleanFrame's `device.js` already does, leaving out Samsung's internal ones. An app with a bundled logo (Simple Icons or Custom Brand Icons, single colour on its brand-coloured tile) shows that logo. Any other app shows the TV's own icon for it, or its name if that icon can't load. Apps installed later appear in the library on their own.
 - **Shapes:** tiles, the dock, panels and dialogs use squircle (continuous-curvature) corners. Capsules keep fully rounded ends.
+- **Sounds:** a tick when focus moves and a click on OK, which the owners missed in the first TV test. The TV's own tap sound plays if the TV lets apps use it. Otherwise the launcher synthesizes both sounds, so they add no files. A switch to turn them off comes with the Settings redesign.
 - **Motion:** quick and smooth, with transform and opacity only. Focus scales in about 170 ms, selection indicators slide in about 220 ms, and the page scrolls in about 340 ms.
 
 ## Library scrolled
@@ -126,7 +127,7 @@ List and Dock stay available as layouts, and the new layout is added as **Librar
 - **Sample data:** the HDMI inputs and weather, and in the browser the apps. Messages such as "Opens Netflix on the TV." stand in for launches the browser can't do.
 - **On the TV:** Home lists the installed apps as described under App list and icons, OK opens them, and Samsung Home and Picture and sound open Samsung's screens. On a first run, Favorites holds the first six installed apps from the owners' list (see Owners' decisions), the rest of that list fills the library, and every other installed app starts in Hidden. With nothing from the list installed, Favorites holds the first six apps A–Z.
 - **Options:** `?wall=<id>` picks a wallpaper, for example `?wall=night`. Settings → Apps → Tile style switches between Color and Glass tiles.
-- **TV build:** `npm run build:demo` assembles `dist/library-demo/`, a self-contained Tizen web app (about 15 MB) with relative asset paths and its own `config.xml` (SDK-generated identity `xTZbrxm7Ut.LibraryDemo`, CleanFrame's proven profile, privileges and settings). It is unsigned; sign it with the owner's certificate profile, for example `tizen package -t wgt -s <profile> -- dist/library-demo`. Code between `preview` markers (key hints, the A and H keys, mouse clicks, `?wall=`) is stripped, and only the logos in use are copied. `build-info.js` records the commit, build time and size for Settings › About. On the TV, the number buttons are registered for ZIP entry.
+- **TV build:** `npm run build:demo` assembles `dist/library-demo/`, a self-contained Tizen web app (about 15 MB) with relative asset paths and its own `config.xml` (SDK-generated identity `Zm209bQNEk.Home`, CleanFrame's proven profile, privileges and settings). It is unsigned; sign it with the owner's certificate profile, for example `tizen package -t wgt -s <profile> -- dist/library-demo`. Code between `preview` markers (key hints, the A and H keys, mouse clicks, `?wall=`) is stripped, and only the logos in use are copied. `build-info.js` records the commit, build time and size for Settings › About. On the TV, the number buttons are registered for ZIP entry.
 - **Package size:** 15.2 MB, of which code is 86 KB. Each photo costs about 1 MB: the 1920×1080 photo about 690 KB, three pre-rendered glass layers about 236 KB and the thumbnail about 38 KB. The two variable fonts take 0.6 MB as TTF files.
 - **HDMI probe (TV only):** the Inputs tab reads which HDMI ports really have a device (`tizen.systeminfo` VIDEOSOURCE). OK on a connected input tries `tizen.tvwindow.setSource` and shows it full screen; any button closes it. Success or the exact error appears as a message, which answers open check 2 on the first run.
 - **Performance so far:** with Chrome's CPU throttled 6×, every interaction reached its next frame in 17–30 ms (median), worst 50 ms (a settings page slide), with no main-thread task over 50 ms. That covers JavaScript, style and layout only; the GPU cost of full-screen photo layers, glass copies and squircle masks still needs measuring on the TV.
@@ -144,17 +145,18 @@ The prototype only explores the design. Once the spec is locked, the launcher is
 
 ## Open checks on the TV
 
-1. Tizen version, web engine, page size and free storage on this firmware (all shown in Settings › About). Free storage sets how many photos the build can carry.
+1. Tizen version, web engine, page size and free storage on this firmware (all shown in Settings › About). Free storage sets how many photos the build can carry. The first test showed 0.5 GB free of 4.1 GB, with the app at 15.2 MB.
 2. Whether `tizen.tvwindow.setSource` changes the real input or only a preview window, and which privilege it needs. Fallback: launch Samsung's source list.
 3. Whether a sleep timer is reachable from a web app. Fallback: a TV settings shortcut.
 4. Weather network access from the signed app (`<access origin>` in `config.xml`).
-5. Rendering speed of the scrolled library and the crossfades on the panel.
+5. Rendering speed of the scrolled library and the crossfades on the panel. In the first TV test, moving from the dock into the library lagged slightly.
 6. Whether holding OK on the remote reaches the app as key repeats or a key-up it can time, which editing in place needs.
 7. Whether an app reopened from Home returns where it was or starts again, and how long the TV keeps apps such as Plex running in the background. The current build answers this through each app's tile, since the resume card makes the same launch call.
+8. Whether the TV lets a web app play its own tap sound (`tizen.feedback`), and how soon the built-in sounds follow a key press.
 
 ## Owners' decisions (31 October 2026)
 
-- App name: **Home**. V1 installs under a new SDK-generated identity with that name. `xTZbrxm7Ut.LibraryDemo` stays the prototype's test identity.
+- App name: **Home**, with the SDK-generated identity `Zm209bQNEk.Home` (created 31 October 2026). Test builds and V1 share it, so every later version installs in place and the Home button is pointed at it once. The first test used `xTZbrxm7Ut.LibraryDemo`, now retired.
 - Tabs: Home and Inputs only.
 - Favourites: at most 6, in one row.
 - Apps: Plex, YouTube, Netflix, Apple TV, Hulu, Prime Video, HBO Max, Spotify, Samsung TV Plus, Amazon Alexa and SmartThings, in that order (`OWNER_APPS`). The first six start as favourites. Every other installed app starts hidden, and apps installed later appear in the library.

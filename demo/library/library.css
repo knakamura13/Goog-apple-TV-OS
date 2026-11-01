@@ -1,4 +1,4 @@
-/* Library Home prototype. The TV animates transform and opacity only; every blur is a pre-rendered image. */
+/* Home. The TV animates transform and opacity only; every blur is an image, pre-rendered or made once per photo. */
 :root{
   --ink:#f4f4f1;
   --ink-soft:rgba(244,244,241,.84);
@@ -16,7 +16,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000}
 body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 
 .stage{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden;transform-origin:0 0;background:#10161a;color:var(--ink);font-size:28px;line-height:1.2;outline:0;-webkit-user-select:none;user-select:none}
-.stage [data-z]{cursor:pointer}
+/* preview */.stage [data-z]{cursor:pointer}/* /preview */
 .ico{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .squircle{-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
 
@@ -25,7 +25,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .bg-photo{max-width:none;object-fit:cover;opacity:0;transform:scale(1);transition:opacity 900ms linear,transform 700ms var(--glide);will-change:transform,opacity}
 .bg-photo.is-front{opacity:1}
 .bg-blur{max-width:none;opacity:0;transition:opacity var(--scroll-t) linear;will-change:opacity}
-.bg-veil{background:rgba(6,10,14,.42);opacity:0;transition:opacity var(--scroll-t) linear;will-change:opacity}
+.bg-veil{background:rgba(6,10,14,var(--veil,.42));opacity:0;transition:opacity var(--scroll-t) linear;will-change:opacity}
 .bg-shade{height:260px;background:linear-gradient(to bottom,rgba(4,8,12,.34),rgba(4,8,12,0));transition:opacity 600ms linear}
 .tone-light .bg-shade{background:linear-gradient(to bottom,rgba(4,8,12,.44),rgba(4,8,12,0))}
 .bg-scrim{top:600px;height:480px;background:linear-gradient(to bottom,rgba(4,8,12,0),rgba(4,8,12,.38));transition:opacity 600ms linear}
@@ -137,7 +137,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .in-icon{position:relative;width:32px;height:32px}
 .in-port{font-size:24px;line-height:30px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-quiet)}
 .in-name{font-size:32px;line-height:40px;font-weight:600;letter-spacing:-.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.in-tile.is-empty .t-face{background:rgba(14,18,22,.28)}
+.in-tile.is-empty .t-face{background:rgba(14,18,22,var(--empty-tint,.28))}
 .in-tile.is-empty .in-name{color:var(--ink-quiet)}
 .in-tile.is-empty.is-focus .in-name{color:var(--solid-ink)}
 .in-tile .t-face::before{content:"";position:absolute;left:0;top:0;right:0;bottom:0;background:var(--solid);opacity:0;transition:opacity var(--focus-t) linear}
@@ -152,7 +152,8 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .is-panel .modal-dim,.is-dialog .modal-dim,.is-menu .modal-dim{opacity:1}
 
 .panel{position:absolute;right:90px;top:136px;width:700px;height:866px;z-index:5;opacity:0;transform:translate3d(40px,0,0);transition:opacity 160ms linear,transform 240ms var(--glide);pointer-events:none;-webkit-mask-image:var(--panel-mask);mask-image:var(--panel-mask)}
-.panel .glass-tint{background:rgba(12,16,20,.56)}
+/* Panels, menus, plates and shades darken further over a bright online photo (--panel-tint and others, photoClasses). */
+.panel .glass-tint{background:rgba(12,16,20,var(--panel-tint,.56))}
 .is-panel .panel{opacity:1;transform:translate3d(0,0,0);pointer-events:auto}
 /* Pages slide out towards where you are going and in from the other side. */
 .p-body{position:relative;transition:transform 220ms var(--glide),opacity 180ms linear}
@@ -187,7 +188,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .p-status.is-on{opacity:1}
 
 .dialog{position:absolute;left:596px;top:370px;width:728px;height:340px;z-index:6;opacity:0;transform:scale(.97);transition:opacity 160ms linear,transform 200ms var(--glide);pointer-events:none;-webkit-mask-image:var(--dialog-mask);mask-image:var(--dialog-mask)}
-.dialog .glass-tint{background:rgba(12,16,20,.58)}
+.dialog .glass-tint{background:rgba(12,16,20,var(--menu-tint,.58))}
 .is-dialog .dialog{opacity:1;transform:scale(1);pointer-events:auto}
 .d-title{position:relative;padding:52px 56px 0;font-size:40px;line-height:48px;font-weight:600;letter-spacing:-.8px}
 .d-text{position:relative;padding:12px 56px 0;font-size:28px;line-height:36px;color:var(--ink-soft)}
@@ -245,7 +246,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 
 /* ---------- Wallpaper picker: photos on a glass panel at the left, a live preview everywhere else ---------- */
 .picker{position:absolute;left:90px;top:136px;width:760px;height:762px;z-index:5;opacity:0;transform:translate3d(-40px,0,0);transition:opacity 160ms linear,transform 240ms var(--glide);pointer-events:none;-webkit-mask-image:var(--picker-mask);mask-image:var(--picker-mask)}
-.picker .glass-tint{background:rgba(12,16,20,.56)}
+.picker .glass-tint{background:rgba(12,16,20,var(--panel-tint,.56))}
 .is-picker .picker{opacity:1;transform:translate3d(0,0,0);pointer-events:auto}
 .is-picker .page,.is-picker .nav{opacity:0}
 /* Two full rows show, and the next row's photos peek 40% above the bottom edge as the cue that more follow. */
@@ -260,14 +261,17 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .pk-face .t-sheen{width:312px;height:176px}
 .pk-item.is-focus .pk-thumb{transform:scale(1.08)}
 .pk-item.is-focus .pk-thumb::before,.pk-item.is-focus .t-sheen{opacity:1}
-.pk-check{position:absolute;right:12px;top:12px;width:40px;height:40px;border-radius:20px;background:var(--solid);color:var(--solid-ink);opacity:0;transition:opacity 160ms linear}
+.pk-check{position:absolute;right:12px;top:12px;width:40px;height:40px;border-radius:20px;background:var(--solid);color:var(--solid-ink);box-shadow:0 0 0 2px rgba(0,0,0,.22),0 2px 8px rgba(0,0,0,.35);opacity:0;transition:opacity 160ms linear}
 .pk-check .ico{position:absolute;left:8px;top:8px;width:24px;height:24px;stroke-width:2.6}
 .pk-item.is-applied .pk-check{opacity:1}
+/* Daily photo before today's photo has arrived. */
+.pk-none{position:absolute;left:132px;top:64px;width:48px;height:48px;color:rgba(255,255,255,.5);display:none}
+.pk-item.is-none .pk-none{display:block}
 .pk-name{position:absolute;left:-14px;top:190px;width:340px;font-size:26px;line-height:32px;font-weight:500;color:var(--ink-soft);white-space:nowrap}
 .pk-name span{display:inline-block;max-width:340px;padding:0 14px;border-radius:16px;overflow:hidden;text-overflow:ellipsis;vertical-align:top;transition:background-color 140ms linear,color 140ms linear}
 .pk-item.is-focus .pk-name span{background:var(--solid);color:var(--solid-ink)}
 .pk-caption{position:absolute;right:96px;bottom:88px;z-index:4;text-align:right;text-shadow:0 1px 4px rgba(0,0,0,.6);opacity:0;transition:opacity 200ms linear;pointer-events:none}
-.pk-caption::before{content:"";position:absolute;right:-96px;bottom:-88px;z-index:-1;width:1000px;height:340px;background:radial-gradient(ellipse at 100% 100%,rgba(4,8,12,.55),rgba(4,8,12,0) 70%)}
+.pk-caption::before{content:"";position:absolute;right:-96px;bottom:-88px;z-index:-1;width:1000px;height:340px;background:radial-gradient(ellipse at 100% 100%,rgba(4,8,12,var(--caption-shade,.55)),rgba(4,8,12,0) 70%)}
 .is-picker .pk-caption{opacity:1}
 
 /* ---------- Toast for actions that need the TV ---------- */
@@ -313,12 +317,13 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 /* Resume card: the last app opened from Home, above the dock. Fades out as the library scrolls in. */
 .resume{position:absolute;left:66px;top:487px;width:298px;height:236px;opacity:0;pointer-events:none;transition:opacity 160ms linear;will-change:opacity}
 .has-resume:not(.is-library) .resume{opacity:1;pointer-events:auto}
-.re-plate{position:absolute;left:0;top:0;width:298px;height:236px;background:rgba(6,8,10,.34);-webkit-mask-image:var(--replate-mask);mask-image:var(--replate-mask)}
+.re-plate{position:absolute;left:0;top:0;width:298px;height:236px;background:rgba(6,8,10,var(--plate-tint,.34));-webkit-mask-image:var(--replate-mask);mask-image:var(--replate-mask)}
 .re-kicker{position:absolute;left:30px;top:18px;font-size:26px;line-height:32px;font-weight:600;letter-spacing:.2px;color:var(--ink-soft,rgba(255,255,255,.74))}
 .re-slot{position:absolute;left:24px;top:62px}
-/* Edit-in-place menu: hold OK on a Home tile for Move / Hide / Favorite. */
-.tilemenu{position:absolute;left:680px;top:330px;width:560px;height:420px;z-index:6;opacity:0;transform:scale(.97);transition:opacity 160ms linear,transform 240ms var(--glide);pointer-events:none;-webkit-mask-image:var(--tilemenu-mask);mask-image:var(--tilemenu-mask)}
-.tilemenu .glass-tint{background:rgba(12,16,20,.58)}
+.re-slot .tile.is-focus{transform:scale(1.1)} /* Grows less than in the dock, so it stays inside its card. */
+/* Edit-in-place menu: hold OK on a Home tile for Open, Move, Favorites and Hide. */
+.tilemenu{position:absolute;left:680px;top:303px;width:560px;height:474px;z-index:6;opacity:0;transform:scale(.97);transition:opacity 160ms linear,transform 240ms var(--glide);pointer-events:none;-webkit-mask-image:var(--tilemenu-mask);mask-image:var(--tilemenu-mask)}
+.tilemenu .glass-tint{background:rgba(12,16,20,var(--menu-tint,.58))}
 .is-menu .tilemenu{opacity:1;transform:scale(1);pointer-events:auto}
 .tm-title{position:relative;padding:48px 56px 8px;font-size:38px;line-height:46px;font-weight:600;letter-spacing:-.6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tm-rows{position:relative;margin:12px 24px 0}

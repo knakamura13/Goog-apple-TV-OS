@@ -54,21 +54,27 @@ const SYSTEM = {
   VIDEOSOURCE: { connected: [{ type: 'HDMI', number: 1 }], disconnected: [] }
 };
 
-// Runs in the page before any launcher script. Callbacks are asynchronous, as they are on the TV.
-function tizenStandIn({ apps, self, system }) {
+// Runs in the page before any launcher script. Callbacks are asynchronous, as they are on the TV. window.__tv holds
+// what the stand-in reports, so a check can install an app or plug in a device while Home runs; appsFail counts
+// down the app-list reads that fail before one succeeds.
+function tizenStandIn({ apps, self, system, appsFail }) {
   const later = fn => setTimeout(fn, 0);
   window.__launches = [];
   window.__tvwindow = [];
+  window.__tv = { apps, system, appsFail };
   window.tizen = {
     application: {
-      getAppsInfo: ok => later(() => ok(apps.map(app => ({ ...app })))),
+      getAppsInfo: (ok, fail) => later(() => {
+        if (window.__tv.appsFail > 0) { window.__tv.appsFail--; if (fail) fail({ name: 'UnknownError', message: 'The app list is not ready.' }); return; }
+        ok(window.__tv.apps.map(app => ({ ...app })));
+      }),
       getCurrentApplication: () => ({ appInfo: { id: self } }),
       launch: (id, ok) => { window.__launches.push(id); if (ok) later(ok); }
     },
     systeminfo: {
       getCapability: () => '9.0',
       getPropertyValue: (name, ok, fail) => later(() => {
-        if (system[name]) ok(JSON.parse(JSON.stringify(system[name])));
+        if (window.__tv.system[name]) ok(JSON.parse(JSON.stringify(window.__tv.system[name])));
         else if (fail) fail({ name: 'NotSupportedError', message: name + ' is not available' });
       })
     },
@@ -84,29 +90,33 @@ function tizenStandIn({ apps, self, system }) {
 // Stands in for the TV's own icon files, which only a TV can serve.
 const TV_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="250" height="150"><rect width="250" height="150" fill="#1b4fd8"/></svg>';
 
-// The online services and their fixtures. Zippopotam.us knows Costa Mesa (the default ZIP code) and answers any
-// other ZIP code with one test place; Open-Meteo reports 18.9 °C, cloudy, at night (66 °F). Picsum's list holds
-// three landscape photos and one portrait photo (never picked); bundled photos stand in for the online images.
+// The online services and their fixtures. Zippopotam.us knows Costa Mesa (the default ZIP code), says 404 for
+// 00000 and answers any other ZIP code with one test place; Open-Meteo reports 18.9 °C, cloudy, at night (66 °F).
+// Picsum's list holds three landscape photos and one portrait photo (never picked); bundled photos stand in for
+// the online images. A dark photo (1005) is listed only when a check asks for it with `photoIds`.
 export const ONLINE = /^https:\/\/(api\.zippopotam\.us|api\.open-meteo\.com|(?:fastly\.)?picsum\.photos)\//;
-export const PHOTOS = [
+const ALL_PHOTOS = [
   { id: '1001', author: 'Ada Lens', width: 5000, height: 3333, file: 'forest' },
   { id: '1002', author: 'Ben Frame', width: 4000, height: 2250, file: 'ridge' },
   { id: '1003', author: 'Cy Shutter', width: 6000, height: 4000, file: 'peaks' },
-  { id: '1004', author: 'Dee Tall', width: 3000, height: 4500, file: 'misty' }
+  { id: '1004', author: 'Dee Tall', width: 3000, height: 4500, file: 'misty' },
+  { id: '1005', author: 'Eve Night', width: 6000, height: 4000, file: 'summit' }
 ];
+export const PHOTOS = ALL_PHOTOS.filter(photo => photo.id !== '1005');
 const CORS = { 'Access-Control-Allow-Origin': '*' };
-async function answerOnline(route) {
+async function answerOnline(route, listed) {
   const url = route.request().url();
   const json = body => route.fulfill({ headers: CORS, contentType: 'application/json', body: JSON.stringify(body) });
   let match;
   if ((match = /api\.zippopotam\.us\/us\/(\d{5})$/.exec(url))) {
+    if (match[1] === '00000') return route.fulfill({ status: 404, headers: CORS, contentType: 'application/json', body: '{}' });
     return json(match[1] === '92626' ? { places: [{ 'place name': 'Costa Mesa', latitude: '33.6801', longitude: '-117.9085' }] }
       : { places: [{ 'place name': 'Testville', latitude: '34.05', longitude: '-118.24' }] });
   }
   if (/api\.open-meteo\.com\/v1\/forecast\?/.test(url)) return json({ current: { temperature_2m: 18.9, weather_code: 3, is_day: 0 } });
-  if (/picsum\.photos\/v2\/list\?/.test(url)) return json(PHOTOS.map(({ file, ...entry }) => ({ ...entry, url: 'https://unsplash.com/photos/' + entry.id })));
+  if (/picsum\.photos\/v2\/list\?/.test(url)) return json(listed.map(({ file, ...entry }) => ({ ...entry, url: 'https://unsplash.com/photos/' + entry.id })));
   if ((match = /picsum\.photos\/id\/(\d+)\/\d+\/\d+$/.exec(url))) {
-    const photo = PHOTOS.find(entry => entry.id === match[1]);
+    const photo = ALL_PHOTOS.find(entry => entry.id === match[1]);
     if (photo) return route.fulfill({ headers: CORS, contentType: 'image/jpeg', body: readFileSync(join(repo, 'app/assets/wallpapers', photo.file + '.jpg')) });
   }
   return route.fulfill({ status: 404, headers: CORS, body: '' });
@@ -137,6 +147,27 @@ export async function startPreview() {
   }
 }
 
+// Serves a built package (a folder such as dist/library-demo) on loopback, to check what the TV runs.
+export async function startStatic(dir) {
+  const server = spawn('python3', ['-u', '-m', 'http.server', '0', '--bind', '127.0.0.1', '--directory', dir], { stdio: ['ignore', 'pipe', 'pipe'] });
+  process.once('exit', () => server.kill());
+  try {
+    const base = await new Promise((resolve, reject) => {
+      let output = '';
+      const timer = setTimeout(() => reject(Error('Static server startup timed out')), 10000);
+      server.once('exit', code => { clearTimeout(timer); reject(Error('Static server exited: ' + code)); });
+      server.stdout.on('data', chunk => {
+        const match = (output += chunk).match(/port (\d+)/);
+        if (match) { clearTimeout(timer); resolve('http://127.0.0.1:' + match[1]); }
+      });
+    });
+    return { base, stop: async () => { if (server.exitCode === null) { server.kill(); await once(server, 'exit'); } } };
+  } catch (error) {
+    server.kill();
+    throw error;
+  }
+}
+
 export function launchBrowser() {
   return chromium.launch({ headless: true, executablePath: process.env.CHROMIUM_PATH || undefined });
 }
@@ -144,8 +175,10 @@ export function launchBrowser() {
 // A fresh profile per call. `seed` is written to the launcher's storage once, before the first load only, so a
 // reload sees what the launcher itself saved. `clock` installs Playwright's fake clock before navigation.
 // `offline` makes every request to the online services fail, as on a TV without internet. `requests` lists the
-// online requests the page made, in order.
-export async function openLauncher(browser, base, { seed, clock, offline = false, reducedMotion = 'no-preference' } = {}) {
+// online requests the page made, in order. `appsFail` fails the first app-list reads, `photoIds` picks which
+// fixture photos Picsum's list offers, and `path` opens another page (a built package's index.html).
+export async function openLauncher(browser, base, { seed, clock, offline = false, appsFail = 0, photoIds, path = '/demo/library/', reducedMotion = 'no-preference' } = {}) {
+  const listed = photoIds ? ALL_PHOTOS.filter(photo => photoIds.includes(photo.id)) : PHOTOS;
   const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1, reducedMotion });
   const page = await context.newPage();
   const errors = [], failures = [], requests = [];
@@ -159,8 +192,8 @@ export async function openLauncher(browser, base, { seed, clock, offline = false
     if (!page.__closing && reason !== 'net::ERR_ABORTED' && !(offline && ONLINE.test(request.url()))) failures.push(reason + ' ' + request.url());
   });
   await context.route('**/opt/usr/globalapps/**', route => route.fulfill({ contentType: 'image/svg+xml', body: TV_ICON }));
-  await context.route(ONLINE, route => (offline ? route.abort('internetdisconnected') : answerOnline(route)));
-  await page.addInitScript(tizenStandIn, { apps: TV_APPS, self: SELF_ID, system: SYSTEM });
+  await context.route(ONLINE, route => (offline ? route.abort('internetdisconnected') : answerOnline(route, listed)));
+  await page.addInitScript(tizenStandIn, { apps: TV_APPS, self: SELF_ID, system: SYSTEM, appsFail });
   if (seed) {
     await page.addInitScript(([key, value]) => {
       if (sessionStorage.getItem('__seeded')) return;
@@ -169,7 +202,7 @@ export async function openLauncher(browser, base, { seed, clock, offline = false
     }, [STORE, JSON.stringify(seed)]);
   }
   if (clock) await page.clock.install({ time: clock });
-  await page.goto(base + '/demo/library/');
+  await page.goto(base + path);
   await ready(page);
   return { context, page, errors, failures, requests, close: async () => { page.__closing = true; await context.close(); } };
 }

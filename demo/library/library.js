@@ -6,7 +6,8 @@
   var H = window.HomeLogic; // Pure logic shared with the unit tests (logic.js).
 
   var ASSETS = '/home/assets/', ICONS = ASSETS + 'icons/';
-  var KEYS = { 37: 'left', 38: 'up', 39: 'right', 40: 'down', 13: 'ok', 27: 'back', 8: 'back', 10009: 'back', 461: 'back' };
+  // 65376 and 65385 are Done and Cancel on the TV's on-screen keyboard.
+  var KEYS = { 37: 'left', 38: 'up', 39: 'right', 40: 'down', 13: 'ok', 27: 'back', 8: 'back', 10009: 'back', 461: 'back', 65376: 'ok', 65385: 'back' };
   // Code between preview markers is for the browser preview only; scripts/build-demo.py strips it from the TV build.
   /* preview */var KEY_AMBIENT = 65, KEY_HINTS = 72;/* /preview */
 
@@ -21,7 +22,7 @@
   var PANEL = { w: 700, h: 866, r: 48 }, DIALOG = { w: 728, h: 340, r: 48 };
   var PILL_W = 150, PANEL_PITCH = 88, DIALOG_PITCH = 316, SMOOTHING = 0.6, ZIP_LEN = 5;
   var RESUME_W = 298, RESUME_H = 236, RESUME_R = 44; // The resume card plate.
-  var TM = { w: 560, h: 420, r: 44 }; // The edit-in-place menu.
+  var TM = { w: 560, h: 474, r: 44 }; // The edit-in-place menu: a title and four rows.
   // Apps editor: a favourites plate like the dock, then Library and Hidden grids with names under each app.
   var ED_PLATE_H = 262, ED_FAV_Y = 340, ED_LIB_Y = 664, ED_ROW = 222, ED_LABEL_GAP = 60, ED_TOP_SAFE = 256, ED_SPAN = 210, RING_PAD = 8;
   // Wallpaper picker: a glass panel on the left with two columns of photos; the rest of the screen previews.
@@ -70,7 +71,7 @@
     inputs: INPUT_DEFAULTS.map(function (p) { return { port: p.port, name: '', show: p.show, connected: true }; }) };
   var SETTINGS = [
     { label: 'Wallpaper', kind: 'screen', value: function () { return S.daily ? 'Daily photo' : WALLS[S.wall] ? WALLS[S.wall].name : ''; }, ok: openPicker },
-    { label: 'Apps', kind: 'screen', value: function () { return S.favIds.length + ' favorites'; }, ok: openEditor },
+    { label: 'Apps', kind: 'screen', value: function () { return S.favIds.length + (S.favIds.length === 1 ? ' favorite' : ' favorites'); }, ok: openEditor },
     { label: 'Weather', kind: 'page', value: function () { return S.weather.zip ? S.weather.zip + ' · °' + S.weather.units : 'Set location'; }, ok: function () { pushPage('weather'); } },
     { label: 'Screensaver', value: function () { return AMBIENT[S.amb].name; }, ok: function () { S.amb = (S.amb + 1) % AMBIENT.length; save(); armIdle(); } },
     { label: 'Picture and sound', kind: 'link', ok: function () { openSamsung('Samsung’s picture and sound settings', window.FrameDevice.settings); } },
@@ -93,11 +94,11 @@
   var front = $('photoA'), back = $('photoB'), blurImg = $('blur');
   var pkGrid = $('pkGrid'), pkTitle = $('pkTitle'), pkCredit = $('pkCredit'), pickerEl = $('picker'), previewTimer = null;
   var panelBody = $('panelBody'), panelCrumb = $('panelCrumb'), panelTitle = $('panelTitle'), panelRowsBox = $('panelRowsBox'), panelCustom = $('panelCustom'), panelNote = $('panelNote');
-  var wxBox = stage.querySelector('.weather'), wxIcon = wxBox.querySelector('.ico'), tempEl = wxBox.querySelector('span'), wxBusy = false, wxRetry = 0;
+  var wxBox = stage.querySelector('.weather'), wxIcon = wxBox.querySelector('.ico'), tempEl = wxBox.querySelector('span'), wxBusy = false, wxRetry = 0, zipMissing = '';
   var editorEl = $('editor'), edPage = $('edPage'), edTiles = $('edTiles'), edStyle = $('edStyle'), edHint = $('edHint');
   var edFavLabel = $('edFavLabel'), edLibLabel = $('edLibLabel'), edHidLabel = $('edHidLabel'), edEmpty = $('edEmpty'), edFavBox = $('edFavBox'), edSlots = {};
   var pills, panelRows = $('panelRows').children, dialogBtns, tileRim = '', thumbRim = '', tilePath = '', ringSvg = '', focused = null, lastZone = null, credits = {}, statusWidth = 0;
-  var idleTimer = null, driftTimer = null, rotateTimer = null, toastTimer = null, quietPress = false, statusAt = 0;
+  var idleTimer = null, driftTimer = null, rotateTimer = null, toastTimer = null, statusAt = 0;
   var tvSources = {}, tvWindowOn = false; // On the TV only: real HDMI sources by port name, and whether one is showing.
 
   function $(id) { return document.getElementById(id); }
@@ -209,42 +210,48 @@
     S.fav = Math.min(S.fav, FAVS.length - 1);
     S.scroll = null;
   }
-  // The resume card shows the last app opened from Home, when it is still installed.
+  // The resume card shows the last app opened from Home while it is installed and not hidden.
   function resumeApp() { return S.lastId && S.hiddenIds.indexOf(S.lastId) < 0 ? byId(S.lastId) : null; }
   function buildResume() {
     var a = resumeApp();
     resumeSlot.innerHTML = a ? appHtml(a, 'resume', 0, 0) : '';
     resumeTile = a ? resumeSlot.querySelector('.tile') : null;
   }
+  // Saves carry a version from V1 on; older saves come from test builds and get their one-time clean-ups.
+  var SAVE_VERSION = 1;
   function load() {
-    var d, lists;
+    var d, lists, old;
     try { d = JSON.parse(window.localStorage.getItem(STORE) || 'null'); } catch (e) { d = null; }
     if (!d || typeof d !== 'object') d = null;
+    savedLists = d && { fav: d.fav, hid: d.hid };
     lists = H.homeLists(OWNER_APPS, allIds(), d, FAV_MAX, nameOf);
     S.favIds = lists.fav;
     S.hiddenIds = lists.hid;
     if (!d) return;
+    old = d.version !== SAVE_VERSION;
     S.glassTiles = !!d.glass;
     if (typeof d.last === 'string') S.lastId = d.last;
     if (H.validIndex(d.wall, WALLS.length)) S.wall = d.wall;
     S.daily = d.daily === true; // Builds before the daily photo saved only a bundled choice, which stands.
     S.dailyPick = d.photo && typeof d.photo === 'object' ? d.photo : null;
     if (H.validIndex(d.amb, AMBIENT.length)) S.amb = d.amb;
-    if (d.weather && typeof d.weather === 'object') S.weather = { zip: /^\d{5}$/.test(d.weather.zip) ? d.weather.zip : S.weather.zip, units: d.weather.units === 'C' ? 'C' : 'F' };
+    if (d.weather && typeof d.weather === 'object') S.weather = { zip: typeof d.weather.zip === 'string' && /^\d{5}$/.test(d.weather.zip) ? d.weather.zip : S.weather.zip, units: d.weather.units === 'C' ? 'C' : 'F' };
     S.place = H.savedPlace(d.place, S.weather.zip);
     S.wx = H.savedReading(d.wx, S.weather.zip);
     if (Array.isArray(d.inputs)) S.inputs.forEach(function (inp, n) {
       var saved = d.inputs[n];
       if (!saved) return;
-      inp.name = H.inputName(n, saved.name);
+      inp.name = H.inputName(n, saved.name, old);
       if (typeof saved.show === 'boolean') inp.show = saved.show;
     });
   }
+  // Until the TV's app list has been read, the owner's saved Favorites and Hidden are written back unchanged.
   function save() {
     var inputs = S.inputs.map(function (inp) { return { name: inp.name, show: inp.show }; });
-    try { window.localStorage.setItem(STORE, JSON.stringify({ fav: S.favIds, hid: S.hiddenIds, last: S.lastId, wall: S.wall, daily: S.daily, photo: S.dailyPick, amb: S.amb, glass: S.glassTiles, weather: S.weather, place: S.place, wx: S.wx, inputs: inputs })); } catch (e) { /* Home still works without saved choices. */ }
+    var fav = appsFromTv ? S.favIds : savedLists && savedLists.fav, hid = appsFromTv ? S.hiddenIds : savedLists && savedLists.hid;
+    try { window.localStorage.setItem(STORE, JSON.stringify({ version: SAVE_VERSION, fav: fav, hid: hid, last: S.lastId, wall: S.wall, daily: S.daily, photo: S.dailyPick, amb: S.amb, glass: S.glassTiles, weather: S.weather, place: S.place, wx: S.wx, inputs: inputs })); } catch (e) { /* Home still works without saved choices. */ }
   }
-  function inputLabel(inp) { return inp.name || (inp.connected ? inp.port : 'No device'); }
+  function inputLabel(inp) { return inp.name || (inp.connected ? 'Connected' : 'No device'); }
   function buildInputs() {
     INS = S.inputs.filter(function (inp) { return inp.show; }).map(function (inp) { return { port: inp.port, name: inputLabel(inp), empty: !inp.connected }; });
     INS.push({ port: 'Samsung', name: 'Source list', list: true }, { port: 'Settings', name: 'Edit inputs', edit: true });
@@ -359,7 +366,7 @@
         if (k === 'left') S.nav = Math.max(0, S.nav - 1);
         else if (k === 'right') { if (S.nav < TABS.length - 1) S.nav++; else S.zone = 'gear'; }
         else if (k === 'down' || k === 'back') S.zone = topZone();
-        else if (k === 'ok') S.tab = S.nav;
+        else if (k === 'ok') { S.tab = S.nav; if (S.tab === 1) tvReadSources(); }
         break;
       case 'gear':
         if (k === 'left') { S.zone = 'nav'; S.nav = TABS.length - 1; }
@@ -421,14 +428,16 @@
   }
   // Restart the press animation on the face. A click that moves focus only grows the tile, without a press.
   function press(tile) {
-    if (quietPress) return;
+    /* preview */if (quietPress) return;/* /preview */
     tile.classList.remove('is-press');
     void tile.offsetWidth;
     tile.classList.add('is-press');
   }
-  // On the TV an app opens without a message; one appears only if it fails. Sample apps only say what would open.
+  // On the TV an app opens without a message; one appears only if it fails. In the preview, sample apps say what
+  // would open; on the TV they only stand in until the TV's app list has been read.
   function launch(tile, a) {
     press(tile);
+    if (!a.appId && window.tizen) { toast('Home is still reading the TV’s apps. Try again in a moment.'); return; }
     if (a.id !== S.lastId) { S.lastId = a.id; save(); buildResume(); }
     if (!a.appId) { toast('Opens ' + a.name + ' on the TV.'); return; }
     window.FrameDevice.launchApp(a.appId, function (err) { if (err) toast(err.message); });
@@ -439,7 +448,7 @@
   }
   function samsungHome() { openSamsung('Samsung Home', window.FrameDevice.home); }
   // Hold OK on a Home tile opens this in-place menu. Move reuses the Apps editor (picks the app up there); Hide and
-  // the Favorites toggle change the lists directly. Confirming a hold vs a tap uses OK key-up timing (TV open check 6).
+  // the Favorites toggle change the lists directly. Confirming a hold vs a tap uses OK key-up timing (TV open check 5).
   function openTileMenu() {
     var a = S.zone === 'fav' ? FAVS[S.fav] : S.zone === 'lib' ? ROWS[S.lr][S.lc] : null, isFav, items;
     if (!a) return;
@@ -482,10 +491,8 @@
     S.zone = 'fav';
     if (fi >= 0) S.fav = fi;
   }
-  // OK on a Home tile: a tap launches on key-up, a hold of 450 ms opens the menu. Like CleanFrame's held-key map,
-  // a held OK ignores its repeats whether or not the TV flags them, and key-up, window blur or leaving the app
-  // releases it. If no key-up arrives at all, an 800 ms expiry after the last OK event releases it instead.
-  var okTimer = null, okExpire = null, okHeld = false, okPending = false, okArmed = false, okEl = null;
+  // OK on a Home tile: a tap launches when OK is released, a hold of 450 ms opens the menu (see heldCode below).
+  var okTimer = null, okPending = false, okArmed = false, okEl = null;
   function okPress() {
     okPending = true; okArmed = false; okEl = focused;
     clearTimeout(okTimer);
@@ -494,8 +501,6 @@
   function okCancel() { clearTimeout(okTimer); okPending = false; okArmed = false; okEl = null; }
   function okRelease() {
     var tap = okPending && !okArmed && focused === okEl;
-    clearTimeout(okExpire);
-    okHeld = false;
     okCancel();
     if (tap) { sound('select'); act('ok'); }
   }
@@ -504,7 +509,7 @@
     if (s.edit) openPanel('inputs', 'inputs');
     else if (s.list) openSamsung('Samsung’s source list', function (done) { window.FrameDevice.launchApp(SOURCE_APP, done); });
     else if (s.empty) toast('Nothing is connected to ' + s.port + '.');
-    else if (!window.tizen) toast('Shows ' + s.name + ' on the TV.');
+    else if (!window.tizen) toast('Shows ' + s.port + ' on the TV.');
     else if (!tvShowSource(s.port)) toast(s.port + ' can’t be shown here. Samsung’s source list can switch to it.');
   }
   // Messages appear inside the settings panel while it is open, so they never cover it.
@@ -527,7 +532,7 @@
       title: 'Weather', note: 'Home finds this ZIP code’s area with Zippopotam.us, then checks the weather there with Open-Meteo every 30 minutes.',
       rows: function () {
         return [
-          { label: 'ZIP code', kind: 'page', value: function () { return S.weather.zip ? S.weather.zip + (S.place ? ' · ' + S.place.name : '') : 'Not set'; }, ok: function () { S.zip = (S.weather.zip || '00000').split(''); S.zipAt = 0; pushPage('zip'); } },
+          { label: 'ZIP code', kind: 'page', value: function () { return S.weather.zip ? S.weather.zip + (S.place ? ' · ' + S.place.name : zipMissing === S.weather.zip ? ' · not found' : '') : 'Not set'; }, ok: function () { S.zip = (S.weather.zip || '00000').split(''); S.zipAt = 0; pushPage('zip'); } },
           { label: 'Units', value: function () { return S.weather.units === 'C' ? 'Celsius' : 'Fahrenheit'; }, ok: function () { S.weather.units = S.weather.units === 'C' ? 'F' : 'C'; save(); showWeather(); } }
         ];
       }
@@ -579,6 +584,7 @@
     buildPanelPage();
   }
   function closePanel() {
+    if (document.activeElement !== stage) stage.focus(); // Never leave the name field focused behind a closed panel.
     panelStatus.classList.remove('is-on');
     if (S.panelFrom === 'inputs') buildInputs();
     S.zone = S.panelFrom;
@@ -620,6 +626,7 @@
       field.value = S.inputs[S.inputAt].name;
       setTimeout(function () { field.focus({ preventScroll: true }); field.select(); field.parentNode.closest('.panel').scrollLeft = 0; }, 0);
     } else if (document.activeElement !== stage) stage.focus();
+    armIdle(); // No screensaver while a name is typed.
   }
   function updatePanel() {
     var rows = pageRows(), i;
@@ -658,12 +665,13 @@
   // Daily photo comes first, then the bundled photos. Focus resting on a photo previews it full screen after a short
   // pause, so fast browsing never loads every photo. OK applies it; Back returns to Home's photo.
   var CHECK_ICON = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+  var PHOTO_ICON = '<svg class="ico pk-none" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="15.5" cy="9.5" r="1.5"/></svg>';
   function pickerPhoto(n) { var t = H.pickerTarget(n); return t.daily ? dailyPhoto : bundled(t.wall); }
   function openPicker() {
     if (!pkGrid.firstChild) {
       pkGrid.innerHTML = [{ name: 'Daily photo' }].concat(WALLS).map(function (w, n) {
         return '<div class="pk-item" data-z="pk" data-i="' + n + '" style="transform:translate3d(' + (PK_LEFT + (n % 2) * (THUMB_W + PK_GAP)) + 'px,' + (PK_TOP + Math.floor(n / 2) * PK_ROW) + 'px,0)">'
-          + '<div class="pk-thumb"><div class="pk-face squircle"><img alt=""' + (n ? ' src="' + ASSETS + 'wallpapers/' + w.id + '-thumb.jpg"' : '') + '><div class="t-sheen"></div>' + thumbRim + '</div>'
+          + '<div class="pk-thumb"><div class="pk-face squircle">' + (n ? '' : PHOTO_ICON) + '<img alt=""' + (n ? ' src="' + ASSETS + 'wallpapers/' + w.id + '-thumb.jpg"' : '') + '><div class="t-sheen"></div>' + thumbRim + '</div>'
           + '<span class="pk-check">' + CHECK_ICON + '</span></div><div class="pk-name"><span>' + esc(w.name) + '</span></div></div>';
       }).join('');
     }
@@ -681,12 +689,13 @@
     var items = pkGrid.children, n = S.pk.i, p = pickerPhoto(n), lastFirst = Math.max(0, Math.ceil(items.length / 2) - 2), thumb = items[0].querySelector('img'), i;
     for (i = 0; i < items.length; i++) toggle(items[i], 'is-applied', i === H.pickerIndex(S.daily, S.wall));
     if (dailyPhoto && thumb.getAttribute('src') !== dailyPhoto.src) thumb.src = dailyPhoto.src;
+    toggle(items[0], 'is-none', !dailyPhoto);
     S.pk.scroll = -clamp(Math.floor(n / 2) - 1, 0, lastFirst) * PK_ROW;
     toggle(pickerEl, 'is-instant', S.pk.first);
     pkGrid.style.transform = 'translate3d(0,' + S.pk.scroll + 'px,0)';
     if (S.pk.first) { void pickerEl.offsetWidth; pickerEl.classList.remove('is-instant'); S.pk.first = false; }
     pkTitle.textContent = n ? p.title : 'Daily photo';
-    pkCredit.textContent = n ? p.credit : dailyPhoto ? dailyPhoto.credit + ' · a new one each day' : 'A new photo each day, once the TV is online';
+    pkCredit.textContent = n ? p.credit : dailyPhoto ? dailyPhoto.credit + ' · a new one each day' : dailyRetry === Infinity ? 'This TV can’t make the daily photo’s glass' : 'A new photo each day, once the TV is online';
     clearTimeout(previewTimer);
     if (p && shownKey !== p.key) previewTimer = setTimeout(function () { showPhoto(p); }, 260);
   }
@@ -704,7 +713,6 @@
       if (!t.daily) S.wall = t.wall;
       save();
       showHome();
-      if (t.daily && !dailyPhoto) toast('The daily photo appears once the TV is online.');
     }
     else if (k === 'back') closePicker();
   }
@@ -719,10 +727,13 @@
     var i;
     if (!edTiles.firstChild) {
       edTiles.innerHTML = APPS.map(function (a, n) { return '<div class="ed-slot" data-id="' + a.id + '">' + appHtml(a, 'edapp', n, 0) + '<div class="ed-name"><span>' + esc(a.name) + '</span></div></div>'; }).join('');
+      edSlots = {};
       for (i = 0; i < edTiles.children.length; i++) {
         edSlots[edTiles.children[i].getAttribute('data-id')] = edTiles.children[i];
         edTiles.children[i].firstChild.insertAdjacentHTML('beforeend', ringSvg);
       }
+    }
+    if (!$('edFree').firstChild) {
       for (i = 0; i < FAV_MAX; i++) $('edFree').insertAdjacentHTML('beforeend', '<svg class="ed-free" viewBox="0 0 ' + TILE_W + ' ' + TILE_H + '" style="left:' + (GRID_LEFT + i * PITCH) + 'px" aria-hidden="true"><path d="' + tilePath + '"/><text x="125" y="84">Free</text></svg>');
     }
     S.ed = { focus: S.favIds[0], col: 0, carry: null, scroll: 0, hint: ED_HINT, first: true };
@@ -843,12 +854,23 @@
   // photos (the bundled ones when offline) and changes only the background and caption, never Home's choice or glass.
   // Home writes no image files; the web engine's cache keeps recently loaded photos and evicts them by itself.
   var shownKey = '', photoToken = 0, dailyPhoto = null, dailyBusy = false, dailyRetry = 0, appliedGlass = null, retiredGlass = [];
-  var slides = [], nextSlide = null, slideId = '', slid = false;
+  var slides = [], nextSlide = null, slideId = '', slid = false, onlineSlides = 0;
+  // Samsung's screensaver covers ours after a minute or two while ours keeps running, so each screensaver session
+  // loads at most this many online photos and then shows the bundled ones.
+  var SLIDE_LIMIT = 10;
+  // A photo that hasn't loaded after 20 seconds counts as failed, so a stalled request never blocks the next one.
   function loadImage(src, cors, done) {
-    var im = new Image();
+    var im = new Image(), timer = setTimeout(function () { finish(null); }, 20000);
+    function finish(result) {
+      if (!timer) return;
+      clearTimeout(timer);
+      timer = null;
+      im.onload = im.onerror = null;
+      done(result);
+    }
     if (cors) im.crossOrigin = 'anonymous';
-    im.onload = function () { done(im); };
-    im.onerror = function () { done(null); };
+    im.onload = function () { finish(im); };
+    im.onerror = function () { finish(null); };
     im.src = src;
   }
   function preload(urls, done) {
@@ -864,7 +886,7 @@
   }
   function homePhoto() { return S.daily && dailyPhoto ? dailyPhoto : bundled(S.wall); }
   function photoClasses(w) {
-    var keep = [], i;
+    var keep = [], i, lift;
     for (i = 0; i < stage.classList.length; i++) if (stage.classList[i].indexOf('tone-') !== 0) keep.push(stage.classList[i]);
     keep.push('tone-' + (w.tone || 'dark'));
     stage.className = keep.join(' ');
@@ -873,6 +895,14 @@
     stage.style.setProperty('--tint-tl', (0.36 + (w.frostVeil || 0.12) * 0.5 + (w.clockMist ? 0.12 : 0)).toFixed(3));
     stage.style.setProperty('--tint-tr', ({ light: 0.34, mist: 0.5, dark: 0.62 }[w.ut && w.ut.tr] || 0.4) + (w.tone === 'light' ? 0.04 : 0));
     stage.style.setProperty('--dock-tint', (0.20 + (w.frostVeil || 0.12) * 0.5).toFixed(3));
+    // A bright online photo also darkens the panels, plates and shades over it; bundled photos keep their tints.
+    lift = w.lift || 0;
+    stage.style.setProperty('--panel-tint', (0.56 + lift).toFixed(3));
+    stage.style.setProperty('--menu-tint', (0.58 + lift).toFixed(3));
+    stage.style.setProperty('--veil', (0.42 + lift).toFixed(3));
+    stage.style.setProperty('--plate-tint', (0.34 + lift * 1.5).toFixed(3));
+    stage.style.setProperty('--empty-tint', (0.28 + lift).toFixed(3));
+    stage.style.setProperty('--caption-shade', (0.55 + lift).toFixed(3));
   }
   function swapPhoto(src) {
     var swap = front;
@@ -900,11 +930,17 @@
     });
   }
   function showHome() { var p = homePhoto(); if (p) showPhoto(p); }
+  // The part of a photo that covers a w × h box, centred, as the background shows it (object-fit: cover).
+  function cover(img, w, h) {
+    var s = Math.max(w / img.naturalWidth, h / img.naturalHeight), sw = w / s, sh = h / s;
+    return [(img.naturalWidth - sw) / 2, (img.naturalHeight - sh) / 2, sw, sh];
+  }
   // An online photo's glass, after CleanFrame's material recipe (scripts/build-materials.mjs): the photo with mirrored
-  // edges so the blur doesn't darken them, blurred 28 px for the library and 42 px for the frost, both slightly
-  // desaturated. Made at half size, which the blur hides, so it costs a moment once a day. The photo is the clear layer.
+  // edges so the blur doesn't darken them, softened 2 px for the clear layer, blurred 28 px for the library and 42 px
+  // for the frost. Made at half size, which the blur hides, once for each new photo and again after a restart.
+  // done(null, true) means this TV can't do it at all (no canvas filters, or the photo can't be read back).
   function makeGlass(img, done) {
-    var w = 960, h = 540, pad = 48, out = { clear: img.src }, left = 2, padded, pc, x, y;
+    var w = 960, h = 540, pad = 48, out = {}, left = 3, r = cover(img, w, h), padded, pc, x, y;
     function canvas(cw, ch) { var c = document.createElement('canvas'); c.width = cw; c.height = ch; return c; }
     try {
       padded = canvas(w + 2 * pad, h + 2 * pad);
@@ -912,57 +948,56 @@
       if (!('filter' in pc)) throw new Error('No canvas filters');
       for (y = -1; y <= 1; y++) for (x = -1; x <= 1; x++) {
         pc.setTransform(x ? -1 : 1, 0, 0, y ? -1 : 1, pad + (x === 1 ? 2 * w : 0), pad + (y === 1 ? 2 * h : 0));
-        pc.drawImage(img, 0, 0, w, h);
+        pc.drawImage(img, r[0], r[1], r[2], r[3], 0, 0, w, h);
       }
-      [['blur', 14], ['frost', 21]].forEach(function (m) {
+      [['clear', 1, 1.06], ['blur', 14, 0.92], ['frost', 21, 0.92]].forEach(function (m) {
         var c = canvas(w, h), cx = c.getContext('2d');
-        cx.filter = 'blur(' + m[1] + 'px) saturate(.92)';
+        cx.filter = 'blur(' + m[1] + 'px) saturate(' + m[2] + ')';
         cx.drawImage(padded, -pad, -pad);
         c.toBlob(function (b) {
           out[m[0]] = b ? window.URL.createObjectURL(b) : '';
           if (--left) return;
-          if (out.blur && out.frost) done(out); else { retiredGlass.push(out); sweepGlass(); done(null); }
+          if (out.clear && out.blur && out.frost) done(out); else { retiredGlass.push(out); sweepGlass(); done(null, false); }
         }, 'image/jpeg', 0.86);
       });
-    } catch (e) { done(null); }
+    } catch (e) { done(null, true); }
   }
   // Glass made for an earlier daily photo is released once nothing shows it.
   function sweepGlass() {
     retiredGlass = retiredGlass.filter(function (g) {
       if (g === appliedGlass) return true;
-      if (g.blur) window.URL.revokeObjectURL(g.blur);
-      if (g.frost) window.URL.revokeObjectURL(g.frost);
+      ['clear', 'blur', 'frost'].forEach(function (m) { if (g[m]) window.URL.revokeObjectURL(g[m]); });
       return false;
     });
   }
   // How bright the photo is behind the top bar and the dock, from a 48 × 27 copy.
   function measureLook(img) {
-    var c = document.createElement('canvas'), cx;
+    var c = document.createElement('canvas'), r = cover(img, H.LOOK_W, H.LOOK_H), cx;
     c.width = H.LOOK_W;
     c.height = H.LOOK_H;
     try {
       cx = c.getContext('2d');
-      cx.drawImage(img, 0, 0, H.LOOK_W, H.LOOK_H);
+      cx.drawImage(img, r[0], r[1], r[2], r[3], 0, 0, H.LOOK_W, H.LOOK_H);
       return H.lookOf(cx.getImageData(0, 0, H.LOOK_W, H.LOOK_H).data);
     } catch (e) { return H.photoLook(0.5, 0.5, 0.5, 0.5); }
   }
   // Today's photo is picked once a day from a random page of Picsum's list, then loaded and given its glass.
-  // A failure retries in 5 minutes; until then Home keeps the bundled photo.
+  // A failure retries in 5 minutes, and never on a TV that can't make the glass; meanwhile Home keeps the bundled photo.
   function updateDaily() {
     var today = H.dayKey(new Date()), pick = H.dailyFor(S.dailyPick, today);
     if ((dailyPhoto && pick && dailyPhoto.id === pick.id) || dailyBusy || Date.now() < dailyRetry) return;
     dailyBusy = true;
-    function fail() {
+    function fail(never) {
       dailyBusy = false;
-      dailyRetry = Date.now() + 5 * 60 * 1000;
+      dailyRetry = never ? Infinity : Date.now() + 5 * 60 * 1000;
       if (!shownKey) showHome(); // Starting offline: show the bundled photo at once.
     }
     function load(p) {
       var src = H.photoUrl(p.id, 1920, 1080);
       loadImage(src, true, function (img) {
         if (!img) { fail(); return; }
-        makeGlass(img, function (glass) {
-          if (!glass) { fail(); return; }
+        makeGlass(img, function (glass, never) {
+          if (!glass) { fail(never); return; }
           if (dailyPhoto) retiredGlass.push(dailyPhoto.glass);
           dailyPhoto = { key: 'daily:' + p.id, id: p.id, src: src, title: '', credit: H.credit(p.author), look: measureLook(img), glass: glass };
           dailyBusy = false;
@@ -984,7 +1019,7 @@
   function prepareSlide() {
     var p = H.pickPhoto(slides, Math.random, slideId), token = photoToken;
     nextSlide = null;
-    if (!p) return;
+    if (!p || onlineSlides >= SLIDE_LIMIT) return;
     loadImage(H.photoUrl(p.id, 1920, 1080), false, function (img) {
       if (img && S.ambient && token === photoToken) nextSlide = { id: p.id, src: img.src, credit: H.credit(p.author) };
     });
@@ -993,6 +1028,7 @@
     var s = nextSlide, token = photoToken, w;
     if (s) {
       slideId = s.id;
+      onlineSlides++;
       showSlide(s.src, '', s.credit);
     } else {
       S.ambWall = (S.ambWall + 1) % WALLS.length;
@@ -1027,7 +1063,7 @@
     ambDate.textContent = DAYS[d.getDay()] + ', ' + MONTHS[d.getMonth()] + ' ' + ordinal(d.getDate());
     updateWeather();
     showWeather();
-    if (S.daily) updateDaily();
+    if (S.daily && shownKey && !S.ambient) updateDaily();
   }
   // The status capsule changes width with the hour's digits and the weather; its glass must follow its left edge.
   function fitStatus() { if (statusEl.offsetWidth !== statusWidth) { statusWidth = statusEl.offsetWidth; registerGlass(); } }
@@ -1045,15 +1081,15 @@
     partly: '<path d="M8 2.6v1.6M3.3 4.6l1.1 1.1M1.6 9.2h1.6M12.7 4.6l-1.1 1.1"/><path d="M4.9 11.6A3.7 3.7 0 0 1 11.7 7"/>' + CLOUD,
     'partly-night': '<path d="M10.1 7A3.6 3.6 0 1 1 6 2.9a3 3 0 0 0 4.1 4.1Z"/>' + CLOUD,
     cloud: '<path d="M6.6 17.7h9.9a4 4 0 0 0 .7-7.9 5.4 5.4 0 0 0-10.4 1A3.5 3.5 0 0 0 6.6 17.7Z"/>',
-    fog: '<path d="M5 8h14M3 12h18M6 16h12"/>',
+    fog: HIGH_CLOUD + '<path d="M4 18.5h16M7 21.5h10"/>',
     rain: HIGH_CLOUD + '<path d="M8.5 18l-1 3M12.5 18l-1 3M16.5 18l-1 3"/>',
-    snow: HIGH_CLOUD + '<path d="M8 18.5h.01M12 18.5h.01M16 18.5h.01M10 21.5h.01M14 21.5h.01"/>',
+    snow: HIGH_CLOUD + '<path d="M8 17.6v2.8M6.6 19h2.8M16 17.6v2.8M14.6 19h2.8M12 19.6v2.8M10.6 21h2.8"/>',
     storm: HIGH_CLOUD + '<path d="M13 15.5 10.5 19h3L11 22.5"/>'
   };
   function getJson(url, done) {
     var xhr = new XMLHttpRequest();
-    xhr.onload = function () { var d = null; try { d = xhr.status === 200 ? JSON.parse(xhr.responseText) : null; } catch (e) { d = null; } done(d); };
-    xhr.onerror = xhr.ontimeout = function () { done(null); };
+    xhr.onload = function () { var d = null; try { d = xhr.status === 200 ? JSON.parse(xhr.responseText) : null; } catch (e) { d = null; } done(d, xhr.status); };
+    xhr.onerror = xhr.ontimeout = function () { done(null, 0); };
     xhr.open('GET', url);
     xhr.timeout = 15000;
     xhr.send();
@@ -1077,9 +1113,9 @@
       });
     }
     if (S.place) { forecast(S.place); return; }
-    getJson(H.zipUrl(zip), function (data) {
+    getJson(H.zipUrl(zip), function (data, status) {
       var place = H.parsePlace(data, zip);
-      if (!place) { finish(false); return; }
+      if (!place) { if (status === 404) zipMissing = zip; finish(false); return; }
       if (zip === S.weather.zip) S.place = place;
       forecast(place);
     });
@@ -1102,19 +1138,27 @@
     showWeather();
     updateWeather();
   }
+  // No screensaver while an HDMI port shows, or while a name is typed (the TV's keyboard may keep keys from Home).
   function armIdle() {
     clearTimeout(idleTimer);
-    if (AMBIENT[S.amb].ms && !S.ambient && !tvWindowOn) idleTimer = setTimeout(enterAmbient, AMBIENT[S.amb].ms);
+    if (AMBIENT[S.amb].ms && !S.ambient && !tvWindowOn && !renaming()) idleTimer = setTimeout(enterAmbient, AMBIENT[S.amb].ms);
   }
+  function renaming() { return S.zone === 'panel' && pageDef().custom === 'rename'; }
   // On this QD-OLED, Samsung's panel-protection screensaver can't be disabled and takes over after a still-ish
   // minute or two. We don't fight it (it protects the panel); ours shows first, then Samsung's runs on long idle.
 
-  // Our screensaver only counts idle time while Home is in front; leaving also releases a held OK.
+  // Our screensaver only counts idle time while Home is in front. Leaving releases a held key and closes the HDMI
+  // view; coming back reads the TV's apps (and, on the Inputs tab, its HDMI ports) again.
   document.addEventListener('visibilitychange', function () {
-    okHeld = false;
-    okCancel();
-    if (document.hidden && tvWindowOn) tvHideSource();
-    if (document.hidden) clearTimeout(idleTimer); else armIdle();
+    letGo();
+    if (document.hidden) {
+      if (tvWindowOn) tvHideSource();
+      clearTimeout(idleTimer);
+    } else {
+      armIdle();
+      refreshApps();
+      if (S.tab === 1) tvReadSources();
+    }
   });
   // A slow drift keeps the clock from burning a fixed shape into the OLED panel.
   function drift() { ambDrift.style.transform = 'translate3d(' + Math.round(Math.random() * 40 - 20) + 'px,' + Math.round(Math.random() * 24 - 12) + 'px,0)'; }
@@ -1125,10 +1169,10 @@
     if (S.zone === 'panel') closePanel();
     if (S.zone === 'dialog') S.zone = 'fav';
     if (S.zone === 'menu') S.zone = S.menuFrom;
-    okHeld = false;
     okCancel();
     S.ambient = true;
     S.ambWall = S.wall;
+    onlineSlides = 0;
     slideId = dailyPhoto && shownKey === dailyPhoto.key ? dailyPhoto.id : ''; // Not shown twice in a row.
     clearTimeout(idleTimer);
     render();
@@ -1141,7 +1185,7 @@
       prepareSlide();
     });
   }
-    function exitAmbient() {
+  function exitAmbient() {
     S.ambient = false;
     stage.classList.remove('is-ambient');
     clearInterval(driftTimer);
@@ -1197,35 +1241,61 @@
     } catch (e) { audio = null; soundBroken = true; }
   }
 
+  // OK and Back act once per press, and so does any key that wakes Home or meets the HDMI view. Like CleanFrame's
+  // held-key map, a held key's repeats are ignored whether or not the TV flags them, until key-up, window blur or
+  // leaving the app, or 800 ms after the key's last event if no key-up arrives. Releasing OK resolves a tap.
+  var heldCode = 0, heldTimer = null;
+  function hold(code) {
+    heldCode = code;
+    clearTimeout(heldTimer);
+    heldTimer = setTimeout(release, 800);
+  }
+  function release() {
+    var ok = KEYS[heldCode] === 'ok';
+    heldCode = 0;
+    clearTimeout(heldTimer);
+    if (ok) okRelease();
+  }
+  function letGo() {
+    heldCode = 0;
+    clearTimeout(heldTimer);
+    okCancel();
+  }
   document.addEventListener('keydown', function (e) {
-    var k = KEYS[e.keyCode], was = focused;
+    var k = KEYS[e.keyCode], was = focused, digit = e.keyCode >= 96 && e.keyCode <= 105 ? e.keyCode - 96 : e.keyCode >= 48 && e.keyCode <= 57 ? e.keyCode - 48 : -1;
+    if (e.keyCode === heldCode) { e.preventDefault(); hold(e.keyCode); return; }
+    if (S.ambient || tvWindowOn) {
+      e.preventDefault();
+      hold(e.keyCode);
+      if (S.ambient) exitAmbient(); else if (k === 'back') tvHideSource();
+      return;
+    }
     if (document.activeElement && document.activeElement.classList.contains('p-field')) {
-      if (k === 'ok' || (k === 'back' && e.keyCode !== 8)) { e.preventDefault(); act(k); }
+      if (k === 'ok' || (k === 'back' && e.keyCode !== 8)) { e.preventDefault(); hold(e.keyCode); act(k); }
       return;
     }
     /* preview */if (e.keyCode === KEY_HINTS) { $('hints').classList.toggle('is-off'); return; }/* /preview */
-    if (tvWindowOn) { e.preventDefault(); if (k === 'back' && !e.repeat) tvHideSource(); return; }
-    if (S.ambient) { e.preventDefault(); if (!e.repeat) exitAmbient(); return; }
-    if (S.zone === 'panel' && pageDef().custom === 'zip' && ((e.keyCode >= 48 && e.keyCode <= 57) || (e.keyCode >= 96 && e.keyCode <= 105))) { zipDigit(e.keyCode - (e.keyCode >= 96 ? 96 : 48)); return; }
     /* preview */if (e.keyCode === KEY_AMBIENT) { enterAmbient(); return; }/* /preview */
-    if (!k) return;
+    if (!k && digit < 0) return;
     e.preventDefault();
     armIdle();
+    if (digit >= 0) { if (S.zone === 'panel' && !S.paging && pageDef().custom === 'zip') zipDigit(digit); return; }
     if (k !== 'ok' && okPending) okCancel(); // Another key during a hold cancels it.
+    if (k === 'ok' || (k === 'back' && e.keyCode !== 8)) {
+      if (e.repeat) return;
+      hold(e.keyCode);
+    } else if (e.repeat && k === 'back') return;
     if (k === 'ok') {
-      clearTimeout(okExpire);
-      okExpire = setTimeout(okRelease, 800);
-      if (okHeld || e.repeat) return;
-      okHeld = true;
       if (S.zone === 'fav' || S.zone === 'lib') { okPress(); return; }
       sound('select');
-    } else if (e.repeat && k === 'back') return;
+    }
     act(k);
     if (k !== 'ok' && focused !== was) sound(k);
   });
-  document.addEventListener('keyup', function (e) { if (KEYS[e.keyCode] === 'ok') okRelease(); });
-  window.addEventListener('blur', function () { okHeld = false; okCancel(); });
+  document.addEventListener('keyup', function (e) { if (e.keyCode === heldCode) release(); });
+  window.addEventListener('blur', letGo);
   /* preview */
+  var quietPress = false;
   // A click focuses the item and presses OK on it, so one click switches a tab or launches an app.
   stage.addEventListener('click', function (e) {
     var el = e.target, z, i;
@@ -1324,16 +1394,47 @@
 
   // CleanFrame's device.js lists the installed apps without Samsung's internal ones and names the brands it
   // knows. Any other app matches a logo here by name ("Tubi - Free Movies & TV" is "tubi"); the rest keep the
-  // TV's name and icon (HomeLogic.tvApp).
-  function start() {
-    if (!window.tizen || !window.tizen.application || !window.FrameDevice) { begin(); return; }
+  // TV's name and icon (HomeLogic.tvApp). The list is read at start and again whenever Home comes back to the
+  // front, so apps installed meanwhile join the library; a failed read retries every 10 seconds. Until a read
+  // succeeds, the sample apps hold Home's place and save() keeps the owner's Favorites and Hidden as they were.
+  var BRANDS = APPS, appsFromTv = !window.tizen, savedLists = null, appsKey = '', appsBusy = false, appsTimer = null;
+  function onTv() { return !!(window.tizen && window.tizen.application && window.FrameDevice); }
+  function readApps(done) {
+    appsBusy = true;
     window.FrameDevice.apps(function (err, entries) {
-      var brands = APPS, seen = {};
-      if (!err && entries.length) {
-        APPS = entries.map(function (e) { return H.tvApp(e, brands); }).filter(function (a) { var dup = seen[a.id]; seen[a.id] = true; return !dup; });
-      }
+      var seen = {}, list;
+      appsBusy = false;
+      clearTimeout(appsTimer);
+      if (err || !entries || !entries.length) { appsTimer = setTimeout(refreshApps, 10000); done(null); return; }
+      list = entries.map(function (e) { return H.tvApp(e, BRANDS); }).filter(function (a) { var dup = seen[a.id]; seen[a.id] = true; return !dup; });
+      done(list, list.map(function (a) { return a.id + '=' + a.name; }).join('|'));
+    });
+  }
+  function refreshApps() {
+    if (!onTv() || appsBusy || !S.favIds.length) return;
+    readApps(function (list, key) {
+      var keep = appsFromTv ? lists() : savedLists, next;
+      if (!list || key === appsKey) return;
+      if (S.ambient || S.zone === 'apps' || S.zone === 'menu') { appsTimer = setTimeout(refreshApps, 10000); return; } // Not mid-edit.
+      APPS = list;
+      appsKey = key;
+      appsFromTv = true;
+      next = H.homeLists(OWNER_APPS, allIds(), keep, FAV_MAX, nameOf);
+      S.favIds = next.fav;
+      S.hiddenIds = next.hid;
+      edTiles.innerHTML = ''; // The Apps editor rebuilds its tiles when it next opens.
+      buildHome();
+      buildResume();
+      if (S.zone === 'lib') S.zone = 'fav'; // Its rows may have changed.
+      render();
+    });
+  }
+  function start() {
+    if (!onTv()) { begin(); return; }
+    readApps(function (list, key) {
+      if (list) { APPS = list; appsKey = key; appsFromTv = true; }
       begin();
-      if (err || !entries.length) toast('Could not read the TV’s apps' + (err ? ': ' + err.message : '') + '. Showing sample apps.');
+      if (!list) toast('Home couldn’t read the TV’s apps yet and will try again shortly.');
     });
   }
   function begin() {

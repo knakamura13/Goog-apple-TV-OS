@@ -111,14 +111,21 @@ test('addFav respects the cap and unhides', () => {
   assert.deepEqual(plain(L.addFav({ fav: ['plex', 'hulu'], hid: [] }, 'plex', 2)), { fav: ['plex', 'hulu'], hid: [] });
 });
 
-test('inputName clears only the two old sample names in their own slots', () => {
-  assert.equal(L.inputName(0, 'PlayStation 5'), '');
-  assert.equal(L.inputName(1, 'Mac mini'), '');
-  assert.equal(L.inputName(1, 'PlayStation 5'), 'PlayStation 5');
-  assert.equal(L.inputName(2, 'Mac mini'), 'Mac mini');
-  assert.equal(L.inputName(0, 'Apple TV'), 'Apple TV');
-  assert.equal(L.inputName(0, 'x'.repeat(30)).length, 24);
-  assert.equal(L.inputName(0, undefined), '');
+test('inputName clears the two sample names from a test build\'s save, in their own slots only', () => {
+  assert.equal(L.inputName(0, 'PlayStation 5', true), '');
+  assert.equal(L.inputName(1, 'Mac mini', true), '');
+  assert.equal(L.inputName(1, 'PlayStation 5', true), 'PlayStation 5');
+  assert.equal(L.inputName(2, 'Mac mini', true), 'Mac mini');
+  assert.equal(L.inputName(0, 'Apple TV', true), 'Apple TV');
+  assert.equal(L.inputName(0, 'x'.repeat(30), true).length, 24);
+  assert.equal(L.inputName(0, undefined, true), '');
+});
+
+test('inputName keeps an owner\'s name that matches a sample name in a V1 save', () => {
+  assert.equal(L.inputName(0, 'PlayStation 5', false), 'PlayStation 5');
+  assert.equal(L.inputName(1, 'Mac mini', false), 'Mac mini');
+  assert.equal(L.inputName(0, 'x'.repeat(30), false).length, 24);
+  assert.equal(L.inputName(0, 7, false), '');
 });
 
 test('validIndex accepts whole numbers inside the list only', () => {
@@ -217,9 +224,12 @@ test('photo URLs and credits', () => {
 });
 
 test('photoLook darkens the glass over brighter areas', () => {
-  assert.deepEqual(plain(L.photoLook(0.6, 0.8, 0.7, 0.5)), { tone: 'light', ut: { tr: 'dark' }, clockMist: true, frostVeil: 0.44 });
-  assert.deepEqual(plain(L.photoLook(0.45, 0.75, 0.6, 0.2)), { tone: 'dark', ut: { tr: 'dark' }, clockMist: false, frostVeil: 0.12 });
-  assert.deepEqual(plain(L.photoLook(0.2, 0.35, 0.1, 0.3)), { tone: 'dark', ut: { tr: 'mist' }, clockMist: false, frostVeil: 0.248 });
+  assert.deepEqual(plain(L.photoLook(0.6, 0.8, 0.7, 0.5)), { tone: 'light', ut: { tr: 'dark' }, clockMist: true, frostVeil: 0.44, lift: 0.09 });
+  assert.deepEqual(plain(L.photoLook(0.45, 0.75, 0.6, 0.2)), { tone: 'dark', ut: { tr: 'dark' }, clockMist: false, frostVeil: 0.12, lift: 0 });
+  assert.deepEqual(plain(L.photoLook(0.2, 0.35, 0.1, 0.3)), { tone: 'dark', ut: { tr: 'mist' }, clockMist: false, frostVeil: 0.248, lift: 0 });
+  assert.equal(L.photoLook(0.7, 0.2, 0.2, 0.2).lift, 0.15); // Brighter photos darken the panels more ...
+  assert.equal(L.photoLook(0.95, 0.2, 0.2, 0.2).lift, 0.25); // ... up to a limit.
+  assert.equal(L.photoLook(0.86, 0.2, 0.2, 0.2).lift, 0.246);
   assert.equal(L.photoLook(0.2, 0.34, 0.1, 0.1).ut.tr, 'light');
   assert.equal(L.photoLook(0.2, 0.74, 0.1, 0.1).ut.tr, 'mist');
   assert.equal(L.photoLook(0.46, 0.2, 0.61, 0.1).tone, 'light');
@@ -233,10 +243,10 @@ test('lookOf measures the top corners and the dock band of a 48 x 27 copy', () =
   const fill = (value, cells) => { const a = new Uint8ClampedArray(size).fill(value); for (const [x0, y0, x1, y1, v] of cells || []) for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) a.fill(v, (y * L.LOOK_W + x) * 4, (y * L.LOOK_W + x) * 4 + 3); return a; };
   assert.equal(L.LOOK_W, 48);
   assert.equal(L.LOOK_H, 27);
-  assert.deepEqual(plain(L.lookOf(fill(255))), { tone: 'light', ut: { tr: 'dark' }, clockMist: true, frostVeil: 0.44 });
-  assert.deepEqual(plain(L.lookOf(fill(0))), { tone: 'dark', ut: { tr: 'light' }, clockMist: false, frostVeil: 0.12 });
+  assert.deepEqual(plain(L.lookOf(fill(255))), { tone: 'light', ut: { tr: 'dark' }, clockMist: true, frostVeil: 0.44, lift: 0.25 });
+  assert.deepEqual(plain(L.lookOf(fill(0))), { tone: 'dark', ut: { tr: 'light' }, clockMist: false, frostVeil: 0.12, lift: 0 });
   // Only the time's corner is bright.
-  assert.deepEqual(plain(L.lookOf(fill(0, [[37, 1, 45, 2, 255]]))), { tone: 'dark', ut: { tr: 'dark' }, clockMist: false, frostVeil: 0.12 });
+  assert.deepEqual(plain(L.lookOf(fill(0, [[37, 1, 45, 2, 255]]))), { tone: 'dark', ut: { tr: 'dark' }, clockMist: false, frostVeil: 0.12, lift: 0 });
   // Only the tabs' corner is bright.
   assert.equal(L.lookOf(fill(0, [[2, 1, 10, 2, 255]])).clockMist, true);
   // Bright just outside each region changes nothing.

@@ -62,11 +62,11 @@
     return { fav: lists.fav.concat([id]), hid: lists.hid.filter(function (x) { return x !== id; }) };
   };
 
-  // Early builds saved two sample input names the owners never chose; clear exactly those.
+  // Test builds saved two sample input names the owners never chose; a save from one of them loses exactly those.
   var SAMPLE_INPUT_NAMES = ['PlayStation 5', 'Mac mini'];
-  L.inputName = function (index, savedName) {
+  L.inputName = function (index, savedName, fromTestBuild) {
     if (typeof savedName !== 'string') return '';
-    return SAMPLE_INPUT_NAMES[index] === savedName ? '' : savedName.slice(0, 24);
+    return fromTestBuild && SAMPLE_INPUT_NAMES[index] === savedName ? '' : savedName.slice(0, 24);
   };
 
   // An index saved for a list stays only while it is a whole number inside the list.
@@ -149,12 +149,14 @@
   // corner behind the time, the top-left behind the tabs, and the dock band. In the catalogue ut.tr names the ink
   // that reads there, so a bright corner is 'dark'. The brighter an area, the more the glass over it is darkened
   // (photoClasses), so white text stays readable. Calibrated on the bundled photos, erring towards darker glass.
+  // lift, which the bundled catalogue doesn't have, darkens the panels, menus and plates over a bright photo.
   L.photoLook = function (avg, topRight, topLeft, dock) {
     return {
       tone: avg > 0.45 ? 'light' : 'dark',
       ut: { tr: topRight < 0.35 ? 'light' : topRight < 0.75 ? 'mist' : 'dark' },
       clockMist: topLeft > 0.6,
-      frostVeil: Math.round(Math.max(0.12, Math.min(0.44, 0.12 + (dock - 0.2) * 1.28)) * 1000) / 1000
+      frostVeil: Math.round(Math.max(0.12, Math.min(0.44, 0.12 + (dock - 0.2) * 1.28)) * 1000) / 1000,
+      lift: Math.round(Math.max(0, Math.min(0.25, (avg - 0.45) * 0.6)) * 1000) / 1000
     };
   };
   // The look from a 48 × 27 RGBA copy of the photo, one sample per 40 × 40 screen pixels.

@@ -6,7 +6,11 @@
 //
 // Prints PASS / FAIL per assertion and exits 1 on any failure, page error or unexpected resource failure.
 // LIBRARY_SECTION=<text> runs only the sections whose names contain <text>.
-import { APP, PHOTOS, SAMSUNG_HOME, SAMSUNG_SETTINGS, hold, launchBrowser, openLauncher, press, settled, snapshot, startPreview } from './library-harness.mjs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { APP, PHOTOS, SAMSUNG_HOME, SAMSUNG_SETTINGS, hold, launchBrowser, openLauncher, press, repo, settled, snapshot, startPreview, startStatic } from './library-harness.mjs';
 
 // First run with the stand-in TV: the first six installed apps from the owners' list are favourites, the rest of
 // that list fills the library (A–Z) and every other installed app starts hidden.
@@ -36,7 +40,7 @@ async function section(name, options, body) {
   console.log('\n## ' + name);
   let launcher;
   try {
-    launcher = await openLauncher(browser, preview.base, options);
+    launcher = await openLauncher(browser, options.base || preview.base, options);
     await body(launcher, launcher.page);
   } catch (error) {
     check(name + ': ran to the end', false, error.message.split('\n')[0]);
@@ -80,9 +84,11 @@ const keyDownOnly = (page, keyCode) => page.evaluate(code => {
   document.dispatchEvent(event);
 }, keyCode);
 const photoMatches = (page, pattern, timeout = 8000) => page.waitForFunction(source => new RegExp(source).test(document.querySelector('.bg-photo.is-front')?.getAttribute('src') || ''), pattern.source, { timeout });
-const isOnline = url => ONLINE_PHOTO.test(url);
 const onlineId = url => (ONLINE_PHOTO.exec(url) || [])[1];
 const author = id => PHOTOS.find(photo => photo.id === id)?.author;
+const DAILY_GLASS = ['blur blob', 'clear blob', 'frost blob']; // All three layers made in the page.
+const tintsOf = page => page.evaluate(() => Object.fromEntries(['--tint-tr', '--panel-tint', '--plate-tint'].map(name => [name, parseFloat(getComputedStyle(document.getElementById('stage')).getPropertyValue(name))])));
+const visibility = (page, hidden) => page.evaluate(value => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => value }); document.dispatchEvent(new Event('visibilitychange')); }, hidden);
 // Back out of Settings to Home: the picker or editor, every page, then the panel.
 async function closeSettings(page) {
   const open = s => ['is-panel', 'is-picker', 'is-editor'].some(cls => has(s, cls));
@@ -232,6 +238,12 @@ try {
     check('Holding OK on a favourite opens its menu instead of launching', has(s, 'is-menu') && s.menu.title === 'Plex' && same(s.launches, []), [s.menu, s.launches]);
     check('Favourite menu offers Open, Move, Remove from Favorites, Hide', same(s.menu.rows, ['Open', 'Move', 'Remove from Favorites', 'Hide']), s.menu.rows);
     check('The menu opens with Open focused', focusIs(s, 'menu', 0) && s.f.label === 'Open', s.f);
+    await page.waitForTimeout(300); // The menu settles at full size.
+    const fits = await page.evaluate(() => {
+      const menu = document.querySelector('.tilemenu').getBoundingClientRect();
+      return [...document.querySelectorAll('.tm-row')].every(row => { const r = row.getBoundingClientRect(); return r.top >= menu.top && r.bottom <= menu.bottom - 12; });
+    });
+    check('All four rows fit inside the menu', fits);
     await press(page, 'Escape');
     s = await snapshot(page);
     check('Back closes the menu and returns to the same favourite', !has(s, 'is-menu') && focusIs(s, 'fav', 0), s.f);
@@ -316,6 +328,13 @@ try {
     await afterCallbacks(page);
     s = await snapshot(page);
     check('Without key-up, the next OK works the menu (Open launches YouTube)', same(s.launches, [APP.plex, APP.youtube]) && !has(s, 'is-menu'), [s.launches, s.classes]);
+    await page.waitForTimeout(900);
+    await keyDownOnly(page, 13);
+    await page.waitForTimeout(200);
+    await keyDownOnly(page, 13); // A repeat the TV doesn't flag as one.
+    await page.waitForTimeout(400);
+    s = await snapshot(page);
+    check('A repeat the TV doesn\'t flag still counts as holding: the menu opens and nothing launches', has(s, 'is-menu') && same(s.launches, [APP.plex, APP.youtube]), [s.classes, s.launches]);
   });
 
   await section('Edit in place: leaving the Apps editor after Move', {}, async (launcher, page) => {
@@ -479,7 +498,7 @@ try {
     let s = await snapshot(page);
     const id = onlineId(s.photo);
     check('A first run shows an online photo (a landscape one)', !!id, s.photo);
-    check('Its glass is made in the page: blurred and frosted copies, the photo itself as the clear layer', same(s.glass, ['blur blob', 'clear ' + s.photo, 'frost blob']), s.glass);
+    check('Its glass is made in the page: softened, blurred and frosted copies', same(s.glass, DAILY_GLASS), s.glass);
     check('Its caption credits the photographer', s.caption.credit === 'Photo by ' + author(id) + ' on Unsplash' && s.caption.title === '', s.caption);
     check('Today\'s pick is saved', s.saved?.daily === true && s.saved?.photo?.id === id && /^\d{4}-\d\d-\d\d$/.test(s.saved?.photo?.day), s.saved?.photo);
     check('One list page was asked for', launcher.requests.filter(url => /v2\/list/.test(url)).length === 1, launcher.requests);
@@ -504,7 +523,7 @@ try {
     await press(page, 'Enter');
     await photoMatches(page, new RegExp('/id/' + id + '/'));
     s = await snapshot(page);
-    check('Choosing Daily photo again brings back today\'s photo and its glass', s.saved?.daily === true && same(s.glass, ['blur blob', 'clear ' + s.photo, 'frost blob']), [s.saved?.daily, s.glass]);
+    check('Choosing Daily photo again brings back today\'s photo and its glass', s.saved?.daily === true && same(s.glass, DAILY_GLASS), [s.saved?.daily, s.glass]);
     await press(page, 'Escape');
     await settled(page);
     check('The Wallpaper row says Daily photo', rowValue(await snapshot(page), 'Wallpaper') === 'Daily photo');
@@ -514,16 +533,17 @@ try {
     await photoMatches(page, ONLINE_PHOTO);
     const before = await snapshot(page), id = onlineId(before.photo);
     check('Before midnight the pick is for October 31', before.saved?.photo?.day === '2026-10-31', before.saved?.photo);
-    await page.clock.fastForward(3 * 60 * 1000);
+    await page.clock.fastForward(61000); // The screensaver starts at 23:59.
+    await page.clock.fastForward(2 * 60 * 1000);
     await page.clock.fastForward(6000); // The clock checks every 5 s.
-    await page.waitForFunction(() => /"day":"2026-11-01"/.test(localStorage.getItem('library-prototype.v1')), null, { timeout: 8000 }).catch(() => {});
+    await page.waitForTimeout(300);
     let after = await snapshot(page);
-    check('The screensaver keeps showing its photo while the new one is picked', has(after, 'is-ambient') && after.photo === before.photo, [after.classes, after.photo]);
-    await press(page, 'ArrowDown'); // Wake: Home shows its photo for the new day.
+    check('Past midnight no new daily photo is picked while the screensaver runs', has(after, 'is-ambient') && after.saved?.photo?.day === '2026-10-31', [after.classes, after.saved?.photo]);
+    await press(page, 'ArrowDown'); // Wake: Home picks and shows its photo for the new day.
     await page.waitForFunction(old => { const src = document.querySelector('.bg-photo.is-front')?.getAttribute('src') || ''; return /picsum/.test(src) && !src.includes('/id/' + old + '/'); }, id, { timeout: 8000 }).catch(() => {});
     after = await snapshot(page);
     check('After midnight Home shows a different photo, picked for November 1', onlineId(after.photo) && onlineId(after.photo) !== id && after.saved?.photo?.day === '2026-11-01', [before.photo, after.photo, after.saved?.photo]);
-    check('The new photo gets its own glass', same(after.glass, ['blur blob', 'clear ' + after.photo, 'frost blob']), after.glass);
+    check('The new photo gets its own glass', same(after.glass, DAILY_GLASS), after.glass);
   });
 
   await section('Daily photo: the screensaver slideshow', { clock: new Date('2026-10-31T12:00:00') }, async (launcher, page) => {
@@ -567,11 +587,34 @@ try {
     await press(page, 'ArrowDown');
     await photoMatches(page, /\/valley\.jpg$/);
     check('Waking restores the bundled Home photo', !has(await snapshot(page), 'is-ambient'));
-    const tries = launcher.requests.length;
-    await page.clock.fastForward(5 * 60 * 1000 + 6000);
-    await page.waitForTimeout(300);
-    check('A failed check retries after 5 minutes, not before', launcher.requests.length > tries, [tries, launcher.requests.length]);
   });
+
+  await section('Offline: retries', { offline: true, clock: new Date('2026-10-31T12:00:00'), seed: { version: 1, daily: true, amb: 3 } }, async (launcher, page) => {
+    await photoMatches(page, /\/valley\.jpg$/, 5000);
+    await page.waitForTimeout(300);
+    const first = launcher.requests.length;
+    check('A first try was made for the weather and the daily photo', launcher.requests.some(url => /zippopotam/.test(url)) && launcher.requests.some(url => /v2\/list/.test(url)), launcher.requests);
+    await page.clock.fastForward(4 * 60 * 1000);
+    await page.waitForTimeout(300);
+    check('Nothing is tried again within 5 minutes', launcher.requests.length === first, launcher.requests.slice(first));
+    await page.clock.fastForward(66 * 1000);
+    await page.waitForTimeout(300);
+    const later = launcher.requests.slice(first);
+    check('After 5 minutes the weather and the daily photo are tried again', later.some(url => /zippopotam/.test(url)) && later.some(url => /v2\/list/.test(url)), later);
+  });
+
+  const tints = {};
+  for (const [label, ids] of [['bright', ['1003']], ['dark', ['1005']]]) {
+    await section('Daily photo: the tints over a ' + label + ' photo', { photoIds: ids }, async (launcher, page) => {
+      await photoMatches(page, new RegExp('/id/' + ids[0] + '/'));
+      tints[label] = await tintsOf(page);
+      check('The tints are set from the ' + label + ' photo', Object.values(tints[label]).every(value => value > 0 && value < 1), tints[label]);
+    });
+  }
+  if (tints.bright && tints.dark) {
+    check('A bright photo darkens the time\'s capsule more than a dark one', tints.bright['--tint-tr'] > tints.dark['--tint-tr'], tints);
+    check('A bright photo darkens the panels and the resume plate; a dark one keeps the bundled tints', tints.bright['--panel-tint'] > 0.56 && tints.dark['--panel-tint'] === 0.56 && tints.bright['--plate-tint'] > tints.dark['--plate-tint'], tints);
+  }
 
   await section('Weather', { clock: new Date('2026-10-31T12:00:00') }, async (launcher, page) => {
     await page.waitForFunction(() => !document.querySelector('.weather').classList.contains('is-off'), null, { timeout: 5000 });
@@ -596,6 +639,18 @@ try {
     await page.waitForTimeout(300);
     const later = weatherCalls().slice(calls);
     check('After 30 minutes one new forecast, reusing the saved place', later.length === 1 && /open-meteo/.test(later[0]), later);
+    await openSettings(page);
+    await openRow(page, 'Weather');
+    await openRow(page, 'ZIP code');
+    for (const digit of '00000') await press(page, digit);
+    await press(page, 'Enter');
+    await settled(page);
+    await page.waitForFunction(() => /not found/.test(document.getElementById('panelRows').textContent), null, { timeout: 5000 }).catch(() => {});
+    s = await snapshot(page);
+    check('A ZIP code Zippopotam.us doesn\'t know shows as not found, and the weather hides', rowValue(s, 'ZIP code') === '00000 · not found' && !s.weather.on, [s.panel.rows, s.weather]);
+    const expected = launcher.failures.filter(failure => /zippopotam\.us\/us\/00000$/.test(failure));
+    check('Its lookup was the only failed request', expected.length >= 1 && expected.length === launcher.failures.length, launcher.failures);
+    launcher.failures.length = 0;
   });
 
   await section('Inputs tab', {}, async (launcher, page) => {
@@ -604,7 +659,7 @@ try {
     await press(page, 'Enter');
     await press(page, 'ArrowDown');
     let s = await snapshot(page);
-    check('Inputs lists the shown HDMI ports as the TV reports them, then Source list and Edit inputs', has(s, 'tab-inputs') && same(s.inputs, ['HDMI 1', 'No device', 'No device', 'Source list', 'Edit inputs']) && focusIs(s, 'inputs', 0), [s.inputs, s.f]);
+    check('Inputs lists the shown HDMI ports as the TV reports them, then Source list and Edit inputs', has(s, 'tab-inputs') && same(s.inputs, ['Connected', 'No device', 'No device', 'Source list', 'Edit inputs']) && focusIs(s, 'inputs', 0), [s.inputs, s.f]);
     await press(page, 'Enter');
     await afterCallbacks(page);
     s = await snapshot(page);
@@ -613,10 +668,13 @@ try {
     await press(page, 'Enter');
     s = await snapshot(page);
     check('Other keys do nothing while HDMI 1 shows', same(s.tvwindow, ['setSource HDMI 1', 'show']) && focusIs(s, 'inputs', 0), [s.tvwindow, s.f]);
-    await press(page, 'Escape');
+    await keyDownOnly(page, 27);
+    await page.waitForTimeout(200);
+    await keyDownOnly(page, 27); // Back still held, on a TV that doesn't flag repeats.
     await afterCallbacks(page);
     s = await snapshot(page);
-    check('Back closes the HDMI view onto the same tile', same(s.tvwindow, ['setSource HDMI 1', 'show', 'hide']) && focusIs(s, 'inputs', 0), [s.tvwindow, s.f]);
+    check('Back closes the HDMI view onto the same tile, and holding it does nothing more', same(s.tvwindow, ['setSource HDMI 1', 'show', 'hide']) && focusIs(s, 'inputs', 0) && has(s, 'tab-inputs'), [s.tvwindow, s.f, s.classes]);
+    await page.waitForTimeout(900);
     await press(page, 'ArrowRight');
     await press(page, 'Enter');
     s = await snapshot(page);
@@ -630,7 +688,7 @@ try {
     await press(page, 'Enter');
     await settled(page);
     s = await snapshot(page);
-    check('Edit inputs opens the Inputs page', has(s, 'is-panel') && s.panel.title === 'Inputs' && same(s.panel.rows.map(row => row.value), ['HDMI 1', 'No device', 'No device', 'Hidden']), s.panel);
+    check('Edit inputs opens the Inputs page', has(s, 'is-panel') && s.panel.title === 'Inputs' && same(s.panel.rows.map(row => row.value), ['Connected', 'No device', 'No device', 'Hidden']), s.panel);
     await openRow(page, 'HDMI 1');
     await openRow(page, 'Name');
     await page.keyboard.type('Game console');
@@ -648,6 +706,49 @@ try {
     await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange')); });
     await press(page, 'ArrowRight');
     check('Keys work normally on returning', focusIs(await snapshot(page), 'inputs', 1));
+    await page.evaluate(() => window.__tv.system.VIDEOSOURCE.connected.push({ type: 'HDMI', number: 2 }));
+    await press(page, 'ArrowUp');
+    await press(page, 'ArrowLeft');
+    await press(page, 'Enter');
+    await press(page, 'ArrowRight');
+    await press(page, 'Enter');
+    await afterCallbacks(page);
+    s = await snapshot(page);
+    check('A device plugged in later shows when the Inputs tab opens again', has(s, 'tab-inputs') && s.inputs[1] === 'Connected', s.inputs);
+  });
+
+  await section('Renaming an input: the TV keyboard and the screensaver', { clock: new Date('2026-10-31T12:00:00') }, async (launcher, page) => {
+    await press(page, 'ArrowUp');
+    await press(page, 'ArrowRight');
+    await press(page, 'Enter');
+    await press(page, 'ArrowDown');
+    await press(page, 'ArrowRight', 4);
+    await press(page, 'Enter');
+    await settled(page);
+    await openRow(page, 'HDMI 1');
+    await openRow(page, 'Name');
+    await page.clock.fastForward(3 * 60 * 1000);
+    let s = await snapshot(page);
+    check('No screensaver while a name is typed', !has(s, 'is-ambient') && has(s, 'is-panel') && s.panel.title === 'Name', [s.classes, s.panel.title]);
+    await page.keyboard.type('Den TV');
+    await keyDownOnly(page, 65376); // Done on the TV's keyboard.
+    await settled(page);
+    s = await snapshot(page);
+    check('Done on the TV keyboard saves the name', s.panel.title === 'HDMI 1' && rowValue(s, 'Name') === 'Den TV' && s.saved?.inputs?.[0]?.name === 'Den TV', [s.panel.title, s.panel.rows, s.saved?.inputs]);
+    check('The name field lets go of focus', await page.evaluate(() => document.activeElement === document.getElementById('stage')));
+    await openRow(page, 'Name');
+    await page.keyboard.type('Garage');
+    await keyDownOnly(page, 65385); // Cancel on the TV's keyboard.
+    await settled(page);
+    s = await snapshot(page);
+    check('Cancel on the TV keyboard keeps the old name', s.panel.title === 'HDMI 1' && rowValue(s, 'Name') === 'Den TV', [s.panel.title, s.panel.rows]);
+    await page.clock.fastForward(61000);
+    s = await snapshot(page);
+    check('The screensaver comes back once typing is over, closing Settings', has(s, 'is-ambient') && !has(s, 'is-panel'), s.classes);
+    await press(page, 'Enter');
+    await afterCallbacks(page);
+    s = await snapshot(page);
+    check('OK wakes Home without acting', !has(s, 'is-ambient') && same(s.launches, []) && !has(s, 'is-dialog'), [s.classes, s.launches]);
   });
 
   await section('Saved choices from earlier builds', { seed: { fav: ['netflix', 'plex'], hid: ['disneyplus'], wall: 4, amb: 1, inputs: [{ name: 'PlayStation 5', show: true }, { name: 'Mac mini', show: true }, { name: 'Xbox', show: true }, { name: '', show: false }] } }, async (launcher, page) => {
@@ -659,7 +760,48 @@ try {
     await press(page, 'ArrowRight');
     await press(page, 'Enter');
     s = await snapshot(page);
-    check('The two sample input names earlier builds saved are cleared; an owner\'s name stays', same(s.inputs.slice(0, 3), ['HDMI 1', 'No device', 'Xbox']), s.inputs);
+    check('The two sample input names earlier builds saved are cleared; an owner\'s name stays', same(s.inputs.slice(0, 3), ['Connected', 'No device', 'Xbox']), s.inputs);
+  });
+
+  await section('A V1 save', { seed: { version: 1, inputs: [{ name: 'PlayStation 5', show: true }, { name: 'Mac mini', show: true }, { name: '', show: true }, { name: '', show: false }] } }, async (launcher, page) => {
+    await press(page, 'ArrowUp');
+    await press(page, 'ArrowRight');
+    await press(page, 'Enter');
+    const s = await snapshot(page);
+    check('Names the owner typed are kept, even ones that match the old samples', same(s.inputs.slice(0, 2), ['PlayStation 5', 'Mac mini']), s.inputs);
+  });
+
+  await section('The TV\'s app list fails at first', { appsFail: 1, clock: new Date('2026-10-31T12:00:00'), seed: { version: 1, fav: ['netflix', 'plex'], hid: ['ZmmGjO6VKO.slingtv'] } }, async (launcher, page) => {
+    let s = await snapshot(page);
+    check('Home says it couldn\'t read the TV\'s apps yet', /couldn’t read the TV’s apps/.test(s.toast), s.toast);
+    await press(page, 'Enter');
+    await afterCallbacks(page);
+    s = await snapshot(page);
+    check('A stand-in app launches nothing and says why', same(s.launches, []) && /still reading the TV’s apps/.test(s.toast), [s.launches, s.toast]);
+    await page.waitForFunction(() => !!JSON.parse(localStorage.getItem('library-prototype.v1') || '{}').wx, null, { timeout: 5000 }).catch(() => {});
+    s = await snapshot(page);
+    check('A save meanwhile keeps the owner\'s Favorites and Hidden as they were', !!s.saved?.wx && same(s.saved?.fav, ['netflix', 'plex']) && same(s.saved?.hid, ['ZmmGjO6VKO.slingtv']), s.saved);
+    await page.clock.fastForward(10000);
+    await page.waitForFunction(() => document.querySelectorAll('#library .tile').length > 5, null, { timeout: 5000 }).catch(() => {});
+    s = await snapshot(page);
+    check('10 s later the TV\'s apps arrive, arranged by the owner\'s lists', same(s.fav, ['netflix', 'plex']) && !s.library.flat().some(app => /sling/i.test(app)) && s.library.flat().includes('disneyplus'), [s.fav, s.library]);
+    await press(page, 'Enter');
+    await afterCallbacks(page);
+    check('Apps launch once the list has arrived', same((await snapshot(page)).launches, [APP.netflix]));
+  });
+
+  await section('Apps installed while Home runs', {}, async (launcher, page) => {
+    await page.evaluate(() => window.__tv.apps.push({ id: '3KA0pm7a7V.TubiTV', name: 'Tubi - Free Movies & TV', iconPath: '/opt/usr/globalapps/3KA0pm7a7V.TubiTV/shared/res/icon.png', show: true }));
+    await visibility(page, true);
+    await visibility(page, false);
+    await page.waitForFunction(() => document.querySelectorAll('#library .tile').length === 6, null, { timeout: 5000 }).catch(() => {});
+    let s = await snapshot(page);
+    check('An app installed while Home was in the background joins the library, A–Z, when Home returns', same(s.library, [['amazonalexa', 'hbomax', 'Samsung TV Plus', 'smartthings', 'spotify', 'tubi']]), s.library);
+    check('The favourites are unchanged', same(s.fav, FAV_MARKS), s.fav);
+    await openSettings(page);
+    await openRow(page, 'Apps');
+    s = await snapshot(page);
+    check('The Apps editor lists it too', s.editor.apps.includes('tubi') && s.editor.apps.length === INSTALLED.length + 1, s.editor.apps);
   });
 
   await section('A damaged save', { seed: { fav: 'netflix', hid: 5, inputs: 'abc', wall: 99, amb: -1, weather: 7, place: [], wx: 'x', photo: 5, daily: 'yes' } }, async (launcher, page) => {
@@ -667,6 +809,30 @@ try {
     check('Home starts with the owners\' defaults', same(s.fav, FAV_MARKS) && same(s.library, LIBRARY), [s.fav, s.library]);
     check('A damaged daily flag counts as off', /wallpapers\/[a-z]+\.jpg$/.test(s.photo), s.photo);
   });
+
+  const buildDir = mkdtempSync(join(tmpdir(), 'home-build-'));
+  let built;
+  try {
+    execFileSync('python3', ['scripts/build-demo.py', '--out', buildDir], { cwd: repo, stdio: 'pipe' });
+    built = await startStatic(buildDir);
+    await section('The built package', { base: built.base, path: '/index.html' }, async (launcher, page) => {
+      let s = await snapshot(page);
+      check('Home starts from the built files', same(s.fav, FAV_MARKS) && same(s.library, LIBRARY), [s.fav, s.library]);
+      check('The build has no preview key hints', await page.evaluate(() => !document.getElementById('hints')));
+      await press(page, 'a');
+      check('The preview\'s screensaver key does nothing', !has(await snapshot(page), 'is-ambient'));
+      await page.mouse.click(215, 862);
+      await afterCallbacks(page);
+      check('Mouse clicks do nothing', same((await snapshot(page)).launches, []));
+      await openSettings(page);
+      await openRow(page, 'About');
+      s = await snapshot(page);
+      check('About shows the build\'s commit and size', !/Browser preview/.test(rowValue(s, 'Version')) && /MB$/.test(rowValue(s, 'App size')), s.panel.rows);
+    });
+  } finally {
+    if (built) await built.stop();
+    rmSync(buildDir, { recursive: true, force: true });
+  }
 
   await section('Screensaver', { clock: new Date('2026-10-31T12:00:00') }, async (launcher, page) => {
     await openSettings(page);
@@ -690,6 +856,14 @@ try {
     check('The waking OK is not acted on: no launch, no menu, focus unchanged', same(s.launches, []) && !has(s, 'is-menu') && focusIs(s, 'fav', 2), [s.launches, s.f]);
     await page.clock.fastForward(61000);
     check('The idle timer restarts after waking (screensaver again after 61 s)', has(await snapshot(page), 'is-ambient'));
+    await keyDownOnly(page, 13);
+    await page.waitForTimeout(200);
+    await keyDownOnly(page, 13); // OK still held, on a TV that doesn't flag repeats.
+    await page.waitForTimeout(600);
+    s = await snapshot(page);
+    check('Holding OK to wake Home opens no menu and launches nothing', !has(s, 'is-ambient') && !has(s, 'is-menu') && same(s.launches, []), [s.classes, s.launches]);
+    await page.waitForTimeout(900);
+    await page.clock.fastForward(61000);
     await press(page, 'ArrowRight');
     s = await snapshot(page);
     check('An arrow wakes Home without moving focus', !has(s, 'is-ambient') && focusIs(s, 'fav', 2), [s.classes, s.f]);

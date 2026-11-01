@@ -133,17 +133,41 @@
   };
   L.photoUrl = function (id, w, h) { return 'https://picsum.photos/id/' + encodeURIComponent(id) + '/' + w + '/' + h; };
   L.listUrl = function (page) { return 'https://picsum.photos/v2/list?page=' + page + '&limit=30'; };
+  L.PHOTO_PAGES = 33; // Picsum's list holds about 990 photos, 30 a page.
+  // A random landscape photo from a page of Picsum's list, other than the one showing. Null if none fits.
+  L.pickPhoto = function (list, random, avoid) {
+    var fit = (Array.isArray(list) ? list : []).filter(function (e) {
+      return e && typeof e.id === 'string' && /^\d+$/.test(e.id) && e.id !== avoid && e.height > 0 && e.width / e.height >= 1.3;
+    }), e;
+    if (!fit.length) return null;
+    e = fit[Math.floor(random() * fit.length)];
+    return { id: e.id, author: typeof e.author === 'string' ? e.author.slice(0, 60) : '' };
+  };
   L.credit = function (author) { return author ? 'Photo by ' + String(author).slice(0, 60) + ' on Unsplash' : 'Photo from Unsplash'; };
 
-  // A photo's look, from luminance samples (0–1): the overall average, the top-right corner behind the
-  // time, the top-left behind the tabs, and the dock band. Mirrors the catalogue fields photoClasses reads.
+  // An online photo's look, in the bundled catalogue's fields, from luminance (0–1): the whole photo, the top-right
+  // corner behind the time, the top-left behind the tabs, and the dock band. In the catalogue ut.tr names the ink
+  // that reads there, so a bright corner is 'dark'. The brighter an area, the more the glass over it is darkened
+  // (photoClasses), so white text stays readable. Calibrated on the bundled photos, erring towards darker glass.
   L.photoLook = function (avg, topRight, topLeft, dock) {
     return {
-      tone: avg > 0.55 ? 'light' : 'dark',
-      ut: { tr: topRight > 0.7 ? 'light' : topRight > 0.45 ? 'mist' : 'dark' },
-      clockMist: topLeft > 0.62,
-      frostVeil: Math.round(Math.max(0.12, Math.min(0.3, 0.12 + (dock - 0.45) * 0.4)) * 1000) / 1000
+      tone: avg > 0.45 ? 'light' : 'dark',
+      ut: { tr: topRight < 0.35 ? 'light' : topRight < 0.75 ? 'mist' : 'dark' },
+      clockMist: topLeft > 0.6,
+      frostVeil: Math.round(Math.max(0.12, Math.min(0.44, 0.12 + (dock - 0.2) * 1.28)) * 1000) / 1000
     };
+  };
+  // The look from a 48 × 27 RGBA copy of the photo, one sample per 40 × 40 screen pixels.
+  L.LOOK_W = 48;
+  L.LOOK_H = 27;
+  L.lookOf = function (rgba) {
+    function region(x0, y0, x1, y1) {
+      var sum = 0, n = 0, x, y, i;
+      for (y = y0; y <= y1; y++) for (x = x0; x <= x1; x++) { i = (y * L.LOOK_W + x) * 4; sum += 0.2126 * rgba[i] + 0.7152 * rgba[i + 1] + 0.0722 * rgba[i + 2]; n++; }
+      return sum / n / 255;
+    }
+    // The time's capsule, the tabs' capsule and the dock, in samples.
+    return L.photoLook(region(0, 0, 47, 26), region(37, 1, 45, 2), region(2, 1, 10, 2), region(1, 19, 46, 24));
   };
 
   // The wallpaper picker lists Daily photo first, then the bundled photos.

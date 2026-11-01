@@ -216,12 +216,55 @@ test('photo URLs and credits', () => {
   assert.equal(L.credit('x'.repeat(80)), 'Photo by ' + 'x'.repeat(60) + ' on Unsplash');
 });
 
-test('photoLook derives the catalogue fields from brightness', () => {
-  assert.deepEqual(plain(L.photoLook(0.6, 0.8, 0.7, 0.45)), { tone: 'light', ut: { tr: 'light' }, clockMist: true, frostVeil: 0.12 });
-  assert.deepEqual(plain(L.photoLook(0.55, 0.7, 0.62, 0.7)), { tone: 'dark', ut: { tr: 'mist' }, clockMist: false, frostVeil: 0.22 });
-  assert.deepEqual(plain(L.photoLook(0.2, 0.45, 0.1, 0.95)), { tone: 'dark', ut: { tr: 'dark' }, clockMist: false, frostVeil: 0.3 });
-  assert.equal(L.photoLook(0.2, 0.46, 0.1, 0.1).ut.tr, 'mist');
-  assert.equal(L.photoLook(0.56, 0.2, 0.63, 0.3).frostVeil, 0.12);
+test('photoLook darkens the glass over brighter areas', () => {
+  assert.deepEqual(plain(L.photoLook(0.6, 0.8, 0.7, 0.5)), { tone: 'light', ut: { tr: 'dark' }, clockMist: true, frostVeil: 0.44 });
+  assert.deepEqual(plain(L.photoLook(0.45, 0.75, 0.6, 0.2)), { tone: 'dark', ut: { tr: 'dark' }, clockMist: false, frostVeil: 0.12 });
+  assert.deepEqual(plain(L.photoLook(0.2, 0.35, 0.1, 0.3)), { tone: 'dark', ut: { tr: 'mist' }, clockMist: false, frostVeil: 0.248 });
+  assert.equal(L.photoLook(0.2, 0.34, 0.1, 0.1).ut.tr, 'light');
+  assert.equal(L.photoLook(0.2, 0.74, 0.1, 0.1).ut.tr, 'mist');
+  assert.equal(L.photoLook(0.46, 0.2, 0.61, 0.1).tone, 'light');
+  assert.equal(L.photoLook(0.46, 0.2, 0.61, 0.1).clockMist, true);
+  assert.equal(L.photoLook(0.2, 0.2, 0.2, 0.45).frostVeil, 0.44);
+  assert.equal(L.photoLook(0.2, 0.2, 0.2, 0.4).frostVeil, 0.376);
+});
+
+test('lookOf measures the top corners and the dock band of a 48 x 27 copy', () => {
+  const size = L.LOOK_W * L.LOOK_H * 4;
+  const fill = (value, cells) => { const a = new Uint8ClampedArray(size).fill(value); for (const [x0, y0, x1, y1, v] of cells || []) for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) a.fill(v, (y * L.LOOK_W + x) * 4, (y * L.LOOK_W + x) * 4 + 3); return a; };
+  assert.equal(L.LOOK_W, 48);
+  assert.equal(L.LOOK_H, 27);
+  assert.deepEqual(plain(L.lookOf(fill(255))), { tone: 'light', ut: { tr: 'dark' }, clockMist: true, frostVeil: 0.44 });
+  assert.deepEqual(plain(L.lookOf(fill(0))), { tone: 'dark', ut: { tr: 'light' }, clockMist: false, frostVeil: 0.12 });
+  // Only the time's corner is bright.
+  assert.deepEqual(plain(L.lookOf(fill(0, [[37, 1, 45, 2, 255]]))), { tone: 'dark', ut: { tr: 'dark' }, clockMist: false, frostVeil: 0.12 });
+  // Only the tabs' corner is bright.
+  assert.equal(L.lookOf(fill(0, [[2, 1, 10, 2, 255]])).clockMist, true);
+  // Bright just outside each region changes nothing.
+  assert.deepEqual(plain(L.lookOf(fill(0, [[36, 0, 47, 0, 255], [46, 1, 47, 2, 255], [36, 3, 47, 3, 255], [0, 1, 1, 2, 255], [11, 1, 11, 2, 255]]))).ut, { tr: 'light' });
+  assert.equal(L.lookOf(fill(0, [[0, 0, 12, 0, 255], [0, 3, 12, 3, 255], [0, 1, 1, 2, 255], [11, 1, 12, 2, 255]])).clockMist, false);
+  assert.equal(L.lookOf(fill(0, [[0, 18, 47, 18, 255], [0, 25, 47, 26, 255], [0, 19, 0, 24, 255], [47, 19, 47, 24, 255]])).frostVeil, 0.12);
+  // A region's last row and last column count too.
+  assert.equal(L.lookOf(fill(0, [[37, 1, 45, 1, 178], [37, 2, 45, 2, 255]])).ut.tr, 'dark');
+  assert.equal(L.lookOf(fill(0, [[37, 1, 44, 2, 186], [45, 1, 45, 2, 255]])).ut.tr, 'dark');
+  // Only the dock band is bright; channels weigh as luminance (green most).
+  assert.equal(L.lookOf(fill(0, [[1, 19, 46, 24, 255]])).frostVeil, 0.44);
+  const green = new Uint8ClampedArray(size); for (let i = 1; i < size; i += 4) green[i] = 255;
+  assert.equal(L.lookOf(green).tone, 'light');
+  const red = new Uint8ClampedArray(size); for (let i = 0; i < size; i += 4) red[i] = 255;
+  assert.equal(L.lookOf(red).tone, 'dark');
+});
+
+test('pickPhoto picks a random landscape photo other than the one showing', () => {
+  const list = [{ id: '1', author: 'A', width: 5000, height: 3333 }, { id: '2', author: 'B', width: 3000, height: 4000 }, { id: '3', author: 'C', width: 1920, height: 1080 },
+    { id: 'x', width: 100, height: 50 }, null, { id: '4', width: 100, height: 0 }, { id: 5, width: 100, height: 50 }];
+  assert.deepEqual(plain(L.pickPhoto(list, () => 0, '')), { id: '1', author: 'A' });
+  assert.deepEqual(plain(L.pickPhoto(list, () => 0.99, '')), { id: '3', author: 'C' });
+  assert.deepEqual(plain(L.pickPhoto(list, () => 0, '1')), { id: '3', author: 'C' });
+  assert.equal(L.pickPhoto([{ id: '5', width: 13, height: 10 }], () => 0, '').author, '');
+  assert.equal(L.pickPhoto([{ id: '5', width: 129, height: 100 }], () => 0, ''), null);
+  assert.equal(L.pickPhoto([{ id: '5', author: 'Z'.repeat(70), width: 2, height: 1 }], () => 0, '').author.length, 60);
+  for (const bad of ['nope', [], null]) assert.equal(L.pickPhoto(bad, () => 0, ''), null);
+  assert.equal(L.PHOTO_PAGES, 33);
 });
 
 test('picker index maps Daily photo first, then bundled photos', () => {

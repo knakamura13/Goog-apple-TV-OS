@@ -64,12 +64,12 @@
   var WALLS = window.CleanFrameWallpapers || [];
   var FAVS = [], ROWS = [], INS = []; // Home's favourites, library rows and input tiles, rebuilt from the owner's choices.
 
-  var S = { tab: 0, zone: 'fav', nav: 0, fav: 0, lr: 0, lc: 0, inp: 0, panel: 0, dialog: 0, glassTiles: false, wall: 0, ambWall: 0, amb: 0, ambient: false, scroll: 0,
+  var S = { tab: 0, zone: 'fav', nav: 0, fav: 0, lr: 0, lc: 0, inp: 0, panel: 0, dialog: 0, glassTiles: false, wall: 0, ambWall: 0, daily: true, dailyPick: null, amb: 0, ambient: false, scroll: 0,
     favIds: [], hiddenIds: [], lastId: '', ed: null, menu: null, menuFrom: 'fav', pages: [], panelFrom: 'gear', paging: false, pageEntered: false, queued: [],
     weather: { zip: '92626', units: 'F' }, place: null, wx: null, zip: [], zipAt: 0, inputAt: 0, // Default location: Costa Mesa, CA (where the TV is).
     inputs: INPUT_DEFAULTS.map(function (p) { return { port: p.port, name: '', show: p.show, connected: true }; }) };
   var SETTINGS = [
-    { label: 'Wallpaper', kind: 'screen', value: function () { return WALLS[S.wall] ? WALLS[S.wall].name : ''; }, ok: openPicker },
+    { label: 'Wallpaper', kind: 'screen', value: function () { return S.daily ? 'Daily photo' : WALLS[S.wall] ? WALLS[S.wall].name : ''; }, ok: openPicker },
     { label: 'Apps', kind: 'screen', value: function () { return S.favIds.length + ' favorites'; }, ok: openEditor },
     { label: 'Weather', kind: 'page', value: function () { return S.weather.zip ? S.weather.zip + ' · °' + S.weather.units : 'Set location'; }, ok: function () { pushPage('weather'); } },
     { label: 'Screensaver', value: function () { return AMBIENT[S.amb].name; }, ok: function () { S.amb = (S.amb + 1) % AMBIENT.length; save(); armIdle(); } },
@@ -90,14 +90,13 @@
   var navActive = $('navActive'), navFocus = $('navFocus'), panelInd = $('panelInd'), dialogInd = $('dialogInd');
   var navInk = $('navInk'), panelInk = $('panelInk'), dialogInk = $('dialogInk');
   var timeEl = $('time'), statusEl = stage.querySelector('.status'), ambTime = $('ambTime'), ambDate = $('ambDate'), ambTitle = $('ambTitle'), ambCredit = $('ambCredit'), ambDrift = $('ambDrift');
-  var front = $('photoA'), back = $('photoB'), blurImg = $('blur'), shownWall = -1;
+  var front = $('photoA'), back = $('photoB'), blurImg = $('blur');
   var pkGrid = $('pkGrid'), pkTitle = $('pkTitle'), pkCredit = $('pkCredit'), pickerEl = $('picker'), previewTimer = null;
   var panelBody = $('panelBody'), panelCrumb = $('panelCrumb'), panelTitle = $('panelTitle'), panelRowsBox = $('panelRowsBox'), panelCustom = $('panelCustom'), panelNote = $('panelNote');
   var wxBox = stage.querySelector('.weather'), wxIcon = wxBox.querySelector('.ico'), tempEl = wxBox.querySelector('span'), wxBusy = false, wxRetry = 0;
   var editorEl = $('editor'), edPage = $('edPage'), edTiles = $('edTiles'), edStyle = $('edStyle'), edHint = $('edHint');
   var edFavLabel = $('edFavLabel'), edLibLabel = $('edLibLabel'), edHidLabel = $('edHidLabel'), edEmpty = $('edEmpty'), edFavBox = $('edFavBox'), edSlots = {};
-  var wallSaved = false;
-  var pills, panelRows = $('panelRows').children, dialogBtns, tileRim = '', thumbRim = '', tilePath = '', ringSvg = '', focused = null, lastZone = null, credits = {}, wallToken = 0, statusWidth = 0;
+  var pills, panelRows = $('panelRows').children, dialogBtns, tileRim = '', thumbRim = '', tilePath = '', ringSvg = '', focused = null, lastZone = null, credits = {}, statusWidth = 0;
   var idleTimer = null, driftTimer = null, rotateTimer = null, toastTimer = null, quietPress = false, statusAt = 0;
   var tvSources = {}, tvWindowOn = false; // On the TV only: real HDMI sources by port name, and whether one is showing.
 
@@ -227,7 +226,9 @@
     if (!d) return;
     S.glassTiles = !!d.glass;
     if (typeof d.last === 'string') S.lastId = d.last;
-    if (H.validIndex(d.wall, WALLS.length)) { S.wall = d.wall; wallSaved = true; }
+    if (H.validIndex(d.wall, WALLS.length)) S.wall = d.wall;
+    S.daily = d.daily === true; // Builds before the daily photo saved only a bundled choice, which stands.
+    S.dailyPick = d.photo && typeof d.photo === 'object' ? d.photo : null;
     if (H.validIndex(d.amb, AMBIENT.length)) S.amb = d.amb;
     if (d.weather) S.weather = { zip: /^\d{5}$/.test(d.weather.zip) ? d.weather.zip : '', units: d.weather.units === 'C' ? 'C' : 'F' };
     S.place = H.savedPlace(d.place, S.weather.zip);
@@ -241,7 +242,7 @@
   }
   function save() {
     var inputs = S.inputs.map(function (inp) { return { name: inp.name, show: inp.show }; });
-    try { window.localStorage.setItem(STORE, JSON.stringify({ fav: S.favIds, hid: S.hiddenIds, last: S.lastId, wall: S.wall, amb: S.amb, glass: S.glassTiles, weather: S.weather, place: S.place, wx: S.wx, inputs: inputs })); } catch (e) { /* Home still works without saved choices. */ }
+    try { window.localStorage.setItem(STORE, JSON.stringify({ fav: S.favIds, hid: S.hiddenIds, last: S.lastId, wall: S.wall, daily: S.daily, photo: S.dailyPick, amb: S.amb, glass: S.glassTiles, weather: S.weather, place: S.place, wx: S.wx, inputs: inputs })); } catch (e) { /* Home still works without saved choices. */ }
   }
   function inputLabel(inp) { return inp.name || (inp.connected ? inp.port : 'No device'); }
   function buildInputs() {
@@ -654,46 +655,57 @@
 
   // ---------- Wallpaper picker ----------
 
-  // Focus resting on a photo previews it full screen after a short pause, so fast browsing never loads every photo.
-  // OK applies it; Back returns to the applied photo.
+  // Daily photo comes first, then the bundled photos. Focus resting on a photo previews it full screen after a short
+  // pause, so fast browsing never loads every photo. OK applies it; Back returns to Home's photo.
   var CHECK_ICON = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+  function pickerPhoto(n) { var t = H.pickerTarget(n); return t.daily ? dailyPhoto : bundled(t.wall); }
   function openPicker() {
     if (!pkGrid.firstChild) {
-      pkGrid.innerHTML = WALLS.map(function (w, n) {
+      pkGrid.innerHTML = [{ name: 'Daily photo' }].concat(WALLS).map(function (w, n) {
         return '<div class="pk-item" data-z="pk" data-i="' + n + '" style="transform:translate3d(' + (PK_LEFT + (n % 2) * (THUMB_W + PK_GAP)) + 'px,' + (PK_TOP + Math.floor(n / 2) * PK_ROW) + 'px,0)">'
-          + '<div class="pk-thumb"><div class="pk-face squircle"><img alt="" src="' + ASSETS + 'wallpapers/' + w.id + '-thumb.jpg"><div class="t-sheen"></div>' + thumbRim + '</div>'
+          + '<div class="pk-thumb"><div class="pk-face squircle"><img alt=""' + (n ? ' src="' + ASSETS + 'wallpapers/' + w.id + '-thumb.jpg"' : '') + '><div class="t-sheen"></div>' + thumbRim + '</div>'
           + '<span class="pk-check">' + CHECK_ICON + '</span></div><div class="pk-name"><span>' + esc(w.name) + '</span></div></div>';
       }).join('');
     }
-    S.pk = { i: S.wall, scroll: 0, first: true };
+    S.pk = { i: H.pickerIndex(S.daily, S.wall), scroll: 0, first: true };
     S.zone = 'wallpaper';
+    updateDaily(); // So the Daily photo tile can show today's photo.
   }
   function closePicker() {
     clearTimeout(previewTimer);
-    wallToken++; // Drops a preview still loading.
-    if (shownWall !== S.wall) showWall(S.wall, false);
+    photoToken++; // Drops a preview still loading.
+    if (shownKey !== homePhoto().key) showHome();
     S.zone = 'panel';
   }
   function renderPicker() {
-    var items = pkGrid.children, w = WALLS[S.pk.i], lastFirst = Math.max(0, Math.ceil(WALLS.length / 2) - 2), i;
-    for (i = 0; i < items.length; i++) toggle(items[i], 'is-applied', i === S.wall);
-    S.pk.scroll = -clamp(Math.floor(S.pk.i / 2) - 1, 0, lastFirst) * PK_ROW;
+    var items = pkGrid.children, n = S.pk.i, p = pickerPhoto(n), lastFirst = Math.max(0, Math.ceil(items.length / 2) - 2), thumb = items[0].querySelector('img'), i;
+    for (i = 0; i < items.length; i++) toggle(items[i], 'is-applied', i === H.pickerIndex(S.daily, S.wall));
+    if (dailyPhoto && thumb.getAttribute('src') !== dailyPhoto.src) thumb.src = dailyPhoto.src;
+    S.pk.scroll = -clamp(Math.floor(n / 2) - 1, 0, lastFirst) * PK_ROW;
     toggle(pickerEl, 'is-instant', S.pk.first);
     pkGrid.style.transform = 'translate3d(0,' + S.pk.scroll + 'px,0)';
     if (S.pk.first) { void pickerEl.offsetWidth; pickerEl.classList.remove('is-instant'); S.pk.first = false; }
-    pkTitle.textContent = w.name;
-    pkCredit.textContent = credits[w.id] ? 'Photographed by ' + credits[w.id] : '';
+    pkTitle.textContent = n ? p.title : 'Daily photo';
+    pkCredit.textContent = n ? p.credit : dailyPhoto ? dailyPhoto.credit + ' · a new one each day' : 'A new photo each day, once the TV is online';
     clearTimeout(previewTimer);
-    if (shownWall !== S.pk.i) previewTimer = setTimeout(function () { showWall(S.pk.i, false); }, 260);
+    if (p && shownKey !== p.key) previewTimer = setTimeout(function () { showPhoto(p); }, 260);
   }
   function pickerKey(k) {
-    var i = S.pk.i, last = WALLS.length - 1;
+    var i = S.pk.i, last = pkGrid.children.length - 1, t;
     if (k === 'left' && i % 2) S.pk.i = i - 1;
     else if (k === 'right' && !(i % 2) && i < last) S.pk.i = i + 1;
     else if (k === 'up' && i > 1) S.pk.i = i - 2;
     else if (k === 'down' && i + 2 <= last) S.pk.i = i + 2;
     else if (k === 'down' && Math.floor(i / 2) < Math.floor(last / 2)) S.pk.i = last;
-    else if (k === 'ok') { clearTimeout(previewTimer); S.wall = i; save(); setWall(i); }
+    else if (k === 'ok') {
+      clearTimeout(previewTimer);
+      t = H.pickerTarget(i);
+      S.daily = t.daily;
+      if (!t.daily) S.wall = t.wall;
+      save();
+      showHome();
+      if (t.daily && !dailyPhoto) toast('The daily photo appears once the TV is online.');
+    }
     else if (k === 'back') closePicker();
   }
 
@@ -824,50 +836,176 @@
     } else if (k === 'back') { S.ed.carry = null; S.ed.hint = ED_HINT; }
   }
 
-  // ---------- Wallpaper ----------
+  // ---------- Photos ----------
 
+  // Home shows a bundled photo with its prepared glass materials, or the daily photo: a new Unsplash photo each day
+  // from Lorem Picsum (no key needed), whose glass is made on the TV. The screensaver's slideshow shows more online
+  // photos (the bundled ones when offline) and changes only the background and caption, never Home's choice or glass.
+  // Home writes no image files; the web engine's cache keeps recently loaded photos and evicts them by itself.
+  var shownKey = '', photoToken = 0, dailyPhoto = null, dailyBusy = false, dailyRetry = 0, appliedGlass = null, retiredGlass = [];
+  var slides = [], nextSlide = null, slideId = '', slid = false;
+  function loadImage(src, cors, done) {
+    var im = new Image();
+    if (cors) im.crossOrigin = 'anonymous';
+    im.onload = function () { done(im); };
+    im.onerror = function () { done(null); };
+    im.src = src;
+  }
   function preload(urls, done) {
     var left = urls.length;
-    urls.forEach(function (u) {
-      var im = new Image();
-      im.onload = im.onerror = function () { if (--left === 0) done(); };
-      im.src = u;
-    });
+    urls.forEach(function (u) { loadImage(u, false, function () { if (--left === 0) done(); }); });
   }
+  function bundled(i) {
+    var w = WALLS[i], base;
+    if (!w) return null;
+    base = ASSETS + 'materials/' + w.id;
+    return { key: 'wall:' + w.id, src: ASSETS + 'wallpapers/' + w.id + '.jpg', title: w.name, credit: credits[w.id] ? 'Photographed by ' + credits[w.id] : '',
+      look: w, glass: { clear: base + '-field-clear.jpg', blur: base + '-field-blur.jpg', frost: base + '-field-frost.jpg' } };
+  }
+  function homePhoto() { return S.daily && dailyPhoto ? dailyPhoto : bundled(S.wall); }
   function photoClasses(w) {
     var keep = [], i;
     for (i = 0; i < stage.classList.length; i++) if (stage.classList[i].indexOf('tone-') !== 0) keep.push(stage.classList[i]);
     keep.push('tone-' + (w.tone || 'dark'));
     stage.className = keep.join(' ');
-    // CleanFrame's catalogue records how bright each photo is behind the top corners (ut.tr, clockMist)
-    // and how much its frost needs veiling; the capsules darken by those amounts to keep text readable.
+    // The catalogue (or an online photo's measured look) records how bright the photo is behind the top corners
+    // (ut.tr, clockMist) and how much its frost needs veiling; the capsules darken by those amounts to keep text readable.
     stage.style.setProperty('--tint-tl', (0.36 + (w.frostVeil || 0.12) * 0.5 + (w.clockMist ? 0.12 : 0)).toFixed(3));
     stage.style.setProperty('--tint-tr', ({ light: 0.34, mist: 0.5, dark: 0.62 }[w.ut && w.ut.tr] || 0.4) + (w.tone === 'light' ? 0.04 : 0));
     stage.style.setProperty('--dock-tint', (0.20 + (w.frostVeil || 0.12) * 0.5).toFixed(3));
   }
-  function setWall(i) { showWall(i, true); }
-  function showWall(i, apply) {
-    var w, base, urls, token;
-    if (!WALLS.length) return;
-    i = (i % WALLS.length + WALLS.length) % WALLS.length;
-    w = WALLS[i]; base = ASSETS + 'materials/' + w.id; token = ++wallToken;
-    urls = { photo: ASSETS + 'wallpapers/' + w.id + '.jpg', clear: base + '-field-clear.jpg', blur: base + '-field-blur.jpg', frost: base + '-field-frost.jpg' };
-    preload([urls.photo, urls.clear, urls.blur, urls.frost], function () {
-      var glass = stage.querySelectorAll('.glass-img'), n, swap;
-      if (token !== wallToken) return;
-      if (apply) S.wall = i;
-      shownWall = i;
-      back.src = urls.photo;
-      back.classList.add('is-front');
-      front.classList.remove('is-front');
-      swap = front; front = back; back = swap;
-      blurImg.src = urls.blur;
-      for (n = 0; n < glass.length; n++) glass[n].src = urls[glass[n].getAttribute('data-material')];
-      photoClasses(w);
-      ambTitle.textContent = w.name;
-      ambCredit.textContent = credits[w.id] ? 'Photographed by ' + credits[w.id] : '';
+  function swapPhoto(src) {
+    var swap = front;
+    back.src = src;
+    back.classList.add('is-front');
+    front.classList.remove('is-front');
+    front = back;
+    back = swap;
+  }
+  function showPhoto(p) {
+    var token = ++photoToken;
+    preload([p.src, p.glass.clear, p.glass.blur, p.glass.frost], function () {
+      var glass = stage.querySelectorAll('.glass-img'), n;
+      if (token !== photoToken) return;
+      shownKey = p.key;
+      swapPhoto(p.src);
+      blurImg.src = p.glass.blur;
+      for (n = 0; n < glass.length; n++) glass[n].src = p.glass[glass[n].getAttribute('data-material')];
+      appliedGlass = p.glass;
+      sweepGlass();
+      photoClasses(p.look);
+      ambTitle.textContent = p.title;
+      ambCredit.textContent = p.credit;
       render();
     });
+  }
+  function showHome() { var p = homePhoto(); if (p) showPhoto(p); }
+  // An online photo's glass, after CleanFrame's material recipe (scripts/build-materials.mjs): the photo with mirrored
+  // edges so the blur doesn't darken them, blurred 28 px for the library and 42 px for the frost, both slightly
+  // desaturated. Made at half size, which the blur hides, so it costs a moment once a day. The photo is the clear layer.
+  function makeGlass(img, done) {
+    var w = 960, h = 540, pad = 48, out = { clear: img.src }, left = 2, padded, pc, x, y;
+    function canvas(cw, ch) { var c = document.createElement('canvas'); c.width = cw; c.height = ch; return c; }
+    try {
+      padded = canvas(w + 2 * pad, h + 2 * pad);
+      pc = padded.getContext('2d');
+      if (!('filter' in pc)) throw new Error('No canvas filters');
+      for (y = -1; y <= 1; y++) for (x = -1; x <= 1; x++) {
+        pc.setTransform(x ? -1 : 1, 0, 0, y ? -1 : 1, pad + (x === 1 ? 2 * w : 0), pad + (y === 1 ? 2 * h : 0));
+        pc.drawImage(img, 0, 0, w, h);
+      }
+      [['blur', 14], ['frost', 21]].forEach(function (m) {
+        var c = canvas(w, h), cx = c.getContext('2d');
+        cx.filter = 'blur(' + m[1] + 'px) saturate(.92)';
+        cx.drawImage(padded, -pad, -pad);
+        c.toBlob(function (b) {
+          out[m[0]] = b ? window.URL.createObjectURL(b) : '';
+          if (--left) return;
+          if (out.blur && out.frost) done(out); else { retiredGlass.push(out); sweepGlass(); done(null); }
+        }, 'image/jpeg', 0.86);
+      });
+    } catch (e) { done(null); }
+  }
+  // Glass made for an earlier daily photo is released once nothing shows it.
+  function sweepGlass() {
+    retiredGlass = retiredGlass.filter(function (g) {
+      if (g === appliedGlass) return true;
+      if (g.blur) window.URL.revokeObjectURL(g.blur);
+      if (g.frost) window.URL.revokeObjectURL(g.frost);
+      return false;
+    });
+  }
+  // How bright the photo is behind the top bar and the dock, from a 48 × 27 copy.
+  function measureLook(img) {
+    var c = document.createElement('canvas'), cx;
+    c.width = H.LOOK_W;
+    c.height = H.LOOK_H;
+    try {
+      cx = c.getContext('2d');
+      cx.drawImage(img, 0, 0, H.LOOK_W, H.LOOK_H);
+      return H.lookOf(cx.getImageData(0, 0, H.LOOK_W, H.LOOK_H).data);
+    } catch (e) { return H.photoLook(0.5, 0.5, 0.5, 0.5); }
+  }
+  // Today's photo is picked once a day from a random page of Picsum's list, then loaded and given its glass.
+  // A failure retries in 5 minutes; until then Home keeps the bundled photo.
+  function updateDaily() {
+    var today = H.dayKey(new Date()), pick = H.dailyFor(S.dailyPick, today);
+    if ((dailyPhoto && pick && dailyPhoto.id === pick.id) || dailyBusy || Date.now() < dailyRetry) return;
+    dailyBusy = true;
+    function fail() {
+      dailyBusy = false;
+      dailyRetry = Date.now() + 5 * 60 * 1000;
+      if (!shownKey) showHome(); // Starting offline: show the bundled photo at once.
+    }
+    function load(p) {
+      var src = H.photoUrl(p.id, 1920, 1080);
+      loadImage(src, true, function (img) {
+        if (!img) { fail(); return; }
+        makeGlass(img, function (glass) {
+          if (!glass) { fail(); return; }
+          if (dailyPhoto) retiredGlass.push(dailyPhoto.glass);
+          dailyPhoto = { key: 'daily:' + p.id, id: p.id, src: src, title: '', credit: H.credit(p.author), look: measureLook(img), glass: glass };
+          dailyBusy = false;
+          sweepGlass();
+          if (S.zone === 'wallpaper') render(); else if (S.daily && !S.ambient) showHome();
+        });
+      });
+    }
+    if (pick) { load(pick); return; }
+    getJson(H.listUrl(1 + Math.floor(Math.random() * H.PHOTO_PAGES)), function (list) {
+      var p = H.pickPhoto(list, Math.random, S.dailyPick ? S.dailyPick.id : '');
+      if (!p) { fail(); return; }
+      S.dailyPick = { day: today, id: p.id, author: p.author };
+      save();
+      load(S.dailyPick);
+    });
+  }
+  // The screensaver loads its next online photo ahead, so each change shows at once; offline, the bundled photos show.
+  function prepareSlide() {
+    var p = H.pickPhoto(slides, Math.random, slideId), token = photoToken;
+    nextSlide = null;
+    if (!p) return;
+    loadImage(H.photoUrl(p.id, 1920, 1080), false, function (img) {
+      if (img && S.ambient && token === photoToken) nextSlide = { id: p.id, src: img.src, credit: H.credit(p.author) };
+    });
+  }
+  function nextPhoto() {
+    var s = nextSlide, token = photoToken, w;
+    if (s) {
+      slideId = s.id;
+      showSlide(s.src, '', s.credit);
+    } else {
+      S.ambWall = (S.ambWall + 1) % WALLS.length;
+      w = bundled(S.ambWall);
+      preload([w.src], function () { if (S.ambient && token === photoToken) showSlide(w.src, w.title, w.credit); });
+    }
+    prepareSlide();
+  }
+  function showSlide(src, title, credit) {
+    slid = true;
+    swapPhoto(src);
+    ambTitle.textContent = title;
+    ambCredit.textContent = credit;
   }
   function loadCredits(done) {
     var xhr = new XMLHttpRequest();
@@ -889,6 +1027,7 @@
     ambDate.textContent = DAYS[d.getDay()] + ', ' + MONTHS[d.getMonth()] + ' ' + ordinal(d.getDate());
     updateWeather();
     showWeather();
+    if (S.daily) updateDaily();
   }
   // The status capsule changes width with the hour's digits and the weather; its glass must follow its left edge.
   function fitStatus() { if (statusEl.offsetWidth !== statusWidth) { statusWidth = statusEl.offsetWidth; registerGlass(); } }
@@ -990,21 +1129,29 @@
     okCancel();
     S.ambient = true;
     S.ambWall = S.wall;
+    slideId = dailyPhoto && shownKey === dailyPhoto.key ? dailyPhoto.id : ''; // Not shown twice in a row.
     clearTimeout(idleTimer);
     render();
     stage.classList.add('is-ambient');
     driftTimer = setInterval(drift, 20000);
-    rotateTimer = setInterval(function () { S.ambWall = (S.ambWall + 1) % WALLS.length; showWall(S.ambWall, false); }, 40000);
+    rotateTimer = setInterval(nextPhoto, 40000);
+    getJson(H.listUrl(1 + Math.floor(Math.random() * H.PHOTO_PAGES)), function (list) {
+      if (!S.ambient) return;
+      slides = Array.isArray(list) ? list : [];
+      prepareSlide();
+    });
   }
-  // Home keeps its chosen photo; the screensaver's slideshow only shows others and never changes the choice.
-  function exitAmbient() {
+    function exitAmbient() {
     S.ambient = false;
     stage.classList.remove('is-ambient');
     clearInterval(driftTimer);
     clearInterval(rotateTimer);
     ambDrift.style.transform = '';
-    wallToken++; // Drops a slideshow photo still loading.
-    if (shownWall !== S.wall) showWall(S.wall, false);
+    photoToken++; // Drops a slideshow photo still loading.
+    nextSlide = null;
+    slides = [];
+    if (slid || shownKey !== homePhoto().key) showHome();
+    slid = false;
     armIdle();
   }
 
@@ -1190,13 +1337,13 @@
     });
   }
   function begin() {
-    var want = 'valley', first = 0, i;
-    /* preview */want = (/[?&]wall=([a-z]+)/.exec(window.location.search) || [0, want])[1];/* /preview */
+    var want = 'valley', i;
+    /* preview */var forced = /[?&]wall=([a-z]+)/.exec(window.location.search); if (forced) want = forced[1];/* /preview */
     tvSetup();
     soundStart();
-    for (i = 0; i < WALLS.length; i++) if (WALLS[i].id === want) first = i;
-    load();
-    if (wallSaved) first = S.wall; // The owner's chosen wallpaper wins over the default.
+    for (i = 0; i < WALLS.length; i++) if (WALLS[i].id === want) S.wall = i;
+    load(); // The owner's saved choice wins over the default.
+    /* preview */if (forced) S.daily = false;/* /preview */
     build();
     if (resumeApp()) S.zone = 'resume';
     fit();
@@ -1204,7 +1351,12 @@
     render();
     registerGlass();
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { statusWidth = 0; tick(); });
-    loadCredits(function () { setWall(first); });
+    loadCredits(function () {
+      if (!S.daily) { showHome(); return; }
+      // Today's photo usually comes from the cache in a moment; showing it first avoids a flash of the bundled one.
+      updateDaily();
+      setTimeout(function () { if (!shownKey) showHome(); }, 2500);
+    });
     setInterval(tick, 5000);
     armIdle();
     stage.focus();

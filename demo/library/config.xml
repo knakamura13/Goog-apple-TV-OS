@@ -14,5 +14,7 @@
   <!-- Weather: a ZIP code's place, then its current conditions. -->
   <access origin="https://api.zippopotam.us" subdomains="false"/>
   <access origin="https://api.open-meteo.com" subdomains="false"/>
+  <!-- The daily photo and the screensaver: Lorem Picsum serves Unsplash photos from picsum.photos and fastly.picsum.photos. -->
+  <access origin="https://picsum.photos" subdomains="true"/>
   <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="disable" encryption="disable" install-location="auto" hwkey-event="enable"/>
 </widget>

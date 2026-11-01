@@ -19,6 +19,8 @@ if mode!='inspect':
     if not re.fullmatch(r'[A-Za-z0-9]{10}\.[A-Za-z0-9_-]{1,52}',profile['app_id'].strip()):raise SystemExit('Profile app_id is not a valid SDK application id; nothing staged.')
     if profile.get('version') is not None and not isinstance(profile.get('version'),str):raise SystemExit('Profile version must be a JSON string or null; nothing staged.')
     if mode in ['apply','restore'] and not (profile.get('version') or '').strip():raise SystemExit('Profile version is empty; run query and copy PROFILE_VERSION before apply or restore.')
+    if profile.get('platform_model') is not None and not isinstance(profile.get('platform_model'),str):raise SystemExit('Profile platform_model must be a JSON string or null; nothing staged.')
+    if mode in ['apply','restore'] and not (profile.get('platform_model') or '').strip():raise SystemExit('Profile platform_model is empty; run query and copy PROFILE_MODEL before apply or restore.')
     files=[(private/'out'/('CleanFrameHomeControl.'+suffix),staging+'/CleanFrameHomeControl.'+suffix) for suffix in ['dll','runtimeconfig.json','deps.json']]
     files.append((profile_file,staging+'/CleanFrameHomeProfile.json'))
     if mode in ['apply','restore']:files.append((private/'original.json',staging+'/CleanFrameHomeOriginal.json'))

@@ -1,11 +1,12 @@
 # Native Home on QN65S90DAFXZA: review and prepared procedure
 
-Prepared 31 October 2026 on branch `native-home-impl`. **Nothing in this note has been run on this
-TV, and the re-profiled helper has never run here at all.** The
-read-only survey is a device action too: it stages temporary helper files and executes code as the
-SDK user, so it needs its own explicit authorisation. This note is source review and a plan only.
-An independent agent cross-reviewed this text and the code in three rounds on the same day; every
-finding was fixed and the result re-checked (see the review record in section 4).
+Prepared 31 October 2026 on branch `native-home-impl`. **The read-only survey (`inspect` + `query`)
+ran on this TV on 1 November 2026 with Kyle watching; it wrote no settings. `apply` and `restore`
+have not run.** The read-only survey is a device action too: it stages temporary helper files and
+executes code as the SDK user, so it had its own explicit authorisation, and each writing step still
+needs one of its own. An independent agent cross-reviewed this text and the code in three rounds on
+31 October; a fourth round, and a fifth (the survey and the model-guard fix it forced), are in the
+review record in section 4.
 
 Scope: point the native Home button (and, where the firmware allows it, boot) at the installed
 launcher `Zm209bQNEk.Home` on Kyle's 65-inch S90D. The signed launcher and its installation exist,
@@ -48,18 +49,24 @@ why the match is likely. It is not proof for a US 65-inch unit. The implementati
 and `apply`/`restore` refuse an empty or mismatched value. No firmware string is committed or
 hard-coded. A `query` result without `-0090-` should be treated as a mismatch and stopped.
 
-The model has two independent sources: the public API `modelName`, which the runner checks before
-staging, and `Model=` in `/etc/prd_info.ini`, which the helper checks and `query` prints as
-`PROFILE_MODEL`. Both must pass. If they disagree, stop and report; a read-only `query` is allowed
-through with a warning precisely so the disagreement can be seen, while `apply` and `restore`
-refuse. Do not edit the profile to satisfy one guard and silence the other.
+The model has two independent sources, and the 1 November survey showed they carry **different**
+identifiers on this TV, by design: the public API `modelName` is the sales code `QN65S90DAFXZA`,
+while `Model=` in `/etc/prd_info.ini` is the platform code `T-PTMDAKUC-0090` (`query` prints the
+latter as `PROFILE_MODEL`). The earlier assumption that the two match was wrong. The profile now
+carries both: `model` is the sales code the runner checks against the public API, and
+`platform_model` is the platform code the on-device helper checks against `/etc/prd_info.ini`. Each
+guard checks the source it actually reads, and neither is edited to satisfy the other; a wrong TV
+still fails, because a different sales code trips the runner and a different platform code or firmware
+trips the helper.
 
 ### A2. `Zm209bQNEk.Home` is installed and is the right target; boot eligibility is unproven
 
-**Verdict: installed and correct; boot eligibility is unproven.** The identity is recorded in
-`demo/library/config.xml` and in the 31 October owner decisions, and in-place updates use the
-existing certificate, so the ID is stable. Boot eligibility is decided by the firmware and has
-never been asked on this TV. `query` reports `BOOT_SUPPORTED` from
+**Verdict: installed and correct; boot eligibility confirmed by the 1 November survey.** The identity
+is recorded in `demo/library/config.xml` and in the 31 October owner decisions, and in-place updates
+use the existing certificate, so the ID is stable. Boot eligibility is decided by the firmware; the
+1 November `query` returned `BOOT_SUPPORTED=true` and `TARGET_PACKAGE_PRESENT=true` here, so the
+launcher is installed and the firmware reports it boot-eligible. Cold-boot-to-launcher is a separate
+matter and stays unproven (section 7). `query` reports `BOOT_SUPPORTED` from
 `util_is_appbooting_supported_webapp_byappid`, and `apply` refuses anything other than `true`.
 If it reports false or `unknown`, that is a review point, not something to force.
 
@@ -165,8 +172,9 @@ follow.
 
 | Item | Value | Status |
 | --- | --- | --- |
-| Model | `QN65S90DAFXZA` | Recorded; runner checks the public API before staging, helper checks `/etc/prd_info.ini Model=` |
-| Firmware | retail 2130, Tizen 9 OSU-2024 build dated 2026-05-14 | Read from the TV's settings; `prd_info.ini` value to be captured |
+| Model (sales) | `QN65S90DAFXZA` | profile `model`; runner checks it against the public API `modelName` before staging |
+| Model (platform) | `T-PTMDAKUC-0090` | profile `platform_model`; helper checks it against `/etc/prd_info.ini Model=`; captured by the 1 Nov survey |
+| Firmware | retail 2130, Tizen 9 OSU-2024 build 2026-05-14; `prd_info.ini` = `T-PTMDAKUC-0090-2130.0` | Captured by the 1 Nov survey and pinned in the profile |
 | Platform | Tizen 9.0, armv7, 32-bit | Same as the tested S90D/Frame generation; re-checked by `inspect` |
 | Application | `Zm209bQNEk.Home` (package `Zm209bQNEk`, name "Home") | Installed and in use |
 | Package path | `/opt/usr/apps/Zm209bQNEk` | Derived from the package ID; `query` reports whether it exists |
@@ -182,8 +190,10 @@ follow.
 | `db/appfw/booting_appid_backup` | **no** | yes | yes | Derived by the firmware |
 | `db/first_screen/type` | **no** | yes | yes | Stays Samsung Home in the proven configuration |
 
-Both model checks must pass; `PROFILE_MODEL` is the on-device one. A disagreement between them is a
-stop-and-report condition, not something to reconcile by editing the profile.
+Both model checks must pass, but against **different** values: the runner checks `model` (sales code)
+against the public API, and the helper checks `platform_model` (the `PROFILE_MODEL` platform code)
+against `/etc/prd_info.ini`. They are two identifiers for the same TV, confirmed distinct by the
+survey; neither is edited to satisfy the other.
 
 ## 4. Code changes on this branch
 
@@ -239,6 +249,19 @@ device step. The derivation timing behind (1) is unproven on this TV; confirm it
 firmware-literate engineer. The falsifying observation is a `restore` that throws naming a
 firmware-derived key. This review record is therefore not a claim that no defect remains.
 
+**Fifth round (the 1 November read-only survey).** The survey ran on this TV (`inspect` + `query`,
+no settings written) and confirmed the SDK user, the 32-bit runtime, the TV's .NET 6 runtime, every
+bound library, `TARGET_PACKAGE_PRESENT=true`, `BOOT_SUPPORTED=true`, and the firmware string. It also
+showed that the public API model (`QN65S90DAFXZA`, sales) and `/etc/prd_info.ini` Model
+(`T-PTMDAKUC-0090`, platform) are **different** identifiers — which the earlier single-`model` design
+treated as a stop-and-report disagreement, so it would have blocked `apply` permanently. Fixed here:
+the profile gains a `platform_model` field, the on-device helper checks it against `/etc/prd_info.ini`
+while the runner keeps checking `model` against the public API, and the helper was rebuilt and
+re-stamped. This updates A1, A2 and section 7 (boot eligibility and the transport are now confirmed
+on this TV). The change overturns a documented assumption and has not yet been cross-reviewed; the
+open question for the reviewers is whether splitting the model guard into two pinned identifiers
+preserves the "right TV" guarantee as well as the original intent (question 5).
+
 Not changed on purpose: the assembly name, the staged paths, the base64 injection, the 400-byte
 argument cap, the 100 KB output cap and the callback peer check. couchroot used a distinct assembly
 name to avoid a stale same-named assembly resolving on its TV; no `CleanFrameHomeControl.dll` has
@@ -265,7 +288,7 @@ between steps and never loop a failed run.
 cd <project>
 mkdir -p .local/native-home
 cp scripts/native-home/profile.example.json .local/native-home/profile.json
-# edit model -> QN65S90DAFXZA, app_id -> Zm209bQNEk.Home, leave version null
+# edit model -> QN65S90DAFXZA (sales code), app_id -> Zm209bQNEk.Home; leave version and platform_model null
 ```
 
 Then rebuild the helper and stamp the reviewed source. Run both commands from
@@ -295,13 +318,17 @@ Expected in `query` output: `PROFILE_MODEL`, `PROFILE_VERSION`, `TARGET_PACKAGE_
 
 **2. Offline, after reviewing the survey**
 
-- Copy `PROFILE_MODEL` and `PROFILE_VERSION` into `.local/native-home/profile.json` exactly. A
-  trailing `;` is ignored. `PROFILE_MODEL` must also equal the public API value the runner already
-  checked; if the two sources disagree, stop and report rather than picking one.
-- Confirm the captured values match the reference pattern for this model family (Home
+- Copy `PROFILE_MODEL` into `.local/native-home/profile.json` as `platform_model` and
+  `PROFILE_VERSION` as `version`, exactly. A trailing `;` is ignored. `PROFILE_MODEL` is the
+  `/etc/prd_info.ini` platform code and is expected to differ from the sales `model` the runner checks
+  against the public API; that difference is normal, not a stop condition. On this TV they are
+  `T-PTMDAKUC-0090` and `QN65S90DAFXZA`.
+- Confirm the captured values. The reference pattern for this model family is Home
   `com.samsung.tv.csfs`, startup and boot-backup `org.tizen.tv-viewer`, first-screen
-  `com.samsung.tv.csfs`, autostart `0`). A different value is not automatically wrong, but it is a
-  review point.
+  `com.samsung.tv.csfs`, autostart `0`. The 1 November capture here differs in explainable ways: Home,
+  startup and first-screen are `com.samsung.tv.csfs`, autostart is already `1`, and boot-backup names a
+  leftover third-party dev app from earlier testing. A different value is not automatically wrong, but
+  it is a review point; the baseline restores to exactly this captured state.
 - If `BOOT_SUPPORTED` is not `true`, stop and report.
 - Save the baseline once: `test ! -e .local/native-home/original.json && cp .local/native-home/query.json .local/native-home/original.json`
   (then `chmod 600`). If it already exists, do not overwrite it.
@@ -377,9 +404,10 @@ identity; the captured baseline cannot be restored exactly; or a repair would ne
   cold-boot first screen is a separate fastboot path. couchroot confirmed from firmware analysis
   that the first boot skips the configurable first-screen job. Expect Samsung's own Home after a
   full power-off; do not claim otherwise from a settings readback.
-- **Boot eligibility** of this web app on this firmware (the probe has never been run here).
-- **The foothold** on this exact retail build. It is proven on this TV for `vd_appinstall`, not for
-  the package-name injection.
+- **Boot eligibility** of this web app on this firmware is now confirmed: the 1 November probe
+  returned `true`. (Cold-boot-to-launcher, above, is the separate unproven part.)
+- **The foothold / transport** on this exact retail build is now confirmed: the 1 November read-only
+  survey executed the helper as the SDK user. (Listed here before the survey; kept for the record.)
 - **Whether the platform falls back** to Samsung Home if the assigned app fails to launch.
 - **Derived startup/backup behaviour on the 65-inch.** Recorded on a 55-inch unit and on the Frame.
 
@@ -394,6 +422,10 @@ identity; the captured baseline cannot be restored exactly; or a repair would ne
    should the helper read the app registry instead?
 4. Is keeping `vconftool get` in `inspect.sh` acceptable as a read-only fallback, given the
    documented `set` failure on this firmware generation?
+5. The 1 November survey showed the public API model and `/etc/prd_info.ini` Model are different
+   identifiers (sales vs platform), so the model guard was split into `model` (runner, public API) and
+   `platform_model` (helper, `prd_info`). Does checking both pinned identifiers preserve the "right TV"
+   guarantee as well as the original single-value check, or is a further cross-check wanted?
 
 ## 9. Sources
 

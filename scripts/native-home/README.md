@@ -10,11 +10,12 @@ Copy `profile.example.json` to `.local/native-home/profile.json` (ignored) and f
 
 | Field | Where it comes from |
 | --- | --- |
-| `model` | Both identity sources must match: the public device API `modelName` and `Model=` in `/etc/prd_info.ini`, which `query` prints as `PROFILE_MODEL`. `apply` and `restore` refuse either mismatch; a read-only `query` warns instead so the dispute can be seen. |
+| `model` | The public device API `modelName` (the sales code, e.g. `QN65S90DAFXZA`). `run.py` checks it before staging; a mismatch stops `apply`/`restore` and only warns in `query`. |
+| `platform_model` | `Model=` in `/etc/prd_info.ini` (the platform code, e.g. `T-PTMDAKUC-0090`), which `query` prints as `PROFILE_MODEL`. The on-device helper checks it, and it is normally **different** from the sales `model`. `apply`/`restore` require it; `query` tolerates it empty so it can be discovered first. |
 | `version` | The exact value `run.py query` prints as `PROFILE_VERSION`. A trailing `;` is ignored. |
 | `app_id` | Your installed launcher's SDK-generated application id. |
 
-`query` tolerates an empty `version`, so a new TV can be surveyed before its firmware string is pinned. `apply` and `restore` refuse an empty or mismatched `version` or `model`.
+`query` tolerates an empty `version` and `platform_model`, so a new TV can be surveyed before they are pinned. `apply` and `restore` refuse an empty or mismatched `version`, `platform_model` or `model`.
 
 ## Commands
 
@@ -33,7 +34,7 @@ Before `apply`, copy `query.json` to `original.json` once, after reviewing it. T
 
 ## Guarded behaviour
 
-Apply refuses a non-32-bit runtime, any UID other than 901, a model or firmware mismatch, a missing or empty setting, a configuration that changed since the snapshot, a missing `/opt/usr/apps/<package>` directory, or a launcher the firmware does not report as boot-eligible. Each write is read back through the same native API, and the three applied values are re-read and asserted. A failed apply writes the three original values back; if that also fails, the error names both failures. Reapply needs a successful restore first.
+Apply refuses a non-32-bit runtime, any UID other than 901, a sales-model mismatch (the runner, via the public API), a platform-model or firmware mismatch (the helper, via `/etc/prd_info.ini`), a missing or empty setting, a configuration that changed since the snapshot, a missing `/opt/usr/apps/<package>` directory, or a launcher the firmware does not report as boot-eligible. Each write is read back through the same native API, and the three applied values are re-read and asserted. A failed apply writes the three original values back; if that also fails, the error names both failures. Reapply needs a successful restore first.
 
 Restore writes every captured value back, refuses live state the baseline does not explain for the three values apply writes, and verifies every value except the two the firmware re-derives. It is firmware-guarded too: after a firmware change, run `query` (read-only) and re-pin `version` before restoring.
 

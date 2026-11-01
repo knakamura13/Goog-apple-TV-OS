@@ -26,15 +26,17 @@ class Control {
  public class Snapshot {public string Home{get;set;} public Dictionary<string,string> Strings{get;set;} public int Autostart{get;set;} public uint Uid{get;set;} public int BootSupport{get;set;} public string Model{get;set;} public string AppId{get;set;}}
  public class Profile {
   [JsonPropertyName("model")] public string Model{get;set;}
+  [JsonPropertyName("platform_model")] public string PlatformModel{get;set;}
   [JsonPropertyName("version")] public string Version{get;set;}
   [JsonPropertyName("app_id")] public string AppId{get;set;}}
  static string ReadString(string key){IntPtr p=vconf_get_str(key);if(p==IntPtr.Zero)throw new Exception("Cannot read "+key);try{return Marshal.PtrToStringAnsi(p);}finally{free(p);}}
  static string Home(){IntPtr b=bundle_create();if(b==IntPtr.Zero)throw new Exception("No bundle");try{if(aul_svc_set_operation(b,Operation)!=0)throw new Exception("Cannot set query operation");IntPtr p;if(aul_get_default_app(b,out p)!=0||p==IntPtr.Zero)throw new Exception("Cannot read Home operation");try{return Marshal.PtrToStringAnsi(p);}finally{free(p);}}finally{bundle_free(b);}}
  // Boot eligibility is advisory: a missing or changed symbol must not stop the read-only query.
  static int BootProbe(string app){try{return util_is_appbooting_supported_webapp_byappid(app)!=0?1:0;}catch(Exception e) when (e is EntryPointNotFoundException||e is DllNotFoundException||e is MarshalDirectiveException){return -1;}}
- // The baseline records the model the TV reported, not the profile's claim, so provenance checks
- // still detect a baseline carried over from another set.
- static string DeviceModel(Profile p){string m;var prd=PrdInfo();return prd.TryGetValue("Model",out m)&&!string.IsNullOrWhiteSpace(m)?m:p.Model;}
+ // The baseline records the model the TV reported (the /etc/prd_info.ini platform code), not the
+ // profile's claim, so provenance checks still detect a baseline carried over from another set. When
+ // prd_info is unreadable it falls back to the pinned platform_model, then the public sales model.
+ static string DeviceModel(Profile p){string m;var prd=PrdInfo();return prd.TryGetValue("Model",out m)&&!string.IsNullOrWhiteSpace(m)?m:(!string.IsNullOrWhiteSpace(p.PlatformModel)?p.PlatformModel:p.Model);}
  static Snapshot Query(Profile p){var s=new Snapshot{Home=Home(),Strings=new Dictionary<string,string>(),Uid=getuid(),BootSupport=BootProbe(p.AppId),Model=DeviceModel(p),AppId=p.AppId};foreach(var k in Keys)s.Strings[k]=ReadString(k);int v;if(vconf_get_int(AutoKey,out v)!=0)throw new Exception("Cannot read autostart");s.Autostart=v;return s;}
  static void SetString(string key,string value){if(vconf_set_str(key,value)!=0||ReadString(key)!=value)throw new Exception("String write/readback failed: "+key);}
  static void SetAuto(int value){int v;if(vconf_set_int(AutoKey,value)!=0||vconf_get_int(AutoKey,out v)!=0||v!=value)throw new Exception("Autostart write/readback failed");}
@@ -51,17 +53,20 @@ class Control {
  static string PackageDir(string appId){return "/opt/usr/apps/"+appId.Split('.')[0];}
  static Profile ReadProfile(string path){
   var p=JsonSerializer.Deserialize<Profile>(File.ReadAllText(path));if(p==null)throw new Exception("Profile is empty");
-  if(p.Model!=null)p.Model=p.Model.Trim();if(p.AppId!=null)p.AppId=p.AppId.Trim();if(p.Version!=null)p.Version=p.Version.Trim().TrimEnd(';').Trim();
+  if(p.Model!=null)p.Model=p.Model.Trim();if(p.PlatformModel!=null)p.PlatformModel=p.PlatformModel.Trim().TrimEnd(';').Trim();if(p.AppId!=null)p.AppId=p.AppId.Trim();if(p.Version!=null)p.Version=p.Version.Trim().TrimEnd(';').Trim();
   if(!Regex.IsMatch(p.AppId??"",@"^[A-Za-z0-9]{10}\.[A-Za-z0-9_-]{1,52}$"))throw new Exception("Profile app_id is not a valid SDK application id");
   if(string.IsNullOrWhiteSpace(p.Model))throw new Exception("Profile model is empty");return p;}
  static Dictionary<string,string> PrdInfo(){var values=new Dictionary<string,string>(StringComparer.Ordinal);try{foreach(var line in File.ReadAllLines("/etc/prd_info.ini")){int split=line.IndexOf('=');if(split<1)continue;var name=line.Substring(0,split).Trim();if(name!="Model"&&name!="Version")continue;values[name]=line.Substring(split+1).Trim().TrimEnd(';').Trim();}}catch(Exception e) when (e is IOException||e is UnauthorizedAccessException){}return values;}
- // Query prints the exact lines to copy into the private profile; apply and restore require them to match.
+ // Query prints the exact lines to copy into the private profile; apply and restore require them to
+ // match. PROFILE_MODEL is the /etc/prd_info.ini platform code and belongs in profile.platform_model;
+ // the sales model (profile.model) is what the public API reports and is guarded by run.py, not here.
  static void ReportFirmware(Profile p,bool exact){
   var prd=PrdInfo();string model=null,version=null;prd.TryGetValue("Model",out model);prd.TryGetValue("Version",out version);
   Console.WriteLine("PROFILE_MODEL="+(model??"<absent>"));Console.WriteLine("PROFILE_VERSION="+(version??"<absent>"));
   if(!exact)return;
+  if(string.IsNullOrWhiteSpace(p.PlatformModel))throw new Exception("Profile platform_model is empty; run query and copy PROFILE_MODEL (the /etc/prd_info.ini platform code, not the sales model)");
   if(string.IsNullOrWhiteSpace(p.Version))throw new Exception("Profile version is empty; run query and copy PROFILE_VERSION");
-  if(!string.Equals(model,p.Model,StringComparison.Ordinal))throw new Exception("Model in /etc/prd_info.ini is "+(model??"<absent>")+"; the profile expects "+p.Model+". Run query and copy PROFILE_MODEL, or stop if the public API and /etc/prd_info.ini disagree");
+  if(!string.Equals(model,p.PlatformModel,StringComparison.Ordinal))throw new Exception("Model in /etc/prd_info.ini is "+(model??"<absent>")+"; the profile platform_model expects "+p.PlatformModel+". Run query and copy PROFILE_MODEL");
   if(!string.Equals(version,p.Version,StringComparison.Ordinal))throw new Exception("Unexpected firmware: "+(version??"<absent>")+" (profile has "+p.Version+"). Run query (read-only), review, then re-pin version before this step");}
  static void CheckSnapshot(Snapshot s,Profile p){
   if(s==null||string.IsNullOrWhiteSpace(s.Home)||s.Strings==null||s.Strings.Count!=Keys.Length||(s.Autostart!=0&&s.Autostart!=1))throw new Exception("Invalid original snapshot");
@@ -71,8 +76,9 @@ class Control {
   // derived startup_appid on the launcher. The derived field alone is not enough, because a capture
   // after a restore may still have unsettled derived values.
   if(s.Home==p.AppId||(!string.IsNullOrEmpty(s.AppId)&&s.Home==s.AppId)||s.Strings["db/appfw/home_appid"]==p.AppId||(s.Autostart==1&&s.Strings["db/appfw/startup_appid"]==p.AppId))throw new Exception("Original snapshot names the launcher or an applied state; capture the pre-change state instead");
-  // Older baselines have no provenance fields; when present they must belong to this profile.
-  if(!string.IsNullOrEmpty(s.Model)&&s.Model!=p.Model)throw new Exception("Original snapshot belongs to model "+s.Model);
+  // Older baselines have no provenance fields; when present they must belong to this profile. s.Model
+  // is the platform code DeviceModel captured, so it is checked against platform_model, not the sales model.
+  if(!string.IsNullOrEmpty(s.Model)&&s.Model!=p.PlatformModel)throw new Exception("Original snapshot belongs to model "+s.Model);
   if(!string.IsNullOrEmpty(s.AppId)&&s.AppId!=p.AppId)throw new Exception("Original snapshot belongs to application "+s.AppId);}
  // Restore may only overwrite values this baseline explains. The gate is the three values apply
  // writes; anything else live is either firmware-owned or another setting, noted before restore.

@@ -75,6 +75,12 @@ test('homeLists with saved favorites but no saved hidden list hides only non-own
   assert.deepEqual(r.hid, ['disney']);
 });
 
+test('homeLists treats damaged saved lists as missing', () => {
+  const r = plain(L.homeLists(owner, ['plex', 'netflix', 'disney'], { fav: 'netflix', hid: 7 }, 6, nameOf));
+  assert.deepEqual(r.fav, ['plex', 'netflix']);
+  assert.deepEqual(r.hid, ['disney']);
+});
+
 test('homeLists never leaves Favorites empty', () => {
   const r = plain(L.homeLists(owner, ['sling', 'disney'], { fav: ['gone'], hid: [] }, 6, nameOf));
   assert.deepEqual(r.fav, ['disney', 'sling']);

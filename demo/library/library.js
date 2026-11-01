@@ -1,7 +1,9 @@
-/* Library Home prototype. ES5 so the same code can run on the TV's web engine.
-   Apps, inputs and weather are sample data: the TV build reads installed apps and connected sources. */
+/* Home, a launcher for a Samsung TV (a Tizen web app). ES5, so it runs on the TV's web engine.
+   On the TV it lists the installed apps and connected HDMI sources; the browser preview shows sample apps. */
 (function () {
   'use strict';
+
+  var H = window.HomeLogic; // Pure logic shared with the unit tests (logic.js).
 
   var ASSETS = '/home/assets/', ICONS = ASSETS + 'icons/';
   var KEYS = { 37: 'left', 38: 'up', 39: 'right', 40: 'down', 13: 'ok', 27: 'back', 8: 'back', 10009: 'back', 461: 'back' };
@@ -52,27 +54,21 @@
   var OWNER_APPS = ['plex', 'youtube', 'netflix', 'appletv', 'hulu', 'primevideo', 'hbomax', 'spotify',
     'HEPsqFNie0.tvplusstandalone', 'alexa', 'smartthings'];
   var FAV_MAX = 6, STORE = 'library-prototype.v1';
-  // HDMI ports as the TV reports them; names and visibility are the owner's choices.
-  var INPUT_DEFAULTS = [
-    { port: 'HDMI 1', name: 'PlayStation 5', show: true, connected: true },
-    { port: 'HDMI 2', name: 'Mac mini', show: true, connected: true },
-    { port: 'HDMI 3', name: '', show: true, connected: false },
-    { port: 'HDMI 4', name: '', show: false, connected: false }
-  ];
+  // HDMI ports. Names and visibility are the owner's choices; each port counts as connected until the TV reports.
+  var INPUT_DEFAULTS = [{ port: 'HDMI 1', show: true }, { port: 'HDMI 2', show: true }, { port: 'HDMI 3', show: true }, { port: 'HDMI 4', show: false }];
+  var SOURCE_APP = 'org.tizen.SMSourceAPP'; // Samsung's source list, for sources Home doesn't show (USB, antenna).
   var TABS = ['Home', 'Inputs'];
-  var SLEEP = ['Off', '30 min', '1 hour', '90 min', '2 hours'];
   var AMBIENT = [{ name: 'After 1 min', ms: 60000 }, { name: 'After 5 min', ms: 300000 }, { name: 'After 15 min', ms: 900000 }, { name: 'Off', ms: 0 }];
   var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   var WALLS = window.CleanFrameWallpapers || [];
   var FAVS = [], ROWS = [], INS = []; // Home's favourites, library rows and input tiles, rebuilt from the owner's choices.
 
-  var S = { tab: 0, zone: 'fav', nav: 0, fav: 0, lr: 0, lc: 0, inp: 0, panel: 0, dialog: 0, glassTiles: false, wall: 0, homeWall: 0, sleep: 0, amb: 0, ambient: false, scroll: 0,
+  var S = { tab: 0, zone: 'fav', nav: 0, fav: 0, lr: 0, lc: 0, inp: 0, panel: 0, dialog: 0, glassTiles: false, wall: 0, ambWall: 0, amb: 0, ambient: false, scroll: 0,
     favIds: [], hiddenIds: [], lastId: '', ed: null, menu: null, menuFrom: 'fav', pages: [], panelFrom: 'gear', paging: false, pageEntered: false, queued: [],
     weather: { zip: '92626', units: 'F' }, zip: [], zipAt: 0, inputAt: 0, // Default location: Costa Mesa, CA (where the TV is). Real weather fetch is still a V1 item; the temperature is a placeholder.
-    inputs: INPUT_DEFAULTS.map(function (p) { return { port: p.port, name: p.name, show: p.show, connected: p.connected }; }) };
+    inputs: INPUT_DEFAULTS.map(function (p) { return { port: p.port, name: '', show: p.show, connected: true }; }) };
   var SETTINGS = [
-    { label: 'Sleep timer', value: function () { return SLEEP[S.sleep]; }, ok: function () { S.sleep = (S.sleep + 1) % SLEEP.length; } },
     { label: 'Wallpaper', kind: 'screen', value: function () { return WALLS[S.wall] ? WALLS[S.wall].name : ''; }, ok: openPicker },
     { label: 'Apps', kind: 'screen', value: function () { return S.favIds.length + ' favorites'; }, ok: openEditor },
     { label: 'Weather', kind: 'page', value: function () { return S.weather.zip ? S.weather.zip + ' · °' + S.weather.units : 'Set location'; }, ok: function () { pushPage('weather'); } },
@@ -200,8 +196,10 @@
     return '<div class="p-row"' + attrs + '><span class="p-label">' + esc(s.label) + '</span><span class="p-end"><span class="p-value"></span>' + (s.kind === 'link' ? LINK_ICON : s.kind ? CHEVRON : '') + '</span></div>';
   }
   function byId(id) { var i; for (i = 0; i < APPS.length; i++) if (APPS[i].id === id) return APPS[i]; return null; }
-  function byName(a, b) { return byId(a).name.localeCompare(byId(b).name); }
-  function libraryIds(favIds, hiddenIds) { return APPS.map(function (a) { return a.id; }).filter(function (id) { return favIds.indexOf(id) < 0 && hiddenIds.indexOf(id) < 0; }).sort(byName); }
+  function nameOf(id) { return byId(id).name; }
+  function byName(a, b) { return nameOf(a).localeCompare(nameOf(b)); }
+  function allIds() { return APPS.map(function (a) { return a.id; }); }
+  function libraryIds(fav, hid) { return H.libraryIds(allIds(), fav, hid, nameOf); }
   function buildHome() {
     FAVS = S.favIds.map(byId);
     ROWS = chunk(libraryIds(S.favIds, S.hiddenIds).map(byId), COLS);
@@ -220,24 +218,22 @@
     resumeTile = a ? resumeSlot.querySelector('.tile') : null;
   }
   function load() {
-    var d, ok = function (id) { return !!byId(id); };
+    var d, lists;
     try { d = JSON.parse(window.localStorage.getItem(STORE) || 'null'); } catch (e) { d = null; }
-    // Favorites and Hidden (saved, or the defaults on a first run) keep only installed apps. Favorites never end up empty.
-    S.favIds = d && d.fav ? d.fav : OWNER_APPS;
-    S.hiddenIds = d && d.hid ? d.hid : APPS.map(function (a) { return a.id; }).filter(function (id) { return OWNER_APPS.indexOf(id) < 0; });
-    S.favIds = S.favIds.filter(ok).slice(0, FAV_MAX);
-    if (!S.favIds.length) S.favIds = APPS.map(function (a) { return a.id; }).sort(byName).slice(0, FAV_MAX);
-    S.hiddenIds = S.hiddenIds.filter(function (id) { return ok(id) && S.favIds.indexOf(id) < 0; });
+    if (!d || typeof d !== 'object') d = null;
+    lists = H.homeLists(OWNER_APPS, allIds(), d, FAV_MAX, nameOf);
+    S.favIds = lists.fav;
+    S.hiddenIds = lists.hid;
     if (!d) return;
     S.glassTiles = !!d.glass;
     if (typeof d.last === 'string') S.lastId = d.last;
-    if (typeof d.wall === 'number' && d.wall >= 0 && d.wall < WALLS.length) { S.wall = d.wall; wallSaved = true; }
-    if (typeof d.amb === 'number' && d.amb >= 0 && d.amb < AMBIENT.length) S.amb = d.amb;
+    if (H.validIndex(d.wall, WALLS.length)) { S.wall = d.wall; wallSaved = true; }
+    if (H.validIndex(d.amb, AMBIENT.length)) S.amb = d.amb;
     if (d.weather) S.weather = { zip: /^\d{5}$/.test(d.weather.zip) ? d.weather.zip : '', units: d.weather.units === 'C' ? 'C' : 'F' };
-    if (d.inputs) S.inputs.forEach(function (inp, n) {
+    if (Array.isArray(d.inputs)) S.inputs.forEach(function (inp, n) {
       var saved = d.inputs[n];
       if (!saved) return;
-      if (typeof saved.name === 'string') inp.name = saved.name.slice(0, 24);
+      inp.name = H.inputName(n, saved.name);
       if (typeof saved.show === 'boolean') inp.show = saved.show;
     });
   }
@@ -245,9 +241,9 @@
     var inputs = S.inputs.map(function (inp) { return { name: inp.name, show: inp.show }; });
     try { window.localStorage.setItem(STORE, JSON.stringify({ fav: S.favIds, hid: S.hiddenIds, last: S.lastId, wall: S.wall, amb: S.amb, glass: S.glassTiles, weather: S.weather, inputs: inputs })); } catch (e) { /* The prototype still works without saved choices. */ }
   }
-  function inputName(inp) { return inp.name || (inp.connected ? inp.port : 'No device'); }
+  function inputLabel(inp) { return inp.name || (inp.connected ? inp.port : 'No device'); }
   function buildInputs() {
-    INS = S.inputs.filter(function (inp) { return inp.show; }).map(function (inp) { return { port: inp.port, name: inputName(inp), empty: !inp.connected }; });
+    INS = S.inputs.filter(function (inp) { return inp.show; }).map(function (inp) { return { port: inp.port, name: inputLabel(inp), empty: !inp.connected }; });
     INS.push({ port: 'Samsung', name: 'Source list', list: true }, { port: 'Settings', name: 'Edit inputs', edit: true });
     inRow.innerHTML = INS.map(inputHtml).join('');
     S.inp = Math.min(S.inp, INS.length - 1);
@@ -447,9 +443,9 @@
     if (!a) return;
     isFav = S.favIds.indexOf(a.id) >= 0;
     items = [{ label: 'Open', run: function () { S.zone = S.menuFrom; launch(S.menu.tile, a); } }, { label: 'Move', run: function () { tileMove(a.id); } }];
-    items.push(isFav ? { label: 'Remove from Favorites', run: function () { tileUnfav(a.id); } }
-                     : { label: 'Add to Favorites', run: function () { tileFav(a.id); } });
-    items.push({ label: 'Hide', run: function () { tileHide(a.id); } });
+    items.push(isFav ? { label: 'Remove from Favorites', run: function () { tileEdit(H.unfav(lists(), a.id), a.id, a.name + ' removed from Favorites.'); } }
+                     : { label: 'Add to Favorites', run: function () { tileEdit(H.addFav(lists(), a.id, FAV_MAX), a.id, a.name + ' added to Favorites.'); } });
+    items.push({ label: 'Hide', run: function () { tileEdit(H.hide(lists(), a.id), a.id, a.name + ' hidden.'); } });
     S.menuFrom = S.zone;
     S.menu = { i: 0, items: items, tile: focused };
     tilemenuTitle.textContent = a.name;
@@ -466,32 +462,23 @@
     S.ed.carry = { id: id, sec: sectionOf(id), idx: Math.max(0, S.favIds.indexOf(id)), from: sectionOf(id) };
     S.ed.hint = 'Moving ' + byId(id).name + '. Arrows move it, OK drops it, Back cancels.';
   }
-  function afterTileEdit(id, msg) {
-    var fi;
+  function lists() { return { fav: S.favIds, hid: S.hiddenIds }; }
+  // A tile menu change saves and returns to the dock, or says why it can't be made.
+  function tileEdit(next, id, msg) {
+    if (next.error) { toast(next.error); return; }
+    S.favIds = next.fav;
+    S.hiddenIds = next.hid;
     save();
     buildHome();
     buildResume();
-    fi = S.favIds.indexOf(id);
-    S.zone = 'fav';
-    S.fav = fi >= 0 ? fi : Math.min(S.fav, Math.max(0, FAVS.length - 1));
+    toDock(id);
     toast(msg);
   }
-  function tileHide(id) {
-    if (S.favIds.indexOf(id) >= 0 && S.favIds.length <= 1) { toast('Keep at least one favorite.'); return; }
-    S.favIds = S.favIds.filter(function (x) { return x !== id; });
-    if (S.hiddenIds.indexOf(id) < 0) S.hiddenIds.push(id);
-    afterTileEdit(id, byId(id).name + ' hidden.');
-  }
-  function tileUnfav(id) {
-    if (S.favIds.length <= 1) { toast('Keep at least one favorite.'); return; }
-    S.favIds = S.favIds.filter(function (x) { return x !== id; });
-    afterTileEdit(id, byId(id).name + ' removed from Favorites.');
-  }
-  function tileFav(id) {
-    if (S.favIds.length >= FAV_MAX) { toast('Favorites hold ' + FAV_MAX + ' apps. Remove one first.'); return; }
-    S.hiddenIds = S.hiddenIds.filter(function (x) { return x !== id; });
-    S.favIds.push(id);
-    afterTileEdit(id, byId(id).name + ' added to Favorites.');
+  // Focus the dock, on the app when it is a favorite (buildHome keeps S.fav in range otherwise).
+  function toDock(id) {
+    var fi = S.favIds.indexOf(id);
+    S.zone = 'fav';
+    if (fi >= 0) S.fav = fi;
   }
   // OK on a Home tile: a tap launches on key-up, a hold of 450 ms opens the menu. Like CleanFrame's held-key map,
   // a held OK ignores its repeats whether or not the TV flags them, and key-up, window blur or leaving the app
@@ -513,10 +500,10 @@
   function chooseInput(s) {
     press(focused);
     if (s.edit) openPanel('inputs', 'inputs');
-    else if (!s.empty && !s.list && tvShowSource(s.port)) return;
+    else if (s.list) openSamsung('Samsung’s source list', function (done) { window.FrameDevice.launchApp(SOURCE_APP, done); });
     else if (s.empty) toast('Nothing is connected to ' + s.port + '.');
-    else if (s.list) toast('Opens Samsung’s source list on the TV.');
-    else toast('Switches to ' + s.name + ' (' + s.port + ') on the TV.');
+    else if (!window.tizen) toast('Shows ' + s.name + ' on the TV.');
+    else if (!tvShowSource(s.port)) toast(s.port + ' can’t be shown here. Samsung’s source list can switch to it.');
   }
   // Messages appear inside the settings panel while it is open, so they never cover it.
   function toast(text) {
@@ -547,7 +534,7 @@
     inputs: {
       title: 'Inputs', note: 'Names appear on the Inputs tab. Hidden inputs stay off it.',
       rows: function () {
-        return S.inputs.map(function (inp, n) { return { label: inp.port, kind: 'page', value: function () { return inp.show ? inputName(inp) : 'Hidden'; }, ok: function () { S.inputAt = n; pushPage('input'); } }; });
+        return S.inputs.map(function (inp, n) { return { label: inp.port, kind: 'page', value: function () { return inp.show ? inputLabel(inp) : 'Hidden'; }, ok: function () { S.inputAt = n; pushPage('input'); } }; });
       }
     },
     input: {
@@ -732,11 +719,10 @@
   // Back to Settings when opened there; Move from Home's tile menu returns to the dock, on the moved app if it is a
   // favorite. Never back to the library: the lists changed, so its row and column may no longer exist.
   function closeEditor() {
-    var fi = S.favIds.indexOf(S.ed.focus);
     S.ed.carry = null;
     buildHome();
     buildResume();
-    if (S.edFrom === 'home') { S.zone = 'fav'; S.fav = fi >= 0 ? fi : Math.min(S.fav, Math.max(0, FAVS.length - 1)); } else S.zone = 'panel';
+    if (S.edFrom === 'home') toDock(S.ed.focus); else S.zone = 'panel';
   }
   function count(n) { return n + (n === 1 ? ' app' : ' apps'); }
   function sectionOf(id) { return S.favIds.indexOf(id) >= 0 ? 'fav' : S.hiddenIds.indexOf(id) >= 0 ? 'hid' : 'lib'; }
@@ -905,7 +891,7 @@
   }
   function armIdle() {
     clearTimeout(idleTimer);
-    if (AMBIENT[S.amb].ms && !S.ambient) idleTimer = setTimeout(enterAmbient, AMBIENT[S.amb].ms);
+    if (AMBIENT[S.amb].ms && !S.ambient && !tvWindowOn) idleTimer = setTimeout(enterAmbient, AMBIENT[S.amb].ms);
   }
   // On this QD-OLED, Samsung's panel-protection screensaver can't be disabled and takes over after a still-ish
   // minute or two. We don't fight it (it protects the panel); ours shows first, then Samsung's runs on long idle.
@@ -914,12 +900,12 @@
   document.addEventListener('visibilitychange', function () {
     okHeld = false;
     okCancel();
+    if (document.hidden && tvWindowOn) tvHideSource();
     if (document.hidden) clearTimeout(idleTimer); else armIdle();
   });
   // A slow drift keeps the clock from burning a fixed shape into the OLED panel.
   function drift() { ambDrift.style.transform = 'translate3d(' + Math.round(Math.random() * 40 - 20) + 'px,' + Math.round(Math.random() * 24 - 12) + 'px,0)'; }
   function enterAmbient() {
-    measure('screensaver in', 1200);
     if (S.ambient) return;
     if (S.zone === 'wallpaper') closePicker();
     if (S.zone === 'apps') closeEditor();
@@ -938,7 +924,6 @@
   }
   // Home keeps its chosen photo; the screensaver's slideshow only shows others and never changes the choice.
   function exitAmbient() {
-    measure('screensaver out', 1000);
     S.ambient = false;
     stage.classList.remove('is-ambient');
     clearInterval(driftTimer);
@@ -949,25 +934,22 @@
     armIdle();
   }
 
-  // ---------- Input ----------
-
   // ---------- Sounds ----------
   // A soft, quiet tick when focus moves and a slightly fuller one on OK, synthesized from low-passed noise so
   // they cost no files. The TV's own menu sounds (tizen.tvaudiocontrol) were tried but are loud with no volume
   // control, so they're not used; the owners wanted these much quieter. Web Audio on this TV adds about 0.1 s.
-  var audio = null, noise = null, soundReady = false, soundWhy = 'not started';
+  var audio = null, noise = null, soundBroken = false;
   // Started at launch, so the first key press doesn't wait for the audio engine.
   function soundStart() {
     var Ctx = window.AudioContext || window.webkitAudioContext, data, i;
-    if (audio || soundReady === 'broken') return;
-    if (!Ctx) { soundWhy = 'no Web Audio'; soundReady = 'broken'; return; }
+    if (audio || soundBroken) return;
+    if (!Ctx) { soundBroken = true; return; }
     try {
       audio = new Ctx({ latencyHint: 0 });
       noise = audio.createBuffer(1, Math.round(audio.sampleRate * 0.12), audio.sampleRate);
       data = noise.getChannelData(0);
       for (i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-      soundReady = true; soundWhy = 'ready';
-    } catch (e) { audio = null; soundReady = 'broken'; soundWhy = e.name; }
+    } catch (e) { audio = null; soundBroken = true; }
   }
   function sound(kind) {
     var select = kind === 'select', len = select ? 0.09 : 0.045, peak = select ? 0.1 : 0.07, t, src, filter, gain;
@@ -991,65 +973,20 @@
       gain.connect(audio.destination);
       src.start(t);
       src.stop(t + len + 0.01);
-    } catch (e) { audio = null; soundReady = 'broken'; soundWhy = e.name; }
+    } catch (e) { audio = null; soundBroken = true; }
   }
-
-  // ---------- Test readout (TV test builds only) ----------
-  // The remote's 0 button shows what the TV reports about sound and how smoothly the last moves ran, since this TV offers no debugger.
-  // Buttons 1 to 3 switch off one suspected cost each, to compare on the TV: the blurred photo behind the library, the squircle masks, the glass images.
-  // The fade layers are kept composited by default (CSS will-change), which removed the dock/library stall on the TV. Button 4 toggles that OFF (t-cold) for comparison.
-  var diagEl = null, diagLines = [], ZONE_NAMES = { fav: 'dock', lib: 'library' }, SWITCHES = ['blur', 'masks', 'glass'];
-  function ms(seconds) { return typeof seconds === 'number' ? Math.round(seconds * 1000) + ' ms' : 'n/a'; }
-  function diagText() {
-    return ['Firmware  ' + (about.firmware || 'reading…'),
-      'Storage   ' + (about.storage || 'reading…'),
-      'Sound     built-in, quiet (' + soundWhy + ')',
-      'Audio     ' + (audio ? audio.sampleRate + ' Hz, base ' + ms(audio.baseLatency) + ', output ' + ms(audio.outputLatency) + ', ' + audio.state : 'off'),
-      'Switches  ' + SWITCHES.map(function (w, i) { return (i + 1) + ' ' + w + (stage.classList.contains('t-no' + w) ? ' OFF' : ' on'); }).join(' · ') + ' · 4 warm ' + (stage.classList.contains('t-cold') ? 'off' : 'ON')
-    ].concat(diagLines).join('\n');
-  }
-  function showDiag() { if (diagEl && diagEl.classList.contains('is-on')) diagEl.textContent = diagText(); }
-  function toggleDiag() {
-    if (!diagEl) { diagEl = document.createElement('pre'); diagEl.className = 'diag'; stage.appendChild(diagEl); }
-    tvReadAbout();
-    diagEl.classList.toggle('is-on');
-    showDiag();
-    setTimeout(showDiag, 1500);
-  }
-  // Frame gaps after a key that moved focus (700 ms) or a screensaver change. A gap over 20 ms is a missed frame at 60 Hz.
-  function measure(label, span) {
-    var times = [], start = window.performance.now(), until = span || 700;
-    function frame(t) {
-      var worst = 0, slow = 0, off, i, gap;
-      times.push(t);
-      if (t - start < until) { window.requestAnimationFrame(frame); return; }
-      for (i = 1; i < times.length; i++) { gap = times[i] - times[i - 1]; if (gap > worst) worst = gap; if (gap > 20) slow++; }
-      off = SWITCHES.filter(function (w) { return stage.classList.contains('t-no' + w); }).map(function (w) { return 'no ' + w; });
-      if (stage.classList.contains('t-cold')) off.push('cold');
-      diagLines.unshift(label + '  ' + times.length + ' frames, worst ' + Math.round(worst) + ' ms, ' + slow + ' missed' + (off.length ? '  [' + off.join(', ') + ']' : ''));
-      diagLines.length = Math.min(diagLines.length, 12);
-      showDiag();
-    }
-    window.requestAnimationFrame(frame);
-  }
-  function zoneName(z) { return ZONE_NAMES[z] || z; }
 
   document.addEventListener('keydown', function (e) {
-    var k = KEYS[e.keyCode], was = focused, wasZone = S.zone;
+    var k = KEYS[e.keyCode], was = focused;
     if (document.activeElement && document.activeElement.classList.contains('p-field')) {
       if (k === 'ok' || (k === 'back' && e.keyCode !== 8)) { e.preventDefault(); act(k); }
       return;
     }
     /* preview */if (e.keyCode === KEY_HINTS) { $('hints').classList.toggle('is-off'); return; }/* /preview */
-    if (tvWindowOn) { e.preventDefault(); tvHideSource(); return; }
+    if (tvWindowOn) { e.preventDefault(); if (k === 'back' && !e.repeat) tvHideSource(); return; }
     if (S.ambient) { e.preventDefault(); if (!e.repeat) exitAmbient(); return; }
     if (S.zone === 'panel' && pageDef().custom === 'zip' && ((e.keyCode >= 48 && e.keyCode <= 57) || (e.keyCode >= 96 && e.keyCode <= 105))) { zipDigit(e.keyCode - (e.keyCode >= 96 ? 96 : 48)); return; }
     /* preview */if (e.keyCode === KEY_AMBIENT) { enterAmbient(); return; }/* /preview */
-    if (e.keyCode === 48 || e.keyCode === 96) { toggleDiag(); return; }
-    if (diagEl && diagEl.classList.contains('is-on')) {
-      if ((e.keyCode >= 49 && e.keyCode <= 51) || (e.keyCode >= 97 && e.keyCode <= 99)) { stage.classList.toggle('t-no' + SWITCHES[e.keyCode % 48 - 1]); showDiag(); return; }
-      if (e.keyCode === 52 || e.keyCode === 100) { stage.classList.toggle('t-cold'); showDiag(); return; }
-    }
     if (!k) return;
     e.preventDefault();
     armIdle();
@@ -1064,7 +1001,6 @@
     } else if (e.repeat && k === 'back') return;
     act(k);
     if (k !== 'ok' && focused !== was) sound(k);
-    if (focused !== was) measure(wasZone === S.zone ? zoneName(S.zone) : zoneName(wasZone) + ' → ' + zoneName(S.zone));
   });
   document.addEventListener('keyup', function (e) { if (KEYS[e.keyCode] === 'ok') okRelease(); });
   window.addEventListener('blur', function () { okHeld = false; okCancel(); });
@@ -1132,8 +1068,7 @@
 
   // ---------- TV inputs (only on the TV) ----------
 
-  // Two open questions for the TV test: which HDMI ports really have a device, and whether the app can show one.
-  // Results and exact errors appear as messages, so the first run on the TV answers both.
+  // The TV reports which HDMI ports have a device; tvwindow shows one full screen inside Home until Back.
   function tvReadSources() {
     var si = window.tizen && window.tizen.systeminfo;
     if (!si) return;
@@ -1144,47 +1079,37 @@
         S.inputs.forEach(function (inp) { inp.connected = !!tvSources[inp.port]; });
         buildInputs();
         render();
-      }, function (err) { toast('Could not read inputs: ' + err.name + ' ' + err.message); });
-    } catch (e) { toast('Could not read inputs: ' + e.message); }
+      }, function (err) { toast('Couldn’t read the TV’s inputs: ' + err.message); });
+    } catch (e) { toast('Couldn’t read the TV’s inputs: ' + e.message); }
   }
   function tvShowSource(port) {
     var tw = window.tizen && window.tizen.tvwindow, src = tvSources[port];
     if (!tw || !src) return false;
     try {
       tw.setSource(src, function () {
-        tw.show(function () { tvWindowOn = true; toast(port + ' is showing. Press any button to come back.'); },
-          function (err) { toast('Show failed: ' + err.name + ' ' + err.message); }, ['0px', '0px', '1920px', '1080px'], 'MAIN', 'FRONT');
-      }, function (err) { toast('Switch failed: ' + err.name + ' ' + err.message); }, 'MAIN');
-    } catch (e) { toast('Switch failed: ' + e.message); }
+        tw.show(function () { tvWindowOn = true; clearTimeout(idleTimer); toast('Press Back to return to Home.'); },
+          function (err) { toast('Couldn’t show ' + port + ': ' + err.message); }, ['0px', '0px', '1920px', '1080px'], 'MAIN', 'FRONT');
+      }, function (err) { toast('Couldn’t switch to ' + port + ': ' + err.message); }, 'MAIN');
+    } catch (e) { toast('Couldn’t switch to ' + port + ': ' + e.message); }
     return true;
   }
   function tvHideSource() {
     tvWindowOn = false;
-    try { window.tizen.tvwindow.hide(function () {}, function (err) { toast('Hide failed: ' + err.name); }, 'MAIN'); } catch (e) { toast('Hide failed: ' + e.message); }
+    armIdle();
+    try { window.tizen.tvwindow.hide(function () {}, function (err) { toast('Couldn’t close the HDMI view: ' + err.message); }, 'MAIN'); } catch (e) { toast('Couldn’t close the HDMI view: ' + e.message); }
   }
 
   // ---------- Installed apps (only on the TV) ----------
 
   // CleanFrame's device.js lists the installed apps without Samsung's internal ones and names the brands it
   // knows. Any other app matches a logo here by name ("Tubi - Free Movies & TV" is "tubi"); the rest keep the
-  // TV's name and icon.
-  function plainName(name) { return String(name).toLowerCase().replace(/\s*[:|].*$|\s+[-–].*$/, '').replace(/\s+/g, ' ').trim(); }
-  function tvApp(entry, brands) {
-    var n = plainName(entry.name), icon = entry.icon, b, i;
-    for (i = 0; i < brands.length; i++) {
-      b = brands[i];
-      if (b.mark && (b.id === entry.brand || plainName(b.name) === n || (b.aka && b.aka.indexOf(n) >= 0))) return { id: b.id, appId: entry.appId, name: b.name, mark: b.mark, bg: b.bg, ink: b.ink };
-    }
-    // Same rule as CleanFrame: only an absolute or packaged path is used as an image source.
-    if (typeof icon !== 'string' || icon.length > 2048 || !/^(?:\/[^\/]|file:\/\/\/|wgt-package:\/\/\/)/.test(icon)) icon = '';
-    return { id: entry.appId, appId: entry.appId, name: String(entry.name).slice(0, 40), icon: icon, bg: '#24272b', ink: '#fff' };
-  }
+  // TV's name and icon (HomeLogic.tvApp).
   function start() {
     if (!window.tizen || !window.tizen.application || !window.FrameDevice) { begin(); return; }
     window.FrameDevice.apps(function (err, entries) {
       var brands = APPS, seen = {};
       if (!err && entries.length) {
-        APPS = entries.map(function (e) { return tvApp(e, brands); }).filter(function (a) { var dup = seen[a.id]; seen[a.id] = true; return !dup; });
+        APPS = entries.map(function (e) { return H.tvApp(e, brands); }).filter(function (a) { var dup = seen[a.id]; seen[a.id] = true; return !dup; });
       }
       begin();
       if (err || !entries.length) toast('Could not read the TV’s apps' + (err ? ': ' + err.message : '') + '. Showing sample apps.');

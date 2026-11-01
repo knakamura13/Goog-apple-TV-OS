@@ -1,7 +1,7 @@
-"""Assemble the Library prototype as a self-contained, unsigned Tizen web app in dist/library-demo/.
+"""Assemble Home, the launcher, as a self-contained, unsigned Tizen web app in dist/library-demo/.
 
-The browser preview serves the prototype from demo/library/ with assets under /home/assets/. The TV loads files
-from inside the widget, so this copies only the assets the prototype uses and rewrites those paths to be relative.
+The browser preview serves Home from demo/library/ with assets under /home/assets/. The TV loads files
+from inside the widget, so this copies only the assets Home uses and rewrites those paths to be relative.
 Sign the result with the official SDK, for example: tizen package -t wgt -s <profile> -- dist/library-demo
 """
 import argparse
@@ -42,7 +42,7 @@ def build(out):
             raise SystemExit(f'Refusing to replace {out}: it is not empty and is not a previous build.')
         shutil.rmtree(out)
     out.mkdir(parents=True)
-    for name in ('index.html', 'library.css', 'library.js'):
+    for name in ('index.html', 'library.css', 'logic.js', 'library.js'):
         text = PREVIEW.sub('', (DEMO / name).read_text()).replace('/home/assets/', 'assets/').replace('/home/device.js', 'device.js')
         if 'preview -->' in text or 'preview */' in text:
             raise SystemExit(f'Unmatched preview marker in {name}')
@@ -70,7 +70,7 @@ def build(out):
             copy(f'materials/{wall}-{material}.jpg', out)
     shutil.copy2(ROOT / 'THIRD_PARTY_NOTICES.md', out / 'THIRD_PARTY_NOTICES.md')
 
-    leftover = [name for name in ('index.html', 'library.js') if '/home/' in (out / name).read_text()]
+    leftover = [name for name in ('index.html', 'logic.js', 'library.js') if '/home/' in (out / name).read_text()]
     if leftover:
         raise SystemExit('Preview-server paths remain in: ' + ', '.join(leftover))
     size = sum(path.stat().st_size for path in out.rglob('*') if path.is_file())

@@ -30,12 +30,13 @@
 
   // Favorites and Hidden from saved choices, or the owners' defaults on a first run, kept to installed apps.
   // A first run makes the first installed owner apps favorites and hides every installed app outside the list.
-  // Favorites are capped and never empty; nothing is both a favorite and hidden.
+  // Favorites are capped and never empty; nothing is both a favorite and hidden. A saved list that isn't an
+  // array counts as missing, so a damaged save never stops Home from starting.
   L.homeLists = function (owner, installed, saved, favMax, nameOf) {
     var has = function (id) { return installed.indexOf(id) >= 0; }, fav, hid;
-    fav = unique((saved && saved.fav ? saved.fav : owner).filter(has)).slice(0, favMax);
+    fav = unique((saved && Array.isArray(saved.fav) ? saved.fav : owner).filter(has)).slice(0, favMax);
     if (!fav.length) fav = installed.slice().sort(function (a, b) { return nameOf(a).localeCompare(nameOf(b)); }).slice(0, favMax);
-    hid = saved && saved.hid ? saved.hid : installed.filter(function (id) { return owner.indexOf(id) < 0; });
+    hid = saved && Array.isArray(saved.hid) ? saved.hid : installed.filter(function (id) { return owner.indexOf(id) < 0; });
     hid = unique(hid.filter(function (id) { return has(id) && fav.indexOf(id) < 0; }));
     return { fav: fav, hid: hid };
   };

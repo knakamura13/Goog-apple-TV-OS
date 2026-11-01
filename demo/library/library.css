@@ -309,13 +309,6 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
   *,*::before,*::after{transition-duration:1ms!important;animation-duration:1ms!important}
   .is-ambient .bg-photo{transform:none}
 }
-/* TV test builds only: the 0 button's readout. */
-.diag{position:absolute;left:90px;bottom:48px;z-index:30;margin:0;padding:20px 28px;border-radius:20px;background:rgba(0,0,0,.82);color:#fff;font:500 24px/34px Menlo,monospace;white-space:pre;display:none}
-.diag.is-on{display:block}
-.t-noblur .bg-blur,.t-noblur .bg-veil{display:none}
-.t-nomasks .squircle,.t-nomasks .dock-glass,.t-nomasks .t-face{-webkit-mask-image:none!important;mask-image:none!important;border-radius:36px}
-.t-noglass .glass-layer{display:none}
-.t-cold .bg-blur,.t-cold .bg-veil,.t-cold .glass-alt,.t-cold .glass-dim{will-change:auto}
 /* Resume card: the last app opened from Home, above the dock. Fades out as the library scrolls in. */
 .resume{position:absolute;left:66px;top:487px;width:298px;height:236px;opacity:0;pointer-events:none;transition:opacity 160ms linear;will-change:opacity}
 .has-resume:not(.is-library) .resume{opacity:1;pointer-events:auto}

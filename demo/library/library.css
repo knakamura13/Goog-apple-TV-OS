@@ -80,6 +80,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .is-panel .gear{background:rgba(255,255,255,.30)}
 .weather{display:flex;align-items:center;margin-right:24px;font-size:28px;font-weight:500;color:rgba(255,255,255,.92)}
 .weather .ico{width:32px;height:32px;margin-right:8px}
+.weather.is-off{display:none}
 .time{font-size:28px;font-weight:600;letter-spacing:-.4px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .time .mer{margin-left:5px;font-size:22px;letter-spacing:.04em;color:rgba(255,255,255,.92)}
 

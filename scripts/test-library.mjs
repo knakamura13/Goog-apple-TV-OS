@@ -133,6 +133,47 @@ test('weather cache goes stale after 30 minutes', () => {
   assert.equal(L.isStale(0, 5, max), true);
   assert.equal(L.isStale(1000, 1000 + max - 1, max), false);
   assert.equal(L.isStale(1000, 1000 + max, max), true);
+  assert.equal(L.isStale(1000, 999, max), true); // The clock moved back.
+  assert.equal(L.isStale(1000, 1000, max), false); // Just fetched.
+  assert.equal(L.WEATHER_KEEP, 7200000);
+});
+
+test('weather URLs', () => {
+  assert.equal(L.zipUrl('92626'), 'https://api.zippopotam.us/us/92626');
+  assert.equal(L.weatherUrl(33.68, -117.91), 'https://api.open-meteo.com/v1/forecast?latitude=33.68&longitude=-117.91&current=temperature_2m,weather_code,is_day');
+});
+
+test('parsePlace reads Zippopotam.us and rejects anything else', () => {
+  const costaMesa = { places: [{ 'place name': 'Costa Mesa', longitude: '-117.9085', latitude: '33.6801' }] };
+  assert.deepEqual(plain(L.parsePlace(costaMesa, '92626')), { zip: '92626', lat: 33.68, lon: -117.91, name: 'Costa Mesa' });
+  assert.equal(L.parsePlace({ places: [{ 'place name': 'X'.repeat(50), longitude: '0', latitude: '0' }] }, '1').name.length, 40);
+  assert.equal(L.parsePlace({ places: [{ longitude: '180', latitude: '-90' }] }, '1').name, '');
+  for (const bad of [null, {}, { places: [] }, { places: 'abc' }, { places: [{ latitude: 'x', longitude: '1' }] }, { places: [{ latitude: '1', longitude: 'x' }] },
+    { places: [{ latitude: '91', longitude: '0' }] }, { places: [{ latitude: '-91', longitude: '0' }] }, { places: [{ latitude: '0', longitude: '181' }] },
+    { places: [{ latitude: '0', longitude: '-181' }] }]) assert.equal(L.parsePlace(bad, '1'), null, JSON.stringify(bad));
+});
+
+test('parseWeather reads Open-Meteo current conditions', () => {
+  const night = { current: { temperature_2m: 18.9, weather_code: 3, is_day: 0 } };
+  assert.deepEqual(plain(L.parseWeather(night, '92626', 5)), { zip: '92626', at: 5, c: 18.9, code: 3, day: false });
+  assert.equal(L.parseWeather({ current: { temperature_2m: 20, weather_code: 0, is_day: 1 } }, 'z', 1).day, true);
+  assert.equal(L.parseWeather({ current: { temperature_2m: 20, weather_code: 0 } }, 'z', 1).day, true);
+  for (const bad of [null, {}, { current: {} }, { current: { temperature_2m: '18', weather_code: 3 } }, { current: { temperature_2m: Infinity, weather_code: 3 } },
+    { current: { temperature_2m: 18, weather_code: '3' } }]) assert.equal(L.parseWeather(bad, 'z', 1), null, JSON.stringify(bad));
+});
+
+test('saved places and readings count only for the current ZIP code', () => {
+  const place = { zip: '92626', lat: 33.68, lon: -117.91, name: 'Costa Mesa' };
+  assert.deepEqual(plain(L.savedPlace(place, '92626')), place);
+  assert.equal(L.savedPlace(Object.assign({}, place, { name: 7 }), '92626').name, '');
+  assert.equal(L.savedPlace(Object.assign({}, place, { name: 'N'.repeat(50) }), '92626').name.length, 40);
+  for (const bad of [null, place && Object.assign({}, place, { zip: '10001' }), Object.assign({}, place, { lat: '33' }), Object.assign({}, place, { lon: '1' }),
+    Object.assign({}, place, { lat: NaN }), Object.assign({}, place, { lon: Infinity })]) assert.equal(L.savedPlace(bad, '92626'), null);
+  const reading = { zip: '92626', at: 10, c: 18.9, code: 3, day: false };
+  assert.deepEqual(plain(L.savedReading(reading, '92626')), reading);
+  assert.equal(L.savedReading(Object.assign({}, reading, { day: undefined }), '92626').day, true);
+  for (const bad of [null, Object.assign({}, reading, { zip: '1' }), Object.assign({}, reading, { at: '10' }), Object.assign({}, reading, { c: '18' }),
+    Object.assign({}, reading, { c: NaN }), Object.assign({}, reading, { code: '3' })]) assert.equal(L.savedReading(bad, '92626'), null);
 });
 
 test('temperature converts and rounds', () => {

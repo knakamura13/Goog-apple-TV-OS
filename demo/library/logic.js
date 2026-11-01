@@ -77,7 +77,37 @@
   // ---------- Weather (Open-Meteo WMO codes) ----------
 
   L.WEATHER_MAX_AGE = 30 * 60 * 1000; // Fetch at most every 30 minutes; Home shows the cached reading meanwhile.
-  L.isStale = function (at, now, maxAge) { return !at || now - at >= maxAge; };
+  L.WEATHER_KEEP = 2 * 60 * 60 * 1000; // An older reading is hidden rather than shown as current.
+  // A clock that moved back (the TV setting its time after start-up) also makes a reading stale.
+  L.isStale = function (at, now, maxAge) { return !at || now - at >= maxAge || now < at; };
+  L.zipUrl = function (zip) { return 'https://api.zippopotam.us/us/' + zip; };
+  L.weatherUrl = function (lat, lon) {
+    return 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,weather_code,is_day';
+  };
+  // A ZIP code's place from Zippopotam.us: coordinates rounded to about a kilometre, and its name. Null if unusable.
+  L.parsePlace = function (data, zip) {
+    var p = data && data.places && data.places[0], lat, lon;
+    if (!p) return null;
+    lat = parseFloat(p.latitude);
+    lon = parseFloat(p.longitude);
+    if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+    return { zip: zip, lat: Math.round(lat * 100) / 100, lon: Math.round(lon * 100) / 100, name: String(p['place name'] || '').slice(0, 40) };
+  };
+  // Open-Meteo's current conditions (°C, WMO code, day or night), or null.
+  L.parseWeather = function (data, zip, now) {
+    var c = data && data.current;
+    if (!c || typeof c.temperature_2m !== 'number' || !isFinite(c.temperature_2m) || typeof c.weather_code !== 'number') return null;
+    return { zip: zip, at: now, c: c.temperature_2m, code: c.weather_code, day: c.is_day !== 0 };
+  };
+  // Saved readings and places count only for the current ZIP code and with sane values.
+  L.savedPlace = function (p, zip) {
+    return p && p.zip === zip && typeof p.lat === 'number' && typeof p.lon === 'number' && isFinite(p.lat) && isFinite(p.lon)
+      ? { zip: zip, lat: p.lat, lon: p.lon, name: typeof p.name === 'string' ? p.name.slice(0, 40) : '' } : null;
+  };
+  L.savedReading = function (r, zip) {
+    return r && r.zip === zip && typeof r.at === 'number' && typeof r.c === 'number' && isFinite(r.c) && typeof r.code === 'number'
+      ? { zip: zip, at: r.at, c: r.c, code: r.code, day: r.day !== false } : null;
+  };
   L.temperature = function (celsius, units) { return Math.round(units === 'C' ? celsius : celsius * 9 / 5 + 32); };
   L.weatherIcon = function (code, isDay) {
     if (code === 0 || code === 1) return isDay ? 'sun' : 'moon';

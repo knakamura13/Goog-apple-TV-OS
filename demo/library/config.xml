@@ -10,5 +10,9 @@
   <tizen:privilege name="http://tizen.org/privilege/application.info"/>
   <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
   <tizen:privilege name="http://tizen.org/privilege/tv.window"/>
+  <tizen:privilege name="http://tizen.org/privilege/internet"/>
+  <!-- Weather: a ZIP code's place, then its current conditions. -->
+  <access origin="https://api.zippopotam.us" subdomains="false"/>
+  <access origin="https://api.open-meteo.com" subdomains="false"/>
   <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="disable" encryption="disable" install-location="auto" hwkey-event="enable"/>
 </widget>

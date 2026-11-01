@@ -66,7 +66,7 @@
 
   var S = { tab: 0, zone: 'fav', nav: 0, fav: 0, lr: 0, lc: 0, inp: 0, panel: 0, dialog: 0, glassTiles: false, wall: 0, ambWall: 0, amb: 0, ambient: false, scroll: 0,
     favIds: [], hiddenIds: [], lastId: '', ed: null, menu: null, menuFrom: 'fav', pages: [], panelFrom: 'gear', paging: false, pageEntered: false, queued: [],
-    weather: { zip: '92626', units: 'F' }, zip: [], zipAt: 0, inputAt: 0, // Default location: Costa Mesa, CA (where the TV is). Real weather fetch is still a V1 item; the temperature is a placeholder.
+    weather: { zip: '92626', units: 'F' }, place: null, wx: null, zip: [], zipAt: 0, inputAt: 0, // Default location: Costa Mesa, CA (where the TV is).
     inputs: INPUT_DEFAULTS.map(function (p) { return { port: p.port, name: '', show: p.show, connected: true }; }) };
   var SETTINGS = [
     { label: 'Wallpaper', kind: 'screen', value: function () { return WALLS[S.wall] ? WALLS[S.wall].name : ''; }, ok: openPicker },
@@ -93,7 +93,7 @@
   var front = $('photoA'), back = $('photoB'), blurImg = $('blur'), shownWall = -1;
   var pkGrid = $('pkGrid'), pkTitle = $('pkTitle'), pkCredit = $('pkCredit'), pickerEl = $('picker'), previewTimer = null;
   var panelBody = $('panelBody'), panelCrumb = $('panelCrumb'), panelTitle = $('panelTitle'), panelRowsBox = $('panelRowsBox'), panelCustom = $('panelCustom'), panelNote = $('panelNote');
-  var tempEl = stage.querySelector('.weather span');
+  var wxBox = stage.querySelector('.weather'), wxIcon = wxBox.querySelector('.ico'), tempEl = wxBox.querySelector('span'), wxBusy = false, wxRetry = 0;
   var editorEl = $('editor'), edPage = $('edPage'), edTiles = $('edTiles'), edStyle = $('edStyle'), edHint = $('edHint');
   var edFavLabel = $('edFavLabel'), edLibLabel = $('edLibLabel'), edHidLabel = $('edHidLabel'), edEmpty = $('edEmpty'), edFavBox = $('edFavBox'), edSlots = {};
   var wallSaved = false;
@@ -230,6 +230,8 @@
     if (H.validIndex(d.wall, WALLS.length)) { S.wall = d.wall; wallSaved = true; }
     if (H.validIndex(d.amb, AMBIENT.length)) S.amb = d.amb;
     if (d.weather) S.weather = { zip: /^\d{5}$/.test(d.weather.zip) ? d.weather.zip : '', units: d.weather.units === 'C' ? 'C' : 'F' };
+    S.place = H.savedPlace(d.place, S.weather.zip);
+    S.wx = H.savedReading(d.wx, S.weather.zip);
     if (Array.isArray(d.inputs)) S.inputs.forEach(function (inp, n) {
       var saved = d.inputs[n];
       if (!saved) return;
@@ -239,7 +241,7 @@
   }
   function save() {
     var inputs = S.inputs.map(function (inp) { return { name: inp.name, show: inp.show }; });
-    try { window.localStorage.setItem(STORE, JSON.stringify({ fav: S.favIds, hid: S.hiddenIds, last: S.lastId, wall: S.wall, amb: S.amb, glass: S.glassTiles, weather: S.weather, inputs: inputs })); } catch (e) { /* The prototype still works without saved choices. */ }
+    try { window.localStorage.setItem(STORE, JSON.stringify({ fav: S.favIds, hid: S.hiddenIds, last: S.lastId, wall: S.wall, amb: S.amb, glass: S.glassTiles, weather: S.weather, place: S.place, wx: S.wx, inputs: inputs })); } catch (e) { /* Home still works without saved choices. */ }
   }
   function inputLabel(inp) { return inp.name || (inp.connected ? inp.port : 'No device'); }
   function buildInputs() {
@@ -322,7 +324,6 @@
     }
     for (i = 0; i < pills.length; i++) toggle(pills[i], 'is-active', i === S.tab);
     if (S.zone === 'panel') updatePanel();
-    tempEl.textContent = S.weather.units === 'C' ? '18°' : '64°';
     place(navActive, null, S.tab * PILL_W, 0, false);
     if (S.zone === 'nav') place(navFocus, navInk, S.nav * PILL_W, 0, entered);
     if (S.zone === 'panel' && !pageDef().custom) place(panelInd, panelInk, 0, curPage().i * PANEL_PITCH, entered || S.pageEntered);
@@ -522,11 +523,11 @@
   var PAGES = {
     root: { title: 'Settings', rows: function () { return SETTINGS; } },
     weather: {
-      title: 'Weather', note: 'When set, the TV will check the weather for this ZIP code and send only the ZIP.',
+      title: 'Weather', note: 'Home finds this ZIP code’s area with Zippopotam.us, then checks the weather there with Open-Meteo every 30 minutes.',
       rows: function () {
         return [
-          { label: 'ZIP code', kind: 'page', value: function () { return S.weather.zip || 'Not set'; }, ok: function () { S.zip = (S.weather.zip || '00000').split(''); S.zipAt = 0; pushPage('zip'); } },
-          { label: 'Units', value: function () { return S.weather.units === 'C' ? 'Celsius' : 'Fahrenheit'; }, ok: function () { S.weather.units = S.weather.units === 'C' ? 'F' : 'C'; save(); } }
+          { label: 'ZIP code', kind: 'page', value: function () { return S.weather.zip ? S.weather.zip + (S.place ? ' · ' + S.place.name : '') : 'Not set'; }, ok: function () { S.zip = (S.weather.zip || '00000').split(''); S.zipAt = 0; pushPage('zip'); } },
+          { label: 'Units', value: function () { return S.weather.units === 'C' ? 'Celsius' : 'Fahrenheit'; }, ok: function () { S.weather.units = S.weather.units === 'C' ? 'F' : 'C'; save(); showWeather(); } }
         ];
       }
     },
@@ -647,7 +648,7 @@
     if (k === 'left') S.zipAt = Math.max(0, S.zipAt - 1);
     else if (k === 'right') S.zipAt = Math.min(ZIP_LEN - 1, S.zipAt + 1);
     else if (k === 'up' || k === 'down') S.zip[S.zipAt] = String((+S.zip[S.zipAt] + (k === 'up' ? 1 : 9)) % 10);
-    else if (k === 'ok') { S.weather.zip = S.zip.join(''); save(); toast('Weather location saved.'); popPage(); }
+    else if (k === 'ok') { setZip(S.zip.join('')); toast('Weather location saved.'); popPage(); }
     else if (k === 'back') popPage();
   }
 
@@ -886,8 +887,81 @@
     timeEl.innerHTML = hm + mer;
     ambTime.innerHTML = hm + mer;
     ambDate.textContent = DAYS[d.getDay()] + ', ' + MONTHS[d.getMonth()] + ' ' + ordinal(d.getDate());
-    // The status capsule grows when the hour gains a digit; its glass must follow its new left edge.
-    if (statusEl.offsetWidth !== statusWidth) { statusWidth = statusEl.offsetWidth; registerGlass(); }
+    updateWeather();
+    showWeather();
+  }
+  // The status capsule changes width with the hour's digits and the weather; its glass must follow its left edge.
+  function fitStatus() { if (statusEl.offsetWidth !== statusWidth) { statusWidth = statusEl.offsetWidth; registerGlass(); } }
+
+  // ---------- Weather ----------
+
+  // Zippopotam.us gives the ZIP code's place once; Open-Meteo gives its current conditions at most every 30 minutes.
+  // Readings are saved in °C, so Home shows the last one at once after a restart. Until a reading arrives, or once it
+  // is two hours old, the weather stays hidden rather than showing a made-up value. A failed check retries in 5 minutes.
+  var CLOUD = '<path d="M7.6 20.4h9.9a4 4 0 0 0 .7-7.9 5.4 5.4 0 0 0-10.4 1A3.5 3.5 0 0 0 7.6 20.4Z"/>';
+  var HIGH_CLOUD = '<path d="M6.6 15h9.9a4 4 0 0 0 .7-7.9 5.4 5.4 0 0 0-10.4 1A3.5 3.5 0 0 0 6.6 15Z"/>';
+  var WX_ICONS = {
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>',
+    moon: '<path d="M20.1 12.7A8.1 8.1 0 1 1 11.3 3.9a6.3 6.3 0 0 0 8.8 8.8Z"/>',
+    partly: '<path d="M8 2.6v1.6M3.3 4.6l1.1 1.1M1.6 9.2h1.6M12.7 4.6l-1.1 1.1"/><path d="M4.9 11.6A3.7 3.7 0 0 1 11.7 7"/>' + CLOUD,
+    'partly-night': '<path d="M10.1 7A3.6 3.6 0 1 1 6 2.9a3 3 0 0 0 4.1 4.1Z"/>' + CLOUD,
+    cloud: '<path d="M6.6 17.7h9.9a4 4 0 0 0 .7-7.9 5.4 5.4 0 0 0-10.4 1A3.5 3.5 0 0 0 6.6 17.7Z"/>',
+    fog: '<path d="M5 8h14M3 12h18M6 16h12"/>',
+    rain: HIGH_CLOUD + '<path d="M8.5 18l-1 3M12.5 18l-1 3M16.5 18l-1 3"/>',
+    snow: HIGH_CLOUD + '<path d="M8 18.5h.01M12 18.5h.01M16 18.5h.01M10 21.5h.01M14 21.5h.01"/>',
+    storm: HIGH_CLOUD + '<path d="M13 15.5 10.5 19h3L11 22.5"/>'
+  };
+  function getJson(url, done) {
+    var xhr = new XMLHttpRequest();
+    xhr.onload = function () { var d = null; try { d = xhr.status === 200 ? JSON.parse(xhr.responseText) : null; } catch (e) { d = null; } done(d); };
+    xhr.onerror = xhr.ontimeout = function () { done(null); };
+    xhr.open('GET', url);
+    xhr.timeout = 15000;
+    xhr.send();
+  }
+  function updateWeather() {
+    var zip = S.weather.zip, now = Date.now();
+    if (wxBusy || !zip || now < wxRetry || (S.wx && !H.isStale(S.wx.at, now, H.WEATHER_MAX_AGE))) return;
+    wxBusy = true;
+    function finish(ok) {
+      wxBusy = false;
+      if (zip !== S.weather.zip) return; // The ZIP code changed meanwhile; the next tick checks the new one.
+      if (!ok) wxRetry = Date.now() + 5 * 60 * 1000;
+      save();
+      showWeather();
+    }
+    function forecast(place) {
+      getJson(H.weatherUrl(place.lat, place.lon), function (data) {
+        var r = H.parseWeather(data, zip, Date.now());
+        if (r && zip === S.weather.zip) S.wx = r;
+        finish(!!r);
+      });
+    }
+    if (S.place) { forecast(S.place); return; }
+    getJson(H.zipUrl(zip), function (data) {
+      var place = H.parsePlace(data, zip);
+      if (!place) { finish(false); return; }
+      if (zip === S.weather.zip) S.place = place;
+      forecast(place);
+    });
+  }
+  function showWeather() {
+    var r = S.wx, on = !!r && !H.isStale(r.at, Date.now(), H.WEATHER_KEEP), icon, temp;
+    if (on) {
+      icon = H.weatherIcon(r.code, r.day);
+      temp = H.temperature(r.c, S.weather.units) + '°';
+      if (wxIcon.getAttribute('data-icon') !== icon) { wxIcon.setAttribute('data-icon', icon); wxIcon.innerHTML = WX_ICONS[icon]; }
+      if (tempEl.textContent !== temp) tempEl.textContent = temp;
+      wxBox.setAttribute('aria-label', H.WEATHER_WORDS[icon] + ', ' + temp.replace('°', ' degrees'));
+    }
+    toggle(wxBox, 'is-off', !on);
+    fitStatus();
+  }
+  function setZip(zip) {
+    if (zip !== S.weather.zip) { S.weather.zip = zip; S.place = null; S.wx = null; wxRetry = 0; }
+    save();
+    showWeather();
+    updateWeather();
   }
   function armIdle() {
     clearTimeout(idleTimer);

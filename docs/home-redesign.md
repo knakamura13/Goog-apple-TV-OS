@@ -77,7 +77,7 @@ After a set idle time on Home (default 1 minute), the top bar and rows fade out 
 - **No weather** in the screensaver.
 - **Slideshow:** the photos rotate while it runs, and Home returns to its chosen photo afterwards.
 
-The photo pans continuously (a slow transform loop) the whole time, and the text drifts every few minutes, both to protect the OLED from burn-in. The continuous motion also matters because this is a QD-OLED: Samsung's own panel-protection screensaver can't be disabled by any app and takes over after about two minutes of a still image, so the ambient photo must keep moving for ours to stay on screen (to be confirmed on the TV). `setScreenSaver` only affects Samsung's older Auto-Protection-Time screensaver, not this one. Any key brings the UI back without acting on that key. While the launcher's screensaver is on and the launcher is in front, Samsung's own screensaver is held off (`webapis.appcommon.setScreenSaver`) so it can't cover ours. It's handed back after two hours without a button press, whenever another app is in front, and when ours is set to Off, so a paused video or an unattended TV keeps Samsung's panel protection and power saving.
+The photo does a slow one-shot zoom and the text drifts every few minutes to protect the OLED. This is a QD-OLED, and Samsung's own panel-protection screensaver cannot be disabled by any app: confirmed on the TV that it takes over after a still minute or two, and even strong continuous motion does not prevent it (it yields only to actual video playback). So the launcher does not fight it — ours shows first, then Samsung's runs on longer idle, which protects the panel. Any key brings the UI back without acting on that key. While the launcher's screensaver is on and the launcher is in front, Samsung's own screensaver is held off (`webapis.appcommon.setScreenSaver`) so it can't cover ours. It's handed back after two hours without a button press, whenever another app is in front, and when ours is set to Off, so a paused video or an unattended TV keeps Samsung's panel protection and power saving.
 
 ## Remote navigation
 
@@ -154,7 +154,7 @@ The prototype only explores the design. Once the spec is locked, the launcher is
 6. Whether holding OK on the remote reaches the app as key repeats or a key-up it can time, which editing in place needs.
 7. Whether an app reopened from Home returns where it was or starts again, and how long the TV keeps apps such as Plex running in the background. The current build answers this through each app's tile, since the resume card makes the same launch call.
 8. How much of the roughly 0.1 s Web Audio delay is audible in normal use (the TV's own menu sounds, via `tizen.tvaudiocontrol`, avoid it but are loud with no volume control; `tizen.feedback` doesn't exist on this TV).
-9. Whether the native screensaver can be held off at all: `setScreenSaver(OFF)` reported success but Samsung's screensaver still took over on the TV, so the hold is now re-asserted every minute while ours runs (under research). Also whether Samsung's auto power-off still applies.
+9. Confirm a remote key press from Samsung's panel-protection screensaver returns to our launcher Home, not Samsung Home. (Settled: that screensaver can't be disabled by any app, so the launcher no longer tries to suppress it.)
 
 ## Owners' decisions (31 October 2026)
 

@@ -818,43 +818,11 @@
   function armIdle() {
     clearTimeout(idleTimer);
     if (AMBIENT[S.amb].ms && !S.ambient) idleTimer = setTimeout(enterAmbient, AMBIENT[S.amb].ms);
-    saverSince = Date.now(); // Count the screensaver-hold backstop from the last activity, not from when the hold began.
-    holdSaver();
   }
-  // Samsung's own screensaver would cover ours, so it is held off while ours is on and this launcher is in front.
-  // It is handed back after two hours without a button press, whenever another app is in front and when ours is
-  // set to Off, so a paused video or an unattended TV still gets Samsung's panel protection and power saving.
-  // setScreenSaver only governs Samsung's older "Auto Protection Time" screensaver, not the OLED panel-protection
-  // one (which can't be disabled and is instead avoided by keeping the ambient photo moving, above). This hold is
-  // cheap hygiene for the non-OLED path: assert OFF while ours runs, re-assert on resume, hand back after two idle
-  // hours, when another app is in front, and when ours is set to Off. The readout shows the count for the TV test.
-  var SAVER_BACKSTOP = 7200000, SAVER_REASSERT = 60000, saverTimer = null, saverHeld = false, saverWhy = 'not asked yet', saverAsserts = 0, saverSince = 0;
-  function tvSaver(on) {
-    var ac = window.webapis && window.webapis.appcommon;
-    if (!ac || !ac.setScreenSaver) { saverWhy = 'no webapis.appcommon'; return; }
-    try {
-      ac.setScreenSaver(on ? ac.AppCommonScreenSaverState.SCREEN_SAVER_ON : ac.AppCommonScreenSaverState.SCREEN_SAVER_OFF,
-        function () { if (!on) saverAsserts++; saverWhy = on ? 'Samsung\'s is on' : 'held off, re-asserted ' + saverAsserts + 'x'; showDiag(); },
-        function (err) { saverWhy = 'refused: ' + err.name; showDiag(); });
-    } catch (e) { saverWhy = 'refused: ' + e.name; }
-  }
-  function holdSaver() {
-    var ours = !!AMBIENT[S.amb].ms && !document.hidden;
-    clearInterval(saverTimer);
-    if (ours !== saverHeld) { saverHeld = ours; if (ours) { saverSince = Date.now(); saverAsserts = 0; } tvSaver(!ours); }
-    if (!ours) return;
-    saverTimer = setInterval(function () {
-      if (Date.now() - saverSince >= SAVER_BACKSTOP) { clearInterval(saverTimer); saverHeld = false; tvSaver(true); return; }
-      tvSaver(false); // Re-assert in case the TV re-armed its screensaver.
-    }, SAVER_REASSERT);
-  }
-  // If the native screensaver backgrounds our app, this logs the gap; it helps the TV test see what actually happened.
-  document.addEventListener('visibilitychange', function () {
-    diagLines.unshift((document.hidden ? 'hidden' : 'visible') + '  ' + new Date().toLocaleTimeString());
-    diagLines.length = Math.min(diagLines.length, 12);
-    showDiag();
-    armIdle();
-  });
+  // On this QD-OLED, Samsung's panel-protection screensaver can't be disabled and takes over after a still-ish
+  // minute or two. We don't fight it (it protects the panel); ours shows first, then Samsung's runs on long idle.
+  // Returning to Home after another app or the screensaver re-arms the idle timer.
+  document.addEventListener('visibilitychange', armIdle);
   // A slow drift keeps the clock from burning a fixed shape into the OLED panel.
   function drift() { ambDrift.style.transform = 'translate3d(' + Math.round(Math.random() * 40 - 20) + 'px,' + Math.round(Math.random() * 24 - 12) + 'px,0)'; }
   function enterAmbient() {
@@ -940,7 +908,6 @@
       'Storage   ' + (about.storage || 'reading…'),
       'Sound     built-in, quiet (' + soundWhy + ')',
       'Audio     ' + (audio ? audio.sampleRate + ' Hz, base ' + ms(audio.baseLatency) + ', output ' + ms(audio.outputLatency) + ', ' + audio.state : 'off'),
-      'TV saver  ' + saverWhy,
       'Switches  ' + SWITCHES.map(function (w, i) { return (i + 1) + ' ' + w + (stage.classList.contains('t-no' + w) ? ' OFF' : ' on'); }).join(' · ') + ' · 4 warm ' + (stage.classList.contains('t-cold') ? 'off' : 'ON')
     ].concat(diagLines).join('\n');
   }

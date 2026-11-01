@@ -292,18 +292,9 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .is-ambient .ui{opacity:0;transition:opacity 500ms linear}
 .is-ambient .bg-shade,.is-ambient .bg-scrim,.is-ambient .bg-blur,.is-ambient .bg-veil,.is-ambient .editor{opacity:0}
 /* Entering, the photo pushes in slowly while the text rises at its own pace, for depth; leaving, it eases back quickly. */
-/* The photo pans continuously in ambient mode so the OLED panel never sees a still frame and its own
-   (undisableable) panel-protection screensaver doesn't take over ours. Transform-only, so it stays GPU-cheap. */
-.is-ambient .bg-photo{animation:amb-pan 20s linear infinite;transition:opacity 900ms linear}
-/* Continuous circuit (never still, constant speed) with a larger excursion, so the OLED's still-image
-   detector reads real motion. Translate stays within the scale overflow (min 1.10 -> 5% margin) so no edge shows. */
-@keyframes amb-pan{
-  0%{transform:scale(1.10) translate3d(-3%,-2%,0)}
-  25%{transform:scale(1.16) translate3d(3%,-2%,0)}
-  50%{transform:scale(1.10) translate3d(3%,2%,0)}
-  75%{transform:scale(1.16) translate3d(-3%,2%,0)}
-  100%{transform:scale(1.10) translate3d(-3%,-2%,0)}
-}
+/* A calm one-shot zoom for the first minute of ambient; Samsung's panel-protection screensaver (which no app
+   can disable on this OLED) then takes over on longer idle, so we don't try to out-animate it. */
+.is-ambient .bg-photo{transform:scale(1.06);transition:opacity 900ms linear,transform 2400ms cubic-bezier(.33,0,.15,1)}
 .amb-clock,.amb-caption{transform:translate3d(0,20px,0);transition:transform 300ms var(--glide)}
 .is-ambient .amb-clock,.is-ambient .amb-caption{transform:translate3d(0,0,0);transition:transform 1600ms cubic-bezier(.2,.8,.2,1) 500ms}
 
@@ -316,7 +307,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{transition-duration:1ms!important;animation-duration:1ms!important}
-  .is-ambient .bg-photo{transform:none;animation:none}
+  .is-ambient .bg-photo{transform:none}
 }
 /* TV test builds only: the 0 button's readout. */
 .diag{position:absolute;left:90px;bottom:48px;z-index:30;margin:0;padding:20px 28px;border-radius:20px;background:rgba(0,0,0,.82);color:#fff;font:500 24px/34px Menlo,monospace;white-space:pre;display:none}

@@ -56,7 +56,7 @@ The gear opens a glass panel on the right. Rows that only change a value do it i
 | Sleep timer | Steps through Off, 30 min, 1 hour, 90 min, 2 hours |
 | Wallpaper › | Full-screen picker (below) |
 | Apps › | Full-screen editor (below) |
-| Weather › | Page with **ZIP code ›** (five digits: Up/Down change a digit, Left/Right move, or type with the remote's number buttons) and **Units** (Fahrenheit or Celsius) |
+| Weather › | Defaults to Costa Mesa, CA (ZIP 92627, where the TV is). Page with **ZIP code ›** (five digits: Up/Down change a digit, Left/Right move, or type with the remote's number buttons) and **Units** (Fahrenheit or Celsius) |
 | Screensaver | Steps through After 1 min, 5 min, 15 min, Off |
 | Picture and sound ↗ | Samsung's picture and sound settings |
 | Samsung Home ↗ | The escape route. Back from the favourites row still offers the "stay or open Samsung Home" choice |
@@ -70,7 +70,7 @@ The gear opens a glass panel on the right. Rows that only change a value do it i
 
 ## Screensaver (ambient mode)
 
-After a set idle time on Home (default 5 minutes), the top bar and rows fade out and the photo slowly zooms in (to about 106% over 2.4 s) while the text rises into place, for a parallax feel. On exit the photo eases back out quickly.
+After a set idle time on Home (default 1 minute), the top bar and rows fade out and the photo slowly zooms in (to about 106% over 2.4 s) while the text rises into place, for a parallax feel. On exit the photo eases back out quickly.
 
 - **Bottom left:** the time, large, with the date below it ("Saturday, October 31st").
 - **Bottom right:** the photo's title and credit ("Desert stars / Photographed by Mohammad Alizade"). The bundled CleanFrame photos all have credits.
@@ -124,7 +124,7 @@ List and Dock stay available as layouts, and the new layout is added as **Librar
 
 - **Keys:** arrows move, Enter is OK, Escape is Back, A starts ambient mode, H hides the key hints. Clicking a tile focuses it and presses OK. The TV build has none of these extras.
 - **Real:** CleanFrame's photos, pre-rendered glass, brand marks and fonts; remote navigation; ambient mode; the settings panel.
-- **Sample data:** the HDMI inputs and weather, and in the browser the apps. Messages such as "Opens Netflix on the TV." stand in for launches the browser can't do.
+- **Sample data:** the HDMI inputs and the weather temperature (a placeholder; the location defaults to Costa Mesa but real weather fetch is a V1 item), and in the browser the apps. Messages such as "Opens Netflix on the TV." stand in for launches the browser can't do.
 - **On the TV:** Home lists the installed apps as described under App list and icons, OK opens them, and Samsung Home and Picture and sound open Samsung's screens. On a first run, Favorites holds the first six installed apps from the owners' list (see Owners' decisions), the rest of that list fills the library, and every other installed app starts in Hidden. With nothing from the list installed, Favorites holds the first six apps A–Z.
 - **Options:** `?wall=<id>` picks a wallpaper, for example `?wall=night`. Settings → Apps → Tile style switches between Color and Glass tiles.
 - **TV build:** `npm run build:demo` assembles `dist/library-demo/`, a self-contained Tizen web app (about 15 MB) with relative asset paths and its own `config.xml` (SDK-generated identity `Zm209bQNEk.Home`, CleanFrame's proven profile, privileges and settings). It is unsigned; sign it with the owner's certificate profile, for example `tizen package -t wgt -s <profile> -- dist/library-demo`. Code between `preview` markers (key hints, the A and H keys, mouse clicks, `?wall=`) is stripped, and only the logos in use are copied. `build-info.js` records the commit, build time and size for Settings › About. On the TV, the number buttons are registered for ZIP entry.

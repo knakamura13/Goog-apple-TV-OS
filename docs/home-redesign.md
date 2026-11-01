@@ -53,7 +53,7 @@ The gear opens a glass panel on the right. Rows that only change a value do it i
 
 | Row | Behaviour |
 | --- | --- |
-| Sleep timer | Steps through Off, 30 min, 1 hour, 90 min, 2 hours |
+| Sleep timer | Steps through Off, 30 min, 1 hour, 90 min, 2 hours (not yet functional; V1) |
 | Wallpaper › | Full-screen picker (below) |
 | Apps › | Full-screen editor (below) |
 | Weather › | Defaults to Costa Mesa, CA (ZIP 92626, where the TV is). Page with **ZIP code ›** (five digits: Up/Down change a digit, Left/Right move, or type with the remote's number buttons) and **Units** (Fahrenheit or Celsius) |

@@ -72,7 +72,8 @@ def build(out):
     info = {'commit': commit, 'date': datetime.now().strftime('%b %-d, %-I:%M %p'), 'size': f'{size / 1e6:.1f} MB'}
     (out / 'build-info.js').write_text('window.LibraryBuild = ' + json.dumps(info) + ';\n')
     count = sum(1 for path in out.rglob('*') if path.is_file())
-    print(f'Built {out.relative_to(ROOT)}: {count} files, {size / 1e6:.1f} MB')
+    rel = out.relative_to(ROOT) if ROOT in out.parents else out
+    print(f'Built {rel}: {count} files, {size / 1e6:.1f} MB')
 
 
 if __name__ == '__main__':

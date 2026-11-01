@@ -75,7 +75,7 @@
     { label: 'Wallpaper', kind: 'screen', value: function () { return WALLS[S.wall] ? WALLS[S.wall].name : ''; }, ok: openPicker },
     { label: 'Apps', kind: 'screen', value: function () { return S.favIds.length + ' favorites'; }, ok: openEditor },
     { label: 'Weather', kind: 'page', value: function () { return S.weather.zip ? S.weather.zip + ' · °' + S.weather.units : 'Set location'; }, ok: function () { pushPage('weather'); } },
-    { label: 'Screensaver', value: function () { return AMBIENT[S.amb].name; }, ok: function () { S.amb = (S.amb + 1) % AMBIENT.length; armIdle(); } },
+    { label: 'Screensaver', value: function () { return AMBIENT[S.amb].name; }, ok: function () { S.amb = (S.amb + 1) % AMBIENT.length; save(); armIdle(); } },
     { label: 'Picture and sound', kind: 'link', ok: function () { openSamsung('Samsung’s picture and sound settings', window.FrameDevice.settings); } },
     { label: 'Samsung Home', kind: 'link', ok: samsungHome },
     { label: 'About', kind: 'page', ok: function () { tvReadAbout(); pushPage('about'); } }
@@ -98,6 +98,7 @@
   var tempEl = stage.querySelector('.weather span');
   var editorEl = $('editor'), edPage = $('edPage'), edTiles = $('edTiles'), edStyle = $('edStyle'), edHint = $('edHint');
   var edFavLabel = $('edFavLabel'), edLibLabel = $('edLibLabel'), edHidLabel = $('edHidLabel'), edEmpty = $('edEmpty'), edFavBox = $('edFavBox'), edSlots = {};
+  var wallSaved = false;
   var pills, panelRows = $('panelRows').children, dialogBtns, tileRim = '', thumbRim = '', tilePath = '', ringSvg = '', focused = null, lastZone = null, credits = {}, wallToken = 0, statusWidth = 0;
   var idleTimer = null, driftTimer = null, rotateTimer = null, toastTimer = null, quietPress = false, statusAt = 0;
   var tvSources = {}, tvWindowOn = false; // On the TV only: real HDMI sources by port name, and whether one is showing.
@@ -227,6 +228,8 @@
     if (!d) return;
     S.glassTiles = !!d.glass;
     if (typeof d.last === 'string') S.lastId = d.last;
+    if (typeof d.wall === 'number' && d.wall >= 0 && d.wall < WALLS.length) { S.wall = d.wall; wallSaved = true; }
+    if (typeof d.amb === 'number' && d.amb >= 0 && d.amb < AMBIENT.length) S.amb = d.amb;
     if (d.weather) S.weather = { zip: /^\d{5}$/.test(d.weather.zip) ? d.weather.zip : '', units: d.weather.units === 'C' ? 'C' : 'F' };
     if (d.inputs) S.inputs.forEach(function (inp, n) {
       var saved = d.inputs[n];
@@ -237,7 +240,7 @@
   }
   function save() {
     var inputs = S.inputs.map(function (inp) { return { name: inp.name, show: inp.show }; });
-    try { window.localStorage.setItem(STORE, JSON.stringify({ fav: S.favIds, hid: S.hiddenIds, last: S.lastId, glass: S.glassTiles, weather: S.weather, inputs: inputs })); } catch (e) { /* The prototype still works without saved choices. */ }
+    try { window.localStorage.setItem(STORE, JSON.stringify({ fav: S.favIds, hid: S.hiddenIds, last: S.lastId, wall: S.wall, amb: S.amb, glass: S.glassTiles, weather: S.weather, inputs: inputs })); } catch (e) { /* The prototype still works without saved choices. */ }
   }
   function inputName(inp) { return inp.name || (inp.connected ? inp.port : 'No device'); }
   function buildInputs() {
@@ -326,7 +329,7 @@
     if (S.zone === 'dialog') place(dialogInd, dialogInk, S.dialog * DIALOG_PITCH, 0, entered);
     toggle(navFocus, 'is-on', S.zone === 'nav');
     toggle(stage, 'tab-inputs', S.tab === 1);
-    toggle(stage, 'has-resume', !!resumeApp());
+    toggle(stage, 'has-resume', S.tab === 0 && !!resumeApp());
     toggle(stage, 'is-library', S.zone === 'lib');
     toggle(stage, 'is-panel', S.zone === 'panel');
     toggle(stage, 'is-dialog', S.zone === 'dialog');
@@ -450,7 +453,7 @@
   var PAGES = {
     root: { title: 'Settings', rows: function () { return SETTINGS; } },
     weather: {
-      title: 'Weather', note: 'The TV checks the weather every 30 minutes and sends only your ZIP code.',
+      title: 'Weather', note: 'When set, the TV will check the weather for this ZIP code and send only the ZIP.',
       rows: function () {
         return [
           { label: 'ZIP code', kind: 'page', value: function () { return S.weather.zip || 'Not set'; }, ok: function () { S.zip = (S.weather.zip || '00000').split(''); S.zipAt = 0; pushPage('zip'); } },
@@ -815,6 +818,7 @@
   function armIdle() {
     clearTimeout(idleTimer);
     if (AMBIENT[S.amb].ms && !S.ambient) idleTimer = setTimeout(enterAmbient, AMBIENT[S.amb].ms);
+    saverSince = Date.now(); // Count the screensaver-hold backstop from the last activity, not from when the hold began.
     holdSaver();
   }
   // Samsung's own screensaver would cover ours, so it is held off while ours is on and this launcher is in front.
@@ -978,8 +982,10 @@
     if (S.zone === 'panel' && pageDef().custom === 'zip' && ((e.keyCode >= 48 && e.keyCode <= 57) || (e.keyCode >= 96 && e.keyCode <= 105))) { zipDigit(e.keyCode - (e.keyCode >= 96 ? 96 : 48)); return; }
     /* preview */if (e.keyCode === KEY_AMBIENT) { enterAmbient(); return; }/* /preview */
     if (e.keyCode === 48 || e.keyCode === 96) { toggleDiag(); return; }
-    if ((e.keyCode >= 49 && e.keyCode <= 51) || (e.keyCode >= 97 && e.keyCode <= 99)) { stage.classList.toggle('t-no' + SWITCHES[e.keyCode % 48 - 1]); showDiag(); return; }
-    if (e.keyCode === 52 || e.keyCode === 100) { stage.classList.toggle('t-cold'); showDiag(); return; }
+    if (diagEl && diagEl.classList.contains('is-on')) {
+      if ((e.keyCode >= 49 && e.keyCode <= 51) || (e.keyCode >= 97 && e.keyCode <= 99)) { stage.classList.toggle('t-no' + SWITCHES[e.keyCode % 48 - 1]); showDiag(); return; }
+      if (e.keyCode === 52 || e.keyCode === 100) { stage.classList.toggle('t-cold'); showDiag(); return; }
+    }
     if (!k) return;
     e.preventDefault();
     armIdle();
@@ -1117,6 +1123,7 @@
     soundStart();
     for (i = 0; i < WALLS.length; i++) if (WALLS[i].id === want) first = i;
     load();
+    if (wallSaved) first = S.wall; // The owner's chosen wallpaper wins over the default.
     build();
     if (resumeApp()) S.zone = 'resume';
     fit();

@@ -19,7 +19,9 @@ Goals: no ads, no apps the owners don't use, no autoplay, a fast feel on the TV,
 │ ((Home) Inputs)                          ⚙    ☁ 64°  9:41  │  top bar
 │                                                              │
 │                  full-bleed photo / artwork                  │
-│                                                              │
+│  ┌──────────────┐                                            │
+│  │ [Last app]   │                                            │  resume card
+│  └──────────────┘                                            │
 │  ┌────────────────────────────────────────────────────────┐  │
 │  │ [Fav1] [Fav2] [Fav3] [Fav4] [Fav5] [Fav6]              │  │  favourites row (glass)
 │  └────────────────────────────────────────────────────────┘  │
@@ -29,6 +31,7 @@ Goals: no ads, no apps the owners don't use, no autoplay, a fast feel on the TV,
 
 - **Top left:** nav pills on a semi-transparent bar that the photo clearly shows through. Tabs: **Home** and **Inputs**. A translucent indicator marks the active tab and a solid one marks focus. Both slide between pills rather than jumping.
 - **Top right:** one semi-transparent capsule holding the Settings button, the weather (icon and temperature) and the time in the corner, with equal gaps between all three. Weather and time can't be focused. Settings is the only focusable item there.
+- **Resume card:** a glass card above the left end of the dock showing the app last opened from Home: its logo, or the TV's icon for it, and **Resume**. OK reopens the app. If it is still running in the background it returns where it was, otherwise it starts again. The card appears after the first launch from Home and only knows apps opened there. A live preview of an app isn't possible, because Tizen gives web apps no view of other apps' screens. If the TV test shows `tizen.tvwindow` can do it, an HDMI device opened from the Inputs tab shows its live picture in the card instead.
 - **Favourites dock:** a near-full-width semi-transparent bar, after the tvOS dock, holding at most 6 apps so it never scrolls sideways. The focused app grows (about 1.18×), lifts a shadow and catches a sheen.
 - **Library:** every installed app that isn't a favourite and isn't hidden, in alphabetical order, 6 per row in the same columns as the dock. At rest about 40% of the first row peeks above the bottom edge. The focused app's name appears below it.
 - **App list and icons:** the TV supplies the list of installed apps, as CleanFrame's `device.js` already does, leaving out Samsung's internal ones. An app with a bundled logo (Simple Icons or Custom Brand Icons, single colour on its brand-coloured tile) shows that logo. Any other app shows the TV's own icon for it, or its name if that icon can't load. Apps installed later appear in the library on their own.
@@ -37,7 +40,7 @@ Goals: no ads, no apps the owners don't use, no autoplay, a fast feel on the TV,
 
 ## Library scrolled
 
-Down from favourites scrolls the page up as one block and crossfades in a pre-rendered dimmed and blurred copy of the wallpaper behind the grid. While the first rows fit, the dock stays visible just below the top bar. Further down, the dock fades away and the rows start directly below the top bar, so no empty band opens. Back, or Up from the first library row, returns to the favourites at rest. The top bar stays visible.
+Down from favourites scrolls the page up as one block and crossfades in a pre-rendered dimmed and blurred copy of the wallpaper behind the grid. The resume card fades out as the page starts to scroll. While the first rows fit, the dock stays visible just below the top bar. Further down, the dock fades away and the rows start directly below the top bar, so no empty band opens. Back, or Up from the first library row, returns to the favourites at rest. The top bar stays visible.
 
 ## Inputs tab
 
@@ -79,14 +82,16 @@ The text drifts a few pixels every few minutes using `transform`, to protect the
 
 | From | Key | Result |
 | --- | --- | --- |
-| Launch | – | Focus on the last-launched favourite, else the first |
+| Launch | – | The resume card when it shows, else the first favourite |
 | Favourites | Left/Right | Move along the row, without wrapping |
-| Favourites | Up | Active nav pill |
+| Favourites | Up | Resume card when it shows, else the active nav pill |
+| Resume card | Up / Down | Active nav pill / first favourite |
+| Resume card | OK | Reopen the last app |
 | Favourites | Down | Same column in library row 1, and the page scrolls |
 | Library | arrows | Grid movement, without wrapping. Up from row 1 returns to favourites |
 | Library | Back | Favourites, same column if possible |
 | Nav pills | Left/Right | Between pills. Right of the last pill jumps to Settings |
-| Nav pills / Settings | Down | Favourites (Home tab) or the first input (Inputs tab) |
+| Nav pills / Settings | Down | Resume card or favourites (Home tab), or the first input (Inputs tab) |
 | Nav pill | OK | Switch tab. Focus alone does not switch, matching CleanFrame's rule that focus never acts |
 | Favourites | Back | Existing "stay or open Samsung Home" choice |
 | Any app tile | OK | Launch, with no message. A message appears only if the launch fails. Nothing ever autoplays or launches from focus |
@@ -145,6 +150,7 @@ The prototype only explores the design. Once the spec is locked, the launcher is
 4. Weather network access from the signed app (`<access origin>` in `config.xml`).
 5. Rendering speed of the scrolled library and the crossfades on the panel.
 6. Whether holding OK on the remote reaches the app as key repeats or a key-up it can time, which editing in place needs.
+7. Whether an app reopened from Home returns where it was or starts again, and how long the TV keeps apps such as Plex running in the background. The current build answers this through each app's tile, since the resume card makes the same launch call.
 
 ## Owners' decisions (31 October 2026)
 
@@ -152,4 +158,4 @@ The prototype only explores the design. Once the spec is locked, the launcher is
 - Tabs: Home and Inputs only.
 - Favourites: at most 6, in one row.
 - Apps: Plex, YouTube, Netflix, Apple TV, Hulu, Prime Video, HBO Max, Spotify, Samsung TV Plus, Amazon Alexa and SmartThings, in that order (`OWNER_APPS`). The first six start as favourites. Every other installed app starts hidden, and apps installed later appear in the library.
-- In V1: editing apps in place by holding OK on Home (see Remote navigation). Not in V1: a night look, two favourite sets for two people, and Text size and Reduce motion settings.
+- In V1: editing apps in place by holding OK on Home (see Remote navigation), and the resume card for the last app (see Screen zones). A live preview of an app isn't possible. Not in V1: a night look, two favourite sets for two people, and Text size and Reduce motion settings.

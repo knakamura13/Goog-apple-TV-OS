@@ -36,7 +36,7 @@ Goals: no ads, no apps the owners don't use, no autoplay, a fast feel on the TV,
 - **Library:** every installed app that isn't a favourite and isn't hidden, in alphabetical order, 6 per row in the same columns as the dock. At rest about 40% of the first row peeks above the bottom edge. The focused app's name appears below it.
 - **App list and icons:** the TV supplies the list of installed apps, as CleanFrame's `device.js` already does, leaving out Samsung's internal ones. An app with a bundled logo (Simple Icons or Custom Brand Icons, single colour on its brand-coloured tile) shows that logo. Any other app shows the TV's own icon for it, or its name if that icon can't load. Apps installed later appear in the library on their own.
 - **Shapes:** tiles, the dock, panels and dialogs use squircle (continuous-curvature) corners. Capsules keep fully rounded ends.
-- **Sounds:** a tick when focus moves and a click on OK, which the owners missed in the first TV test. The TV's own tap sound plays if the TV lets apps use it. Otherwise the launcher synthesizes both sounds, so they add no files. A switch to turn them off comes with the Settings redesign.
+- **Sounds:** a sound when focus moves, on OK and on Back, which the owners missed in the first TV test. The TV's own menu sounds play if the TV lets apps use them (`tizen.tvaudiocontrol.playSound`, which needs the `tv.audio` privilege). Otherwise the launcher synthesizes soft, low-passed sounds, so the fallback adds no files. On this TV, Web Audio reports about 0.1 s of output delay, which the owners heard as lag. A switch to turn them off comes with the Settings redesign.
 - **Motion:** quick and smooth, with transform and opacity only. Focus scales in about 170 ms, selection indicators slide in about 220 ms, and the page scrolls in about 340 ms.
 
 ## Library scrolled
@@ -146,14 +146,14 @@ The prototype only explores the design. Once the spec is locked, the launcher is
 
 ## Open checks on the TV
 
-1. Tizen version, web engine, page size and free storage on this firmware (all shown in Settings › About). Free storage sets how many photos the build can carry. The first test showed 0.5 GB free of 4.1 GB, with the app at 15.2 MB.
+1. Tizen version, web engine, page size and free storage on this firmware (all shown in Settings › About). Free storage sets how many photos the build can carry. The first test showed 0.5 GB free of 4.1 GB, with the app at 15.2 MB, a 1920 × 1080 page and the platform build `TIZEN-TRUNK2025-PontusM-OSU-2024-HOTFIX-RELEASE_20260514.3` (the 2025 OS upgrade).
 2. Whether `tizen.tvwindow.setSource` changes the real input or only a preview window, and which privilege it needs. Fallback: launch Samsung's source list.
 3. Whether a sleep timer is reachable from a web app. Fallback: a TV settings shortcut.
 4. Weather network access from the signed app (`<access origin>` in `config.xml`).
-5. Rendering speed of the scrolled library and the crossfades on the panel. In the first TV test, moving from the dock into the library lagged slightly.
+5. Rendering speed of the scrolled library and the crossfades on the panel. In the first TV test, moving between the dock and the library lagged slightly, and so did entering and leaving the screensaver. The test readout showed one long stall per move: the worst frame took 167–200 ms with everything on, 50–67 ms without the blurred photo, 100–133 ms without the glass images and 167 ms without the squircle masks (single runs). The stall points at the first frame of each fade, when layers that were invisible must be loaded.
 6. Whether holding OK on the remote reaches the app as key repeats or a key-up it can time, which editing in place needs.
 7. Whether an app reopened from Home returns where it was or starts again, and how long the TV keeps apps such as Plex running in the background. The current build answers this through each app's tile, since the resume card makes the same launch call.
-8. Whether the TV lets a web app play its own tap sound (`tizen.feedback`), and how soon the built-in sounds follow a key press.
+8. Whether the TV lets a web app play its own menu sounds (`tizen.tvaudiocontrol.playSound`). `tizen.feedback` doesn't exist on this TV, and Web Audio reports 50 ms base plus 50 ms output delay.
 9. Whether `setScreenSaver` holds off Samsung's screensaver on this firmware, and whether Samsung's auto power-off still applies.
 
 ## Owners' decisions (31 October 2026)

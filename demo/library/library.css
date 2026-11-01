@@ -313,3 +313,4 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .t-noblur .bg-blur,.t-noblur .bg-veil{display:none}
 .t-nomasks .squircle,.t-nomasks .dock-glass,.t-nomasks .t-face{-webkit-mask-image:none!important;mask-image:none!important;border-radius:36px}
 .t-noglass .glass-layer{display:none}
+.t-warm .bg-blur,.t-warm .bg-veil,.t-warm .glass-alt,.t-warm .glass-dim{will-change:opacity}

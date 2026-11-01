@@ -845,22 +845,24 @@
   // ---------- Input ----------
 
   // ---------- Sounds ----------
-  // A tick when focus moves and a click on OK. The TV's own tap sound plays when the TV lets apps use it. Otherwise a short, soft burst of low-passed noise is made on the spot, so the sounds cost no files.
-  var tvSound, soundWhy = '', audio = null, noise = null, soundBroken = false;
+  // Moves, OK and Back play the TV's own menu sounds when the TV lets apps use them (tizen.tvaudiocontrol, which
+  // needs the tv.audio privilege). Otherwise a short, soft burst of low-passed noise is made on the spot, so the
+  // fallback costs no files. Web Audio on this TV reports about 0.1 s of output delay, so the TV's sounds come first.
+  var BEEPS = { select: 'SELECT', back: 'BACK', up: 'UP', down: 'DOWN', left: 'LEFT', right: 'RIGHT' };
+  var tvBeep, soundWhy = '', audio = null, noise = null, soundBroken = false;
   // Started at launch, so the first key press doesn't wait for the audio engine.
   function soundStart() {
     var Ctx = window.AudioContext || window.webkitAudioContext, data, i;
-    if (tvSound === undefined) {
-      tvSound = null;
+    if (tvBeep === undefined) {
+      tvBeep = null;
       try {
-        if (!window.tizen || !window.tizen.feedback) soundWhy = 'no tizen.feedback';
-        else if (!window.tizen.feedback.isPatternSupported('TAP', 'SOUND')) soundWhy = 'TV has no TAP sound';
-        else tvSound = window.tizen.feedback;
-      } catch (e) { soundWhy = 'TV sound check: ' + e.name; }
+        if (window.tizen && window.tizen.tvaudiocontrol && window.tizen.tvaudiocontrol.playSound) tvBeep = window.tizen.tvaudiocontrol;
+        else soundWhy = 'no tvaudiocontrol.playSound';
+      } catch (e) { soundWhy = 'tvaudiocontrol: ' + e.name; }
     }
     if (audio || soundBroken || !Ctx) return;
     try {
-      audio = new Ctx({ latencyHint: 'interactive' });
+      audio = new Ctx({ latencyHint: 0 });
       noise = audio.createBuffer(1, Math.round(audio.sampleRate * 0.12), audio.sampleRate);
       data = noise.getChannelData(0);
       for (i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
@@ -869,8 +871,8 @@
   function sound(kind) {
     var select = kind === 'select', len = select ? 0.09 : 0.045, t, src, filter, gain;
     soundStart();
-    if (tvSound) {
-      try { tvSound.play('TAP', 'SOUND'); return; } catch (e) { tvSound = null; soundWhy = 'TV refused its sound: ' + e.name; }
+    if (tvBeep && BEEPS[kind]) {
+      try { tvBeep.playSound(BEEPS[kind]); return; } catch (e) { tvBeep = null; soundWhy = 'TV refused its sounds: ' + e.name + ' ' + e.message; }
     }
     if (!audio) return;
     try {
@@ -897,15 +899,16 @@
   // ---------- Test readout (TV test builds only) ----------
   // The remote's 0 button shows what the TV reports about sound and how smoothly the last moves ran, since this TV offers no debugger.
   // Buttons 1 to 3 switch off one suspected cost each, to compare on the TV: the blurred photo behind the library, the squircle masks, the glass images.
+  // Button 4 keeps the layers that fade in already loaded, to test whether loading them on the first frame causes the stall.
   var diagEl = null, diagLines = [], ZONE_NAMES = { fav: 'dock', lib: 'library' }, SWITCHES = ['blur', 'masks', 'glass'];
   function ms(seconds) { return typeof seconds === 'number' ? Math.round(seconds * 1000) + ' ms' : 'n/a'; }
   function diagText() {
     return ['Firmware  ' + (about.firmware || 'reading…'),
       'Storage   ' + (about.storage || 'reading…'),
-      'Sound     ' + (tvSound ? 'TV tap sound' : 'built-in (' + (soundWhy || 'not started') + ')'),
+      'Sound     ' + (tvBeep ? 'TV menu sounds' : 'built-in (' + (soundWhy || 'not started') + ')'),
       'Audio     ' + (audio ? audio.sampleRate + ' Hz, base ' + ms(audio.baseLatency) + ', output ' + ms(audio.outputLatency) + ', ' + audio.state : 'off'),
       'TV saver  ' + saverWhy,
-      'Switches  ' + SWITCHES.map(function (w, i) { return (i + 1) + ' ' + w + (stage.classList.contains('t-no' + w) ? ' OFF' : ' on'); }).join(' · ')
+      'Switches  ' + SWITCHES.map(function (w, i) { return (i + 1) + ' ' + w + (stage.classList.contains('t-no' + w) ? ' OFF' : ' on'); }).join(' · ') + ' · 4 warm ' + (stage.classList.contains('t-warm') ? 'ON' : 'off')
     ].concat(diagLines).join('\n');
   }
   function showDiag() { if (diagEl && diagEl.classList.contains('is-on')) diagEl.textContent = diagText(); }
@@ -924,9 +927,10 @@
       times.push(t);
       if (t - start < until) { window.requestAnimationFrame(frame); return; }
       for (i = 1; i < times.length; i++) { gap = times[i] - times[i - 1]; if (gap > worst) worst = gap; if (gap > 20) slow++; }
-      off = SWITCHES.filter(function (w) { return stage.classList.contains('t-no' + w); });
-      diagLines.unshift(label + '  ' + times.length + ' frames, worst ' + Math.round(worst) + ' ms, ' + slow + ' missed' + (off.length ? '  [no ' + off.join(', ') + ']' : ''));
-      diagLines.length = Math.min(diagLines.length, 8);
+      off = SWITCHES.filter(function (w) { return stage.classList.contains('t-no' + w); }).map(function (w) { return 'no ' + w; });
+      if (stage.classList.contains('t-warm')) off.push('warm');
+      diagLines.unshift(label + '  ' + times.length + ' frames, worst ' + Math.round(worst) + ' ms, ' + slow + ' missed' + (off.length ? '  [' + off.join(', ') + ']' : ''));
+      diagLines.length = Math.min(diagLines.length, 12);
       showDiag();
     }
     window.requestAnimationFrame(frame);
@@ -946,13 +950,14 @@
     /* preview */if (e.keyCode === KEY_AMBIENT) { enterAmbient(); return; }/* /preview */
     if (e.keyCode === 48 || e.keyCode === 96) { toggleDiag(); return; }
     if ((e.keyCode >= 49 && e.keyCode <= 51) || (e.keyCode >= 97 && e.keyCode <= 99)) { stage.classList.toggle('t-no' + SWITCHES[e.keyCode % 48 - 1]); showDiag(); return; }
+    if (e.keyCode === 52 || e.keyCode === 100) { stage.classList.toggle('t-warm'); showDiag(); return; }
     if (!k) return;
     e.preventDefault();
     armIdle();
     if (e.repeat && (k === 'ok' || k === 'back')) return;
     if (k === 'ok') sound('select');
     act(k);
-    if (k !== 'ok' && focused !== was) sound('move');
+    if (k !== 'ok' && focused !== was) sound(k);
     if (focused !== was) measure(wasZone === S.zone ? zoneName(S.zone) : zoneName(wasZone) + ' → ' + zoneName(S.zone));
   });
   /* preview */

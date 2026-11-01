@@ -4,6 +4,8 @@ Prepared 31 October 2026 on branch `native-home-impl`. **Nothing in this note ha
 TV, and the re-profiled helper has never run here at all.** The
 read-only survey is a device action too: it stages temporary helper files and executes code as the
 SDK user, so it needs its own explicit authorisation. This note is source review and a plan only.
+An independent agent cross-reviewed this text and the code in three rounds on the same day; every
+finding was fixed and the result re-checked (see the review record in section 4).
 
 Scope: point the native Home button (and, where the firmware allows it, boot) at the installed
 launcher `Zm209bQNEk.Home` on Kyle's 65-inch S90D. The signed launcher and its installation exist,
@@ -218,6 +220,13 @@ stop-and-report condition, not something to reconcile by editing the profile.
 - `inspect.sh`: adds the boot ID, `/usr/bin/dotnet`, `libaul`/`libbundle`, and labels the
   `vconftool` reads as read-only.
 - `profile.example.json`: tracked placeholder with no TV identity.
+
+**Review record.** Three cross-review rounds found and fixed: a restore gate that refused
+immediately after a successful apply (the one state it exists for); a failed-apply undo that rewrote
+firmware-owned fields; a runner regression that skipped the model guard when the TV's API answered
+without `modelName`; a timeout path that claimed "nothing was written"; a stale-helper path with no
+build check; and several doc statements that overstated what the evidence shows. The final round's
+verdict was that the read-only step is safe and that the remaining items were writing-mode guards.
 
 Not changed on purpose: the assembly name, the staged paths, the base64 injection, the 400-byte
 argument cap, the 100 KB output cap and the callback peer check. couchroot used a distinct assembly

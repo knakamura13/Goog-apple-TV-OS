@@ -57,14 +57,15 @@ class Control {
   if(!exact)return;
   if(string.IsNullOrWhiteSpace(p.Version))throw new Exception("Profile version is empty; run query and copy PROFILE_VERSION");
   if(!string.Equals(model,p.Model,StringComparison.Ordinal))throw new Exception("Model in /etc/prd_info.ini is "+(model??"<absent>")+"; the profile expects "+p.Model+". Run query and copy PROFILE_MODEL, or stop if the public API and /etc/prd_info.ini disagree");
-  if(!string.Equals(version,p.Version,StringComparison.Ordinal))throw new Exception("Unexpected firmware: "+(version??"<absent>")+" (profile has "+p.Version+"). Run query (read-only), review, then re-pin version before restoring");}
+  if(!string.Equals(version,p.Version,StringComparison.Ordinal))throw new Exception("Unexpected firmware: "+(version??"<absent>")+" (profile has "+p.Version+"). Run query (read-only), review, then re-pin version before this step");}
  static void CheckSnapshot(Snapshot s,Profile p){
   if(s==null||string.IsNullOrWhiteSpace(s.Home)||s.Strings==null||s.Strings.Count!=Keys.Length||(s.Autostart!=0&&s.Autostart!=1))throw new Exception("Invalid original snapshot");
   foreach(var k in Keys)if(!s.Strings.ContainsKey(k)||string.IsNullOrWhiteSpace(s.Strings[k]))throw new Exception("Missing original setting: "+k);
-  // A capture taken after apply would make restore a no-op that looks successful. The derived
-  // startup field names the launcher in an applied state, which catches baselines with no
-  // provenance at all.
-  if(s.Home==p.AppId||(!string.IsNullOrEmpty(s.AppId)&&s.Home==s.AppId)||s.Strings["db/appfw/startup_appid"]==p.AppId)throw new Exception("Original snapshot names the launcher; capture the pre-change state instead");
+  // A capture taken after apply would make restore a no-op or rewrite an applied state. The
+  // derived startup field is only treated as evidence when another applied marker is present, so a
+  // fresh capture after a restore with unsettled derived values is still accepted.
+  bool appliedState=s.Home==p.AppId||s.Strings["db/appfw/home_appid"]==p.AppId||s.Autostart==1;
+  if(s.Home==p.AppId||(!string.IsNullOrEmpty(s.AppId)&&s.Home==s.AppId)||(appliedState&&s.Strings["db/appfw/startup_appid"]==p.AppId))throw new Exception("Original snapshot names the launcher or an applied state; capture the pre-change state instead");
   // Older baselines have no provenance fields; when present they must belong to this profile.
   if(!string.IsNullOrEmpty(s.Model)&&s.Model!=p.Model)throw new Exception("Original snapshot belongs to model "+s.Model);
   if(!string.IsNullOrEmpty(s.AppId)&&s.AppId!=p.AppId)throw new Exception("Original snapshot belongs to application "+s.AppId);}

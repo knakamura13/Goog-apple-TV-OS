@@ -110,16 +110,20 @@ this TV's state.
    `libapp-context-manager-common`, `libcapi-appfw-app-operation-tv` and `libvconf`. `inspect`
    reports all of them.
 
-One added recovery guard: a baseline whose native operation or derived `startup_appid` names the
-launcher is rejected, because restoring it would "succeed" without changing anything. The derived
-field catches a post-apply capture even in a baseline that carries no provenance. A baseline whose
-provenance names a different model or application is rejected too, so the two TVs' recovery files
-cannot be swapped by mistake. Baselines from the earlier build have no provenance fields and still
-load, so `restore`
-also checks live state before writing. The hard gate covers the three values apply writes — the
-native operation, `home_appid` and autostart — and each must be either the captured value or the
-launcher value this profile's apply produces. Anything else is another change or another TV's
-baseline, and restore refuses rather than writing over it. The two firmware-derived keys and
+One added recovery guard: a baseline whose native operation names the launcher, or which carries an
+applied marker (`home_appid` on the launcher, `auto_start=1`) together with a derived
+`startup_appid` on the launcher, is rejected, because restoring it would "succeed" without changing
+anything. The derived field is only treated as evidence when another applied marker is present, so
+a fresh capture after a restore whose derived values have not settled is still accepted. That check
+only recognises **this profile's** app id: a baseline captured after apply under a different app
+id, with no provenance fields, is not detected, so old baselines deserve a manual look. A baseline
+whose provenance names a different model or application is rejected too, so the two TVs' recovery
+files cannot be swapped by mistake. Baselines from the earlier build have no provenance fields and
+still load, so `restore` also checks live state before writing. The hard gate covers the three
+values apply writes — the native operation, `home_appid` and autostart — and each must be either
+the captured value or the launcher value this profile's apply produces. Anything else is another
+change or another TV's baseline, and restore refuses rather than writing over it. The two
+firmware-derived keys and
 `db/first_screen/type` are only noted, because refusing there would block the very rollback that
 repairs a misrouted Home button; restore writes the captured values back and reports what does not
 follow.
@@ -195,11 +199,15 @@ stop-and-report condition, not something to reconcile by editing the profile.
   plus `.local/device.json` and the SDK's `sdb` before the first push, pushes the profile, and
   extracts the query snapshot to `.local/native-home/query.json`.
   It still never writes `original.json`. `inspect` needs neither the profile nor the compiled helper,
-  and continues as a shell-only survey if the device API is unreachable; the writing modes stop.
+  and continues as a shell-only survey if the device API is unreachable; `query` also continues,
+  because it writes no settings, while `apply` and `restore` stop.
   A missing marker, a non-zero helper exit and a bad snapshot are reported separately, with the
-  helper's own `CLEANFRAME_HOME_ERROR=` line as the summary, and a callback timeout gets its own
-  message instead of a traceback. The transport (injection shape, length cap, callback peer
-  check, output cap) is unchanged.
+  helper's own `CLEANFRAME_HOME_ERROR=` line as the summary; a callback that never arrives and a
+  stream that stalls mid-run both say the result is unknown and point at a read-only `query` rather
+  than claiming nothing was written. The runner also compares `Control.cs` with the
+  `CONTROL_SHA256` stamp beside the compiled helper and refuses `apply`/`restore` when they
+  disagree, so a stale DLL cannot reach the TV in a writing mode. The transport (injection shape,
+  length cap, callback peer check, output cap) is unchanged.
 - `query.sh`, `apply.sh`, `restore.sh`: pass the staged profile and snapshot paths, and always print
   the helper's exit status before the end marker.
 - `inspect.sh`: adds the boot ID, `/usr/bin/dotnet`, `libaul`/`libbundle`, and labels the
@@ -235,14 +243,15 @@ cp scripts/native-home/profile.example.json .local/native-home/profile.json
 # edit model -> QN65S90DAFXZA, app_id -> Zm209bQNEk.Home, leave version null
 ```
 
-Then rebuild the helper if `Control.cs` has changed since the compiled copy in
-`.local/native-home/out/`; the rebuild command is in `scripts/native-home/README.md`. The steps
-below were prepared against this branch's source, so a stale compiled copy would fail closed only
-after the first authorised device step has already staged it. `dotnet build` needs this Mac's
-private verified SDK, which a public clone does not have.
+Then rebuild the helper and stamp the reviewed source. Run both commands from
+`scripts/native-home/README.md`; they need this Mac's private verified SDK, which a public clone
+does not have. The runner compares `Control.cs` against the `CONTROL_SHA256` stamp beside the
+compiled copy and **refuses `apply` and `restore`** when the two disagree or the stamp is missing,
+because the staged DLL runs whatever was compiled, not what was reviewed. `query` and `inspect`
+only warn, since they write no settings.
 
-Review the profile, the compiled helper revision in `.local/native-home/out/`, and this note. The
-runner refuses an empty model or app ID before it connects.
+Review the profile, the compiled helper and the stamp in `.local/native-home/out/`, and this note.
+The runner refuses an empty model or app ID before it connects.
 
 **1. Read-only device survey** (stages temporary files; no settings writes)
 
@@ -313,10 +322,10 @@ that passes, and only if Kyle wants the change retained.
 
 | Risk | How it shows up | Mitigation | Residual |
 | --- | --- | --- | --- |
-| Foothold rejected on this exact build | No callback within 18 s, or no markers | Fail closed; nothing is written. Wait a few minutes and retry once, then stop | Unexplained |
+| Foothold rejected on this exact build | No callback within 18 s, or no markers | The result is unknown, not "nothing happened". Run a read-only `query` before retrying; do not loop | Unexplained |
 | Runtime or library missing/changed | `inspect` or the helper errors | Inspect first; stop rather than substituting a library or a different runtime | Low |
 | Boot-eligibility probe says no/unknown | `apply` refuses | Stop and report; do not bypass | Blocks the change |
-| Partial write | Readback or exception after one setter | Automatic exact restore; if that fails the message names both errors. Samsung Home is still installed | Mixed state until restore |
+| Partial write | Readback or exception after one setter | Automatic undo of the three applied values; if that fails the message names both errors. Samsung Home is still installed | Mixed state until restore |
 | Launcher fails to launch after being assigned | Home button appears broken | Restore from the baseline; reach Samsung Home from the TV's own menus meanwhile | Platform fallback unverified |
 | Live state the baseline does not explain | `restore` refuses and names the keys | Do not swap baselines between TVs; capture fresh values and review before writing anything | Manual review |
 | `vconftool`-style privilege damage | Home key privilege fields read as `0` | Never use `vconftool set`; if observed, stop (repair needs root) | Out of scope |

@@ -1,5 +1,5 @@
 from pathlib import Path
-import sys, base64, ipaddress, json, re, socket, subprocess, time, uuid, urllib.request
+import sys, base64, hashlib, ipaddress, json, re, socket, subprocess, time, uuid, urllib.request
 root=Path(__file__).resolve().parents[2]; private=root/'.local/native-home'
 mode=sys.argv[1] if len(sys.argv)>1 else 'query'
 if mode not in ['query','apply','restore','inspect']:raise SystemExit('Unknown action')
@@ -24,6 +24,22 @@ if mode!='inspect':
     if mode in ['apply','restore']:files.append((private/'original.json',staging+'/CleanFrameHomeOriginal.json'))
     for source,_ in files:
         if not source.is_file():raise SystemExit('Missing reviewed local file, nothing staged: '+str(source))
+    # The staged DLL runs whatever was compiled. Stamp the reviewed source next to the build
+    # (see README) so a stale helper cannot reach the TV in a writing mode.
+    helper_source=root/'scripts/native-home'/'Control.cs'; stamp=private/'out'/'CONTROL_SHA256'
+    if not helper_source.is_file():raise SystemExit('Missing scripts/native-home/Control.cs, so the build cannot be reviewed; nothing staged.')
+    if not stamp.is_file():
+        message='No CONTROL_SHA256 stamp beside the compiled helper, so the build cannot be matched to scripts/native-home/Control.cs.'
+        if mode in ['apply','restore']:raise SystemExit(message+' Rebuild and stamp it (see scripts/native-home/README.md); nothing staged.')
+        print('WARNING: '+message+' Rebuild before apply or restore.',file=sys.stderr)
+    else:
+        try:recorded=stamp.read_text().split()[0].strip().lower()
+        except (IndexError,OSError):recorded=''
+        actual=hashlib.sha256(helper_source.read_bytes()).hexdigest()
+        if recorded!=actual:
+            message='The compiled helper does not match scripts/native-home/Control.cs (stamp '+recorded[:12]+', source '+actual[:12]+').'
+            if mode in ['apply','restore']:raise SystemExit(message+' Rebuild before apply or restore; nothing staged.')
+            print('WARNING: '+message+' Rebuild before apply or restore.',file=sys.stderr)
 device_file=root/'.local/device.json'
 if not device_file.is_file():raise SystemExit('Missing .local/device.json with the TV host; nothing staged.')
 try:
@@ -33,13 +49,12 @@ observed=None
 try:
     with urllib.request.urlopen('http://'+host+':8001/api/v2/',timeout=4) as response: observed=json.load(response).get('device',{}).get('modelName')
 except Exception as error:
-    # inspect is deliberately usable on a TV that is misbehaving, so a failed API read only stops
-    # the modes that would write through the model guard.
-    if mode!='inspect':raise SystemExit('Cannot read the device model from http://'+host+':8001/api/v2/ ('+str(error)+'); nothing staged.')
-    print('WARNING: device API unreachable ('+str(error)+'); inspect continues as a shell-only survey.',file=sys.stderr)
+    # inspect and query write no settings, so they continue and report; apply and restore stop.
+    if mode in ['apply','restore']:raise SystemExit('Cannot read the device model from http://'+host+':8001/api/v2/ ('+str(error)+'); nothing staged.')
+    print('WARNING: device API unreachable ('+str(error)+'); '+mode+' continues and writes no settings.',file=sys.stderr)
 # apply and restore must land on the profiled TV. Query stays read-only and warns instead, so a TV
 # whose public API model differs from /etc/prd_info.ini Model can still be surveyed and reported.
-if profile is not None and observed!=profile['model'].strip():
+if profile is not None and observed is not None and observed!=profile['model'].strip():
     message='Device public API reports '+repr(observed)+', profile expects '+repr(profile['model'].strip())+'.'
     if mode!='query':raise SystemExit('Model guard failed; nothing staged. '+message)
     print('WARNING: read-only query continues. '+message+' If /etc/prd_info.ini reports another model, stop and report; never edit the profile just to satisfy a guard.',file=sys.stderr)
@@ -68,22 +83,29 @@ with socket.socket() as listener:
  proc=subprocess.Popen([sdb,'-s',serial,'shell',argument],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
  try:
   try:connection,peer=listener.accept()
-  except socket.timeout:raise SystemExit('No callback from the TV within 18 s, so the helper did not run and nothing was written. sdbd or the package manager may still be busy; wait a few minutes and retry once, or check the firewall. Do not loop it.')
+  except socket.timeout:
+   # An accepted-but-queued connection can still run the helper after this point, so the timeout
+   # means "result unknown", never "nothing happened".
+   raise SystemExit('No callback from the TV within 18 s. The helper may still have run, so the device state is unknown: run a read-only query before retrying, and do not loop this command. sdbd or the package manager may also still be busy.')
   if peer[0]!=host:raise RuntimeError('Unexpected callback peer; no data accepted.')
   chunks=[]
+  stalled=False
   with connection:
    connection.settimeout(8)
-   while True:
-    chunk=connection.recv(65536)
-    if not chunk:break
-    chunks.append(chunk)
-    if sum(map(len,chunks))>100000:raise RuntimeError('Unexpectedly large diagnostic output.')
+   try:
+    while True:
+     chunk=connection.recv(65536)
+     if not chunk:break
+     chunks.append(chunk)
+     if sum(map(len,chunks))>100000:raise RuntimeError('Unexpectedly large diagnostic output.')
+   except socket.timeout:stalled=True
   output=b''.join(chunks).decode(errors='replace')
   try:stdout,stderr=proc.communicate(timeout=8)
   except subprocess.TimeoutExpired:proc.terminate();stdout,stderr=proc.communicate(timeout=3)
   saved=private/(mode+'-output.txt');saved.write_text(output)
   (private/(mode+'-transport.json')).write_text(json.dumps({'returncode':proc.returncode,'stdout':stdout,'stderr':stderr,'remote_probe':remote,'time':time.time()},indent=2))
   print(output)
+  if stalled:raise SystemExit('The TV stopped sending output before the run finished, so the result is unknown; any partial output is saved. Run a read-only query before retrying. Full output: '+str(saved))
   missing=[marker for marker in ['CLEANFRAME_HOME_INSPECT_BEGIN','CLEANFRAME_HOME_INSPECT_END'] if marker not in output]
   if missing:
    raise SystemExit('Probe incomplete: missing '+', '.join(missing)+'. The helper may not have started, so the device state is unknown. Full output: '+str(saved)+'. Inspect it before retrying; do not loop the command.')

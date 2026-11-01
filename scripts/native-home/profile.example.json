@@ -1,0 +1,5 @@
+{
+  "model": "YOUR_TV_MODEL_AS_REPORTED_BY_THE_PUBLIC_API",
+  "version": null,
+  "app_id": "YOUR_SDK_GENERATED_PACKAGE_ID.Home"
+}

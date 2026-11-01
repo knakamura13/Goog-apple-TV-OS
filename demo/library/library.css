@@ -292,7 +292,10 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .is-ambient .ui{opacity:0;transition:opacity 500ms linear}
 .is-ambient .bg-shade,.is-ambient .bg-scrim,.is-ambient .bg-blur,.is-ambient .bg-veil,.is-ambient .editor{opacity:0}
 /* Entering, the photo pushes in slowly while the text rises at its own pace, for depth; leaving, it eases back quickly. */
-.is-ambient .bg-photo{transform:scale(1.06);transition:opacity 900ms linear,transform 2400ms cubic-bezier(.33,0,.15,1)}
+/* The photo pans continuously in ambient mode so the OLED panel never sees a still frame and its own
+   (undisableable) panel-protection screensaver doesn't take over ours. Transform-only, so it stays GPU-cheap. */
+.is-ambient .bg-photo{animation:amb-pan 44s ease-in-out infinite;transition:opacity 900ms linear}
+@keyframes amb-pan{0%{transform:scale(1.05) translate3d(0,0,0)}50%{transform:scale(1.12) translate3d(-1.4%,-0.8%,0)}100%{transform:scale(1.05) translate3d(0,0,0)}}
 .amb-clock,.amb-caption{transform:translate3d(0,20px,0);transition:transform 300ms var(--glide)}
 .is-ambient .amb-clock,.is-ambient .amb-caption{transform:translate3d(0,0,0);transition:transform 1600ms cubic-bezier(.2,.8,.2,1) 500ms}
 
@@ -305,7 +308,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{transition-duration:1ms!important;animation-duration:1ms!important}
-  .is-ambient .bg-photo{transform:none}
+  .is-ambient .bg-photo{transform:none;animation:none}
 }
 /* TV test builds only: the 0 button's readout. */
 .diag{position:absolute;left:90px;bottom:48px;z-index:30;margin:0;padding:20px 28px;border-radius:20px;background:rgba(0,0,0,.82);color:#fff;font:500 24px/34px Menlo,monospace;white-space:pre;display:none}

@@ -77,7 +77,7 @@ After a set idle time on Home (default 1 minute), the top bar and rows fade out 
 - **No weather** in the screensaver.
 - **Slideshow:** the photos rotate while it runs, and Home returns to its chosen photo afterwards.
 
-The text drifts a few pixels every few minutes using `transform`, to protect the OLED from burn-in. Any key brings the UI back without acting on that key. While the launcher's screensaver is on and the launcher is in front, Samsung's own screensaver is held off (`webapis.appcommon.setScreenSaver`) so it can't cover ours. It's handed back after two hours without a button press, whenever another app is in front, and when ours is set to Off, so a paused video or an unattended TV keeps Samsung's panel protection and power saving.
+The photo pans continuously (a slow transform loop) the whole time, and the text drifts every few minutes, both to protect the OLED from burn-in. The continuous motion also matters because this is a QD-OLED: Samsung's own panel-protection screensaver can't be disabled by any app and takes over after about two minutes of a still image, so the ambient photo must keep moving for ours to stay on screen (to be confirmed on the TV). `setScreenSaver` only affects Samsung's older Auto-Protection-Time screensaver, not this one. Any key brings the UI back without acting on that key. While the launcher's screensaver is on and the launcher is in front, Samsung's own screensaver is held off (`webapis.appcommon.setScreenSaver`) so it can't cover ours. It's handed back after two hours without a button press, whenever another app is in front, and when ours is set to Off, so a paused video or an unattended TV keeps Samsung's panel protection and power saving.
 
 ## Remote navigation
 

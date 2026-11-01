@@ -820,9 +820,10 @@
   // Samsung's own screensaver would cover ours, so it is held off while ours is on and this launcher is in front.
   // It is handed back after two hours without a button press, whenever another app is in front and when ours is
   // set to Off, so a paused video or an unattended TV still gets Samsung's panel protection and power saving.
-  // setScreenSaver(OFF) reported success but Samsung's screensaver still took over on this firmware, so the hold is
-  // re-asserted every minute in case the TV re-arms it, and handed back after two idle hours, when another app is in
-  // front, and when ours is set to Off. Whether this works at all is a TV open check; the readout shows the count.
+  // setScreenSaver only governs Samsung's older "Auto Protection Time" screensaver, not the OLED panel-protection
+  // one (which can't be disabled and is instead avoided by keeping the ambient photo moving, above). This hold is
+  // cheap hygiene for the non-OLED path: assert OFF while ours runs, re-assert on resume, hand back after two idle
+  // hours, when another app is in front, and when ours is set to Off. The readout shows the count for the TV test.
   var SAVER_BACKSTOP = 7200000, SAVER_REASSERT = 60000, saverTimer = null, saverHeld = false, saverWhy = 'not asked yet', saverAsserts = 0, saverSince = 0;
   function tvSaver(on) {
     var ac = window.webapis && window.webapis.appcommon;

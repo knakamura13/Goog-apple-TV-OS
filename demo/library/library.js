@@ -67,7 +67,7 @@
 
   var S = { tab: 0, zone: 'fav', nav: 0, fav: 0, lr: 0, lc: 0, inp: 0, panel: 0, dialog: 0, glassTiles: false, wall: 0, homeWall: 0, sleep: 0, amb: 0, ambient: false, scroll: 0,
     favIds: [], hiddenIds: [], ed: null, pages: [], panelFrom: 'gear', paging: false, pageEntered: false, queued: [],
-    weather: { zip: '92627', units: 'F' }, zip: [], zipAt: 0, inputAt: 0, // Default location: Costa Mesa, CA (where the TV is). Real weather fetch is still a V1 item; the temperature is a placeholder.
+    weather: { zip: '92626', units: 'F' }, zip: [], zipAt: 0, inputAt: 0, // Default location: Costa Mesa, CA (where the TV is). Real weather fetch is still a V1 item; the temperature is a placeholder.
     inputs: INPUT_DEFAULTS.map(function (p) { return { port: p.port, name: p.name, show: p.show, connected: p.connected }; }) };
   var SETTINGS = [
     { label: 'Sleep timer', value: function () { return SLEEP[S.sleep]; }, ok: function () { S.sleep = (S.sleep + 1) % SLEEP.length; } },

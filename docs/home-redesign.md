@@ -56,7 +56,7 @@ The gear opens a glass panel on the right. Rows that only change a value do it i
 | Sleep timer | Steps through Off, 30 min, 1 hour, 90 min, 2 hours |
 | Wallpaper › | Full-screen picker (below) |
 | Apps › | Full-screen editor (below) |
-| Weather › | Defaults to Costa Mesa, CA (ZIP 92627, where the TV is). Page with **ZIP code ›** (five digits: Up/Down change a digit, Left/Right move, or type with the remote's number buttons) and **Units** (Fahrenheit or Celsius) |
+| Weather › | Defaults to Costa Mesa, CA (ZIP 92626, where the TV is). Page with **ZIP code ›** (five digits: Up/Down change a digit, Left/Right move, or type with the remote's number buttons) and **Units** (Fahrenheit or Celsius) |
 | Screensaver | Steps through After 1 min, 5 min, 15 min, Off |
 | Picture and sound ↗ | Samsung's picture and sound settings |
 | Samsung Home ↗ | The escape route. Back from the favourites row still offers the "stay or open Samsung Home" choice |

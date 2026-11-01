@@ -845,35 +845,26 @@
   // ---------- Input ----------
 
   // ---------- Sounds ----------
-  // Moves, OK and Back play the TV's own menu sounds when the TV lets apps use them (tizen.tvaudiocontrol, which
-  // needs the tv.audio privilege). Otherwise a short, soft burst of low-passed noise is made on the spot, so the
-  // fallback costs no files. Web Audio on this TV reports about 0.1 s of output delay, so the TV's sounds come first.
-  var BEEPS = { select: 'SELECT', back: 'BACK', up: 'UP', down: 'DOWN', left: 'LEFT', right: 'RIGHT' };
-  var tvBeep, soundWhy = '', audio = null, noise = null, soundBroken = false;
+  // A soft, quiet tick when focus moves and a slightly fuller one on OK, synthesized from low-passed noise so
+  // they cost no files. The TV's own menu sounds (tizen.tvaudiocontrol) were tried but are loud with no volume
+  // control, so they're not used; the owners wanted these much quieter. Web Audio on this TV adds about 0.1 s.
+  var audio = null, noise = null, soundReady = false, soundWhy = 'not started';
   // Started at launch, so the first key press doesn't wait for the audio engine.
   function soundStart() {
     var Ctx = window.AudioContext || window.webkitAudioContext, data, i;
-    if (tvBeep === undefined) {
-      tvBeep = null;
-      try {
-        if (window.tizen && window.tizen.tvaudiocontrol && window.tizen.tvaudiocontrol.playSound) tvBeep = window.tizen.tvaudiocontrol;
-        else soundWhy = 'no tvaudiocontrol.playSound';
-      } catch (e) { soundWhy = 'tvaudiocontrol: ' + e.name; }
-    }
-    if (audio || soundBroken || !Ctx) return;
+    if (audio || soundReady === 'broken') return;
+    if (!Ctx) { soundWhy = 'no Web Audio'; soundReady = 'broken'; return; }
     try {
       audio = new Ctx({ latencyHint: 0 });
       noise = audio.createBuffer(1, Math.round(audio.sampleRate * 0.12), audio.sampleRate);
       data = noise.getChannelData(0);
       for (i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-    } catch (e) { audio = null; soundBroken = true; soundWhy += ', Web Audio: ' + e.name; }
+      soundReady = true; soundWhy = 'ready';
+    } catch (e) { audio = null; soundReady = 'broken'; soundWhy = e.name; }
   }
   function sound(kind) {
-    var select = kind === 'select', len = select ? 0.09 : 0.045, t, src, filter, gain;
+    var select = kind === 'select', len = select ? 0.09 : 0.045, peak = select ? 0.1 : 0.07, t, src, filter, gain;
     soundStart();
-    if (tvBeep && BEEPS[kind]) {
-      try { tvBeep.playSound(BEEPS[kind]); return; } catch (e) { tvBeep = null; soundWhy = 'TV refused its sounds: ' + e.name + ' ' + e.message; }
-    }
     if (!audio) return;
     try {
       if (audio.state === 'suspended') audio.resume();
@@ -886,29 +877,29 @@
       gain = audio.createGain();
       // A 3 ms rise instead of an instant start takes the click out of the attack.
       gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.linearRampToValueAtTime(select ? 0.45 : 0.3, t + 0.003);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + len);
+      gain.gain.linearRampToValueAtTime(peak, t + 0.003);
+      gain.gain.exponentialRampToValueAtTime(0.0008, t + len);
       src.connect(filter);
       filter.connect(gain);
       gain.connect(audio.destination);
       src.start(t);
       src.stop(t + len + 0.01);
-    } catch (e) { audio = null; soundBroken = true; soundWhy += ', Web Audio failed: ' + e.name; }
+    } catch (e) { audio = null; soundReady = 'broken'; soundWhy = e.name; }
   }
 
   // ---------- Test readout (TV test builds only) ----------
   // The remote's 0 button shows what the TV reports about sound and how smoothly the last moves ran, since this TV offers no debugger.
   // Buttons 1 to 3 switch off one suspected cost each, to compare on the TV: the blurred photo behind the library, the squircle masks, the glass images.
-  // Button 4 keeps the layers that fade in already loaded, to test whether loading them on the first frame causes the stall.
+  // The fade layers are kept composited by default (CSS will-change), which removed the dock/library stall on the TV. Button 4 toggles that OFF (t-cold) for comparison.
   var diagEl = null, diagLines = [], ZONE_NAMES = { fav: 'dock', lib: 'library' }, SWITCHES = ['blur', 'masks', 'glass'];
   function ms(seconds) { return typeof seconds === 'number' ? Math.round(seconds * 1000) + ' ms' : 'n/a'; }
   function diagText() {
     return ['Firmware  ' + (about.firmware || 'reading…'),
       'Storage   ' + (about.storage || 'reading…'),
-      'Sound     ' + (tvBeep ? 'TV menu sounds' : 'built-in (' + (soundWhy || 'not started') + ')'),
+      'Sound     built-in, quiet (' + soundWhy + ')',
       'Audio     ' + (audio ? audio.sampleRate + ' Hz, base ' + ms(audio.baseLatency) + ', output ' + ms(audio.outputLatency) + ', ' + audio.state : 'off'),
       'TV saver  ' + saverWhy,
-      'Switches  ' + SWITCHES.map(function (w, i) { return (i + 1) + ' ' + w + (stage.classList.contains('t-no' + w) ? ' OFF' : ' on'); }).join(' · ') + ' · 4 warm ' + (stage.classList.contains('t-warm') ? 'ON' : 'off')
+      'Switches  ' + SWITCHES.map(function (w, i) { return (i + 1) + ' ' + w + (stage.classList.contains('t-no' + w) ? ' OFF' : ' on'); }).join(' · ') + ' · 4 warm ' + (stage.classList.contains('t-cold') ? 'off' : 'ON')
     ].concat(diagLines).join('\n');
   }
   function showDiag() { if (diagEl && diagEl.classList.contains('is-on')) diagEl.textContent = diagText(); }
@@ -928,7 +919,7 @@
       if (t - start < until) { window.requestAnimationFrame(frame); return; }
       for (i = 1; i < times.length; i++) { gap = times[i] - times[i - 1]; if (gap > worst) worst = gap; if (gap > 20) slow++; }
       off = SWITCHES.filter(function (w) { return stage.classList.contains('t-no' + w); }).map(function (w) { return 'no ' + w; });
-      if (stage.classList.contains('t-warm')) off.push('warm');
+      if (stage.classList.contains('t-cold')) off.push('cold');
       diagLines.unshift(label + '  ' + times.length + ' frames, worst ' + Math.round(worst) + ' ms, ' + slow + ' missed' + (off.length ? '  [' + off.join(', ') + ']' : ''));
       diagLines.length = Math.min(diagLines.length, 12);
       showDiag();
@@ -950,7 +941,7 @@
     /* preview */if (e.keyCode === KEY_AMBIENT) { enterAmbient(); return; }/* /preview */
     if (e.keyCode === 48 || e.keyCode === 96) { toggleDiag(); return; }
     if ((e.keyCode >= 49 && e.keyCode <= 51) || (e.keyCode >= 97 && e.keyCode <= 99)) { stage.classList.toggle('t-no' + SWITCHES[e.keyCode % 48 - 1]); showDiag(); return; }
-    if (e.keyCode === 52 || e.keyCode === 100) { stage.classList.toggle('t-warm'); showDiag(); return; }
+    if (e.keyCode === 52 || e.keyCode === 100) { stage.classList.toggle('t-cold'); showDiag(); return; }
     if (!k) return;
     e.preventDefault();
     armIdle();

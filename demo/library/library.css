@@ -24,8 +24,8 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .bg,.bg>*{position:absolute;left:0;top:0;width:1920px;height:1080px}
 .bg-photo{max-width:none;object-fit:cover;opacity:0;transform:scale(1);transition:opacity 900ms linear,transform 700ms var(--glide);will-change:transform,opacity}
 .bg-photo.is-front{opacity:1}
-.bg-blur{max-width:none;opacity:0;transition:opacity var(--scroll-t) linear}
-.bg-veil{background:rgba(6,10,14,.42);opacity:0;transition:opacity var(--scroll-t) linear}
+.bg-blur{max-width:none;opacity:0;transition:opacity var(--scroll-t) linear;will-change:opacity}
+.bg-veil{background:rgba(6,10,14,.42);opacity:0;transition:opacity var(--scroll-t) linear;will-change:opacity}
 .bg-shade{height:260px;background:linear-gradient(to bottom,rgba(4,8,12,.34),rgba(4,8,12,0));transition:opacity 600ms linear}
 .tone-light .bg-shade{background:linear-gradient(to bottom,rgba(4,8,12,.44),rgba(4,8,12,0))}
 .bg-scrim{top:600px;height:480px;background:linear-gradient(to bottom,rgba(4,8,12,0),rgba(4,8,12,.38));transition:opacity 600ms linear}
@@ -35,7 +35,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .glass{overflow:hidden;transform:translateZ(0)}
 .glass-layer{position:absolute;left:0;top:0;width:1920px;height:1080px}
 .glass-img{position:absolute;left:0;top:0;width:1920px;height:1080px;max-width:none}
-.glass-alt{opacity:0;transition:opacity var(--scroll-t) linear}
+.glass-alt{opacity:0;transition:opacity var(--scroll-t) linear;will-change:opacity}
 .is-library .glass-alt{opacity:1}
 .glass-tint,.glass-hl,.glass-dim{position:absolute;left:0;top:0;right:0;bottom:0}
 .glass-tint{background:rgba(10,12,14,var(--tint,.32))}
@@ -43,7 +43,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .nav .glass-tint{background:rgba(10,12,14,var(--tint-tl,.32))}
 .status .glass-tint{background:rgba(10,12,14,var(--tint-tr,.36))}
 .glass-hl{background:linear-gradient(to bottom,rgba(255,255,255,.10),rgba(255,255,255,0) 44%)}
-.glass-dim{background:rgba(6,10,14,.42);opacity:0;transition:opacity var(--scroll-t) linear}
+.glass-dim{background:rgba(6,10,14,.42);opacity:0;transition:opacity var(--scroll-t) linear;will-change:opacity}
 .is-library .glass-dim,.is-panel .glass-dim,.is-dialog .glass-dim{opacity:1}
 .dock .glass-dim{background:rgba(6,10,14,.18)}
 .rim{position:absolute;left:0;top:0;width:100%;height:100%;fill:none;stroke:rgba(255,255,255,.18);stroke-width:2;pointer-events:none}
@@ -313,4 +313,4 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .t-noblur .bg-blur,.t-noblur .bg-veil{display:none}
 .t-nomasks .squircle,.t-nomasks .dock-glass,.t-nomasks .t-face{-webkit-mask-image:none!important;mask-image:none!important;border-radius:36px}
 .t-noglass .glass-layer{display:none}
-.t-warm .bg-blur,.t-warm .bg-veil,.t-warm .glass-alt,.t-warm .glass-dim{will-change:opacity}
+.t-cold .bg-blur,.t-cold .bg-veil,.t-cold .glass-alt,.t-cold .glass-dim{will-change:auto}

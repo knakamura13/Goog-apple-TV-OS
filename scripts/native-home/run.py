@@ -34,7 +34,7 @@ if mode!='inspect':
         print('WARNING: '+message+' Rebuild before apply or restore.',file=sys.stderr)
     else:
         try:recorded=stamp.read_text().split()[0].strip().lower()
-        except (IndexError,OSError):recorded=''
+        except (IndexError,OSError,UnicodeDecodeError):recorded=''
         actual=hashlib.sha256(helper_source.read_bytes()).hexdigest()
         if recorded!=actual:
             message='The compiled helper does not match scripts/native-home/Control.cs (stamp '+recorded[:12]+', source '+actual[:12]+').'
@@ -54,6 +54,8 @@ except Exception as error:
     print('WARNING: device API unreachable ('+str(error)+'); '+mode+' continues and writes no settings.',file=sys.stderr)
 # apply and restore must land on the profiled TV. Query stays read-only and warns instead, so a TV
 # whose public API model differs from /etc/prd_info.ini Model can still be surveyed and reported.
+if profile is not None and mode in ['apply','restore'] and observed is None:
+    raise SystemExit('The device API did not report modelName, so the model guard cannot run; nothing staged.')
 if profile is not None and observed is not None and observed!=profile['model'].strip():
     message='Device public API reports '+repr(observed)+', profile expects '+repr(profile['model'].strip())+'.'
     if mode!='query':raise SystemExit('Model guard failed; nothing staged. '+message)
@@ -81,15 +83,23 @@ with socket.socket() as listener:
  argument='0 appinstall tpk '+name
  if len(argument.encode())>400:raise SystemExit('Command exceeds reviewed transport length; not executed.')
  proc=subprocess.Popen([sdb,'-s',serial,'shell',argument],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+ # Save diagnostics before anything else can fail, so a timeout or a stalled stream still leaves
+ # the partial output and the transport record on disk.
+ saved=private/(mode+'-output.txt');transport=private/(mode+'-transport.json')
+ def save(text,returncode,out='',err=''):
+  saved.write_text(text)
+  transport.write_text(json.dumps({'returncode':returncode,'stdout':out,'stderr':err,'remote_probe':remote,'time':time.time()},indent=2))
+  return saved
  try:
   try:connection,peer=listener.accept()
   except socket.timeout:
    # An accepted-but-queued connection can still run the helper after this point, so the timeout
    # means "result unknown", never "nothing happened".
-   raise SystemExit('No callback from the TV within 18 s. The helper may still have run, so the device state is unknown: run a read-only query before retrying, and do not loop this command. sdbd or the package manager may also still be busy.')
+   save('',None)
+   raise SystemExit('No callback from the TV within 18 s. The helper may still have run, so the device state is unknown: run a read-only query before retrying, and do not loop this command. Transport record: '+str(transport)+'. sdbd or the package manager may also still be busy.')
   if peer[0]!=host:raise RuntimeError('Unexpected callback peer; no data accepted.')
   chunks=[]
-  stalled=False
+  stalled=False;oversize=False
   with connection:
    connection.settimeout(8)
    try:
@@ -97,14 +107,15 @@ with socket.socket() as listener:
      chunk=connection.recv(65536)
      if not chunk:break
      chunks.append(chunk)
-     if sum(map(len,chunks))>100000:raise RuntimeError('Unexpectedly large diagnostic output.')
+     if sum(map(len,chunks))>100000:oversize=True;break
    except socket.timeout:stalled=True
   output=b''.join(chunks).decode(errors='replace')
+  save(output,None)
   try:stdout,stderr=proc.communicate(timeout=8)
   except subprocess.TimeoutExpired:proc.terminate();stdout,stderr=proc.communicate(timeout=3)
-  saved=private/(mode+'-output.txt');saved.write_text(output)
-  (private/(mode+'-transport.json')).write_text(json.dumps({'returncode':proc.returncode,'stdout':stdout,'stderr':stderr,'remote_probe':remote,'time':time.time()},indent=2))
+  save(output,proc.returncode,stdout,stderr)
   print(output)
+  if oversize:raise SystemExit('The TV sent more diagnostic output than the reviewed 100 KB cap, so the result is unknown; the partial output is saved. Full output: '+str(saved))
   if stalled:raise SystemExit('The TV stopped sending output before the run finished, so the result is unknown; any partial output is saved. Run a read-only query before retrying. Full output: '+str(saved))
   missing=[marker for marker in ['CLEANFRAME_HOME_INSPECT_BEGIN','CLEANFRAME_HOME_INSPECT_END'] if marker not in output]
   if missing:

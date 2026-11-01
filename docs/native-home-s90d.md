@@ -110,13 +110,14 @@ this TV's state.
    `libapp-context-manager-common`, `libcapi-appfw-app-operation-tv` and `libvconf`. `inspect`
    reports all of them.
 
-One added recovery guard: a baseline whose native operation names the launcher, or which carries an
-applied marker (`home_appid` on the launcher, `auto_start=1`) together with a derived
-`startup_appid` on the launcher, is rejected, because restoring it would "succeed" without changing
-anything. The derived field is only treated as evidence when another applied marker is present, so
-a fresh capture after a restore whose derived values have not settled is still accepted. That check
-only recognises **this profile's** app id: a baseline captured after apply under a different app
-id, with no provenance fields, is not detected, so old baselines deserve a manual look. A baseline
+One added recovery guard: a baseline that names the launcher in the native operation or in
+`home_appid`, or that pairs `auto_start=1` with a derived `startup_appid` on the launcher, is
+rejected, because restoring it would "succeed" without changing anything or would quietly re-apply
+part of the applied state. The derived field is only treated as evidence when `auto_start=1` is
+also present, so a fresh capture after a restore whose derived values have not settled is still
+accepted. That check only recognises **this profile's** app id: a baseline captured after apply
+under a different app id, with no provenance fields, is not detected, so old baselines deserve a
+manual look. A baseline
 whose provenance names a different model or application is rejected too, so the two TVs' recovery
 files cannot be swapped by mistake. Baselines from the earlier build have no provenance fields and
 still load, so `restore` also checks live state before writing. The hard gate covers the three
@@ -188,8 +189,10 @@ stop-and-report condition, not something to reconcile by editing the profile.
   required profile file; `query` is read-only and unguarded by firmware; the boot probe is
   advisory in `query`; a missing or unreadable `/etc/prd_info.ini` prints `<absent>` instead of
   killing the survey. `apply` re-reads and asserts the three values it writes, and a failed apply
-  undoes only those three instead of rewriting firmware-owned fields. A baseline whose operation or
-  derived `startup_appid` names the launcher is rejected; `restore` holds a hard gate on the three
+  undoes only those three instead of rewriting firmware-owned fields. A baseline that names the
+  launcher in the operation or `home_appid`, or that pairs `auto_start=1` with a derived
+  `startup_appid` on the launcher, is rejected as an applied-state capture; `restore` holds a hard
+  gate on the three
   values apply writes, notes firmware-owned differences, and verifies the result. Every failure
   prints a single `CLEANFRAME_HOME_ERROR=` line before the stack trace; the "already applied" retry
   gets a clear message; query prints `PROFILE_MODEL`, `PROFILE_VERSION`, `TARGET_PACKAGE_DIR`,
@@ -203,10 +206,12 @@ stop-and-report condition, not something to reconcile by editing the profile.
   because it writes no settings, while `apply` and `restore` stop.
   A missing marker, a non-zero helper exit and a bad snapshot are reported separately, with the
   helper's own `CLEANFRAME_HOME_ERROR=` line as the summary; a callback that never arrives and a
-  stream that stalls mid-run both say the result is unknown and point at a read-only `query` rather
-  than claiming nothing was written. The runner also compares `Control.cs` with the
-  `CONTROL_SHA256` stamp beside the compiled helper and refuses `apply`/`restore` when they
-  disagree, so a stale DLL cannot reach the TV in a writing mode. The transport (injection shape,
+  stream that stalls or overruns the output cap all say the result is unknown, save the partial
+  output and transport record, and point at a read-only `query` rather than claiming nothing was
+  written. The runner also compares `Control.cs` with the `CONTROL_SHA256` stamp beside the
+  compiled helper: a missing stamp or a mismatch blocks `apply`/`restore` and warns in `query`,
+  and a missing `Control.cs` stops both, because the build cannot be reviewed. `inspect` never uses
+  the helper. The transport (injection shape,
   length cap, callback peer check, output cap) is unchanged.
 - `query.sh`, `apply.sh`, `restore.sh`: pass the staged profile and snapshot paths, and always print
   the helper's exit status before the end marker.
@@ -247,8 +252,8 @@ Then rebuild the helper and stamp the reviewed source. Run both commands from
 `scripts/native-home/README.md`; they need this Mac's private verified SDK, which a public clone
 does not have. The runner compares `Control.cs` against the `CONTROL_SHA256` stamp beside the
 compiled copy and **refuses `apply` and `restore`** when the two disagree or the stamp is missing,
-because the staged DLL runs whatever was compiled, not what was reviewed. `query` and `inspect`
-only warn, since they write no settings.
+because the staged DLL runs whatever was compiled, not what was reviewed. `query` only warns,
+since it writes no settings, and `inspect` never loads the helper.
 
 Review the profile, the compiled helper and the stamp in `.local/native-home/out/`, and this note.
 The runner refuses an empty model or app ID before it connects.

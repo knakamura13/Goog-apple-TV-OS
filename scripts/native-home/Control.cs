@@ -61,11 +61,11 @@ class Control {
  static void CheckSnapshot(Snapshot s,Profile p){
   if(s==null||string.IsNullOrWhiteSpace(s.Home)||s.Strings==null||s.Strings.Count!=Keys.Length||(s.Autostart!=0&&s.Autostart!=1))throw new Exception("Invalid original snapshot");
   foreach(var k in Keys)if(!s.Strings.ContainsKey(k)||string.IsNullOrWhiteSpace(s.Strings[k]))throw new Exception("Missing original setting: "+k);
-  // A capture taken after apply would make restore a no-op or rewrite an applied state. The
-  // derived startup field is only treated as evidence when another applied marker is present, so a
-  // fresh capture after a restore with unsettled derived values is still accepted.
-  bool appliedState=s.Home==p.AppId||s.Strings["db/appfw/home_appid"]==p.AppId||s.Autostart==1;
-  if(s.Home==p.AppId||(!string.IsNullOrEmpty(s.AppId)&&s.Home==s.AppId)||(appliedState&&s.Strings["db/appfw/startup_appid"]==p.AppId))throw new Exception("Original snapshot names the launcher or an applied state; capture the pre-change state instead");
+  // A capture of an applied state would make restore a no-op or re-apply part of it. A legitimate
+  // pre-change capture cannot name the launcher in Home or home_appid, nor carry autostart=1 with a
+  // derived startup_appid on the launcher. The derived field alone is not enough, because a capture
+  // after a restore may still have unsettled derived values.
+  if(s.Home==p.AppId||(!string.IsNullOrEmpty(s.AppId)&&s.Home==s.AppId)||s.Strings["db/appfw/home_appid"]==p.AppId||(s.Autostart==1&&s.Strings["db/appfw/startup_appid"]==p.AppId))throw new Exception("Original snapshot names the launcher or an applied state; capture the pre-change state instead");
   // Older baselines have no provenance fields; when present they must belong to this profile.
   if(!string.IsNullOrEmpty(s.Model)&&s.Model!=p.Model)throw new Exception("Original snapshot belongs to model "+s.Model);
   if(!string.IsNullOrEmpty(s.AppId)&&s.AppId!=p.AppId)throw new Exception("Original snapshot belongs to application "+s.AppId);}

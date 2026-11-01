@@ -77,7 +77,7 @@ After a set idle time on Home (default 5 minutes), the top bar and rows fade out
 - **No weather** in the screensaver.
 - **Slideshow:** the photos rotate while it runs, and Home returns to its chosen photo afterwards.
 
-The text drifts a few pixels every few minutes using `transform`, to protect the OLED from burn-in. Any key brings the UI back without acting on that key. The TV's own screensaver stays enabled.
+The text drifts a few pixels every few minutes using `transform`, to protect the OLED from burn-in. Any key brings the UI back without acting on that key. While the launcher's screensaver is on and the launcher is in front, Samsung's own screensaver is held off (`webapis.appcommon.setScreenSaver`) so it can't cover ours. It's handed back after two hours without a button press, whenever another app is in front, and when ours is set to Off, so a paused video or an unattended TV keeps Samsung's panel protection and power saving.
 
 ## Remote navigation
 
@@ -129,6 +129,7 @@ List and Dock stay available as layouts, and the new layout is added as **Librar
 - **Options:** `?wall=<id>` picks a wallpaper, for example `?wall=night`. Settings → Apps → Tile style switches between Color and Glass tiles.
 - **TV build:** `npm run build:demo` assembles `dist/library-demo/`, a self-contained Tizen web app (about 15 MB) with relative asset paths and its own `config.xml` (SDK-generated identity `Zm209bQNEk.Home`, CleanFrame's proven profile, privileges and settings). It is unsigned; sign it with the owner's certificate profile, for example `tizen package -t wgt -s <profile> -- dist/library-demo`. Code between `preview` markers (key hints, the A and H keys, mouse clicks, `?wall=`) is stripped, and only the logos in use are copied. `build-info.js` records the commit, build time and size for Settings › About. On the TV, the number buttons are registered for ZIP entry.
 - **Package size:** 15.2 MB, of which code is 86 KB. Each photo costs about 1 MB: the 1920×1080 photo about 690 KB, three pre-rendered glass layers about 236 KB and the thumbnail about 38 KB. The two variable fonts take 0.6 MB as TTF files.
+- **Test readout (TV test builds only):** the remote's 0 button shows the firmware, free storage, which sound path plays and the audio latency the TV reports, and frame timings for the last moves between the dock and the library and for the screensaver. Buttons 1 to 3 switch off one suspected cost each, for comparison on the TV: the blurred photo behind the library, the squircle masks and the glass images. Remove before V1.
 - **HDMI probe (TV only):** the Inputs tab reads which HDMI ports really have a device (`tizen.systeminfo` VIDEOSOURCE). OK on a connected input tries `tizen.tvwindow.setSource` and shows it full screen; any button closes it. Success or the exact error appears as a message, which answers open check 2 on the first run.
 - **Performance so far:** with Chrome's CPU throttled 6×, every interaction reached its next frame in 17–30 ms (median), worst 50 ms (a settings page slide), with no main-thread task over 50 ms. That covers JavaScript, style and layout only; the GPU cost of full-screen photo layers, glass copies and squircle masks still needs measuring on the TV.
 
@@ -153,11 +154,13 @@ The prototype only explores the design. Once the spec is locked, the launcher is
 6. Whether holding OK on the remote reaches the app as key repeats or a key-up it can time, which editing in place needs.
 7. Whether an app reopened from Home returns where it was or starts again, and how long the TV keeps apps such as Plex running in the background. The current build answers this through each app's tile, since the resume card makes the same launch call.
 8. Whether the TV lets a web app play its own tap sound (`tizen.feedback`), and how soon the built-in sounds follow a key press.
+9. Whether `setScreenSaver` holds off Samsung's screensaver on this firmware, and whether Samsung's auto power-off still applies.
 
 ## Owners' decisions (31 October 2026)
 
 - App name: **Home**, with the SDK-generated identity `Zm209bQNEk.Home` (created 31 October 2026). Test builds and V1 share it, so every later version installs in place and the Home button is pointed at it once. The first test used `xTZbrxm7Ut.LibraryDemo`, now retired.
 - Tabs: Home and Inputs only.
 - Favourites: at most 6, in one row.
+- Glass: if the TV can't animate it smoothly, glass becomes a plain semi-transparent tint with no blurred photo behind it (Kyle, 31 October 2026, after the first TV test showed lag on the dock-to-library move and around the screensaver).
 - Apps: Plex, YouTube, Netflix, Apple TV, Hulu, Prime Video, HBO Max, Spotify, Samsung TV Plus, Amazon Alexa and SmartThings, in that order (`OWNER_APPS`). The first six start as favourites. Every other installed app starts hidden, and apps installed later appear in the library.
 - In V1: editing apps in place by holding OK on Home (see Remote navigation), and the resume card for the last app (see Screen zones). A live preview of an app isn't possible. Not in V1: a night look, two favourite sets for two people, and Text size and Reduce motion settings.

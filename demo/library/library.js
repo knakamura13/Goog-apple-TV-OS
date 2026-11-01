@@ -791,10 +791,32 @@
   function armIdle() {
     clearTimeout(idleTimer);
     if (AMBIENT[S.amb].ms && !S.ambient) idleTimer = setTimeout(enterAmbient, AMBIENT[S.amb].ms);
+    holdSaver();
   }
+  // Samsung's own screensaver would cover ours, so it is held off while ours is on and this launcher is in front.
+  // It is handed back after two hours without a button press, whenever another app is in front and when ours is
+  // set to Off, so a paused video or an unattended TV still gets Samsung's panel protection and power saving.
+  var SAVER_BACKSTOP = 7200000, saverTimer = null, saverHeld = false, saverWhy = 'not asked yet';
+  function tvSaver(on) {
+    var ac = window.webapis && window.webapis.appcommon;
+    if (!ac || !ac.setScreenSaver) { saverWhy = 'no webapis.appcommon'; return; }
+    try {
+      ac.setScreenSaver(on ? ac.AppCommonScreenSaverState.SCREEN_SAVER_ON : ac.AppCommonScreenSaverState.SCREEN_SAVER_OFF,
+        function () { saverWhy = on ? 'Samsung\'s is on' : 'Samsung\'s held off'; showDiag(); },
+        function (err) { saverWhy = 'refused: ' + err.name; showDiag(); });
+    } catch (e) { saverWhy = 'refused: ' + e.name; }
+  }
+  function holdSaver() {
+    var ours = !!AMBIENT[S.amb].ms && !document.hidden;
+    clearTimeout(saverTimer);
+    if (ours !== saverHeld) { tvSaver(!ours); saverHeld = ours; }
+    if (ours) saverTimer = setTimeout(function () { tvSaver(true); saverHeld = false; }, SAVER_BACKSTOP);
+  }
+  document.addEventListener('visibilitychange', armIdle);
   // A slow drift keeps the clock from burning a fixed shape into the OLED panel.
   function drift() { ambDrift.style.transform = 'translate3d(' + Math.round(Math.random() * 40 - 20) + 'px,' + Math.round(Math.random() * 24 - 12) + 'px,0)'; }
   function enterAmbient() {
+    measure('screensaver in', 1200);
     if (S.ambient) return;
     if (S.zone === 'wallpaper') closePicker();
     if (S.zone === 'apps') closeEditor();
@@ -810,6 +832,7 @@
   }
   // Home keeps its chosen photo; the screensaver's slideshow is temporary.
   function exitAmbient() {
+    measure('screensaver out', 1000);
     S.ambient = false;
     stage.classList.remove('is-ambient');
     clearInterval(driftTimer);
@@ -822,44 +845,96 @@
   // ---------- Input ----------
 
   // ---------- Sounds ----------
-  // A tick when focus moves and a click on OK. The TV's own tap sound plays when the TV lets apps use it. Otherwise a short burst of filtered noise is made on the spot, so the sounds cost no files.
-  var tvSound, audio = null, noise = null, soundBroken = false;
-  function sound(kind) {
-    var Ctx = window.AudioContext || window.webkitAudioContext, select = kind === 'select', t, src, band, gain, data, i;
+  // A tick when focus moves and a click on OK. The TV's own tap sound plays when the TV lets apps use it. Otherwise a short, soft burst of low-passed noise is made on the spot, so the sounds cost no files.
+  var tvSound, soundWhy = '', audio = null, noise = null, soundBroken = false;
+  // Started at launch, so the first key press doesn't wait for the audio engine.
+  function soundStart() {
+    var Ctx = window.AudioContext || window.webkitAudioContext, data, i;
     if (tvSound === undefined) {
-      try { tvSound = window.tizen && window.tizen.feedback && window.tizen.feedback.isPatternSupported('TAP', 'SOUND') ? window.tizen.feedback : null; } catch (e) { tvSound = null; }
+      tvSound = null;
+      try {
+        if (!window.tizen || !window.tizen.feedback) soundWhy = 'no tizen.feedback';
+        else if (!window.tizen.feedback.isPatternSupported('TAP', 'SOUND')) soundWhy = 'TV has no TAP sound';
+        else tvSound = window.tizen.feedback;
+      } catch (e) { soundWhy = 'TV sound check: ' + e.name; }
     }
-    if (tvSound) {
-      try { tvSound.play('TAP', 'SOUND'); return; } catch (e) { tvSound = null; } // A refused call switches to the built-in sound for good.
-    }
-    if (soundBroken || !Ctx) return;
+    if (audio || soundBroken || !Ctx) return;
     try {
-      if (!audio) {
-        audio = new Ctx();
-        noise = audio.createBuffer(1, Math.round(audio.sampleRate * 0.08), audio.sampleRate);
-        data = noise.getChannelData(0);
-        for (i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-      }
+      audio = new Ctx({ latencyHint: 'interactive' });
+      noise = audio.createBuffer(1, Math.round(audio.sampleRate * 0.12), audio.sampleRate);
+      data = noise.getChannelData(0);
+      for (i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    } catch (e) { audio = null; soundBroken = true; soundWhy += ', Web Audio: ' + e.name; }
+  }
+  function sound(kind) {
+    var select = kind === 'select', len = select ? 0.09 : 0.045, t, src, filter, gain;
+    soundStart();
+    if (tvSound) {
+      try { tvSound.play('TAP', 'SOUND'); return; } catch (e) { tvSound = null; soundWhy = 'TV refused its sound: ' + e.name; }
+    }
+    if (!audio) return;
+    try {
       if (audio.state === 'suspended') audio.resume();
       t = audio.currentTime;
       src = audio.createBufferSource();
       src.buffer = noise;
-      band = audio.createBiquadFilter();
-      band.type = 'bandpass';
-      band.frequency.value = select ? 1500 : 2800;
+      filter = audio.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = select ? 900 : 1600;
       gain = audio.createGain();
-      gain.gain.setValueAtTime(select ? 0.35 : 0.22, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + (select ? 0.07 : 0.035));
-      src.connect(band);
-      band.connect(gain);
+      // A 3 ms rise instead of an instant start takes the click out of the attack.
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.linearRampToValueAtTime(select ? 0.45 : 0.3, t + 0.003);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + len);
+      src.connect(filter);
+      filter.connect(gain);
       gain.connect(audio.destination);
       src.start(t);
-      src.stop(t + 0.08);
-    } catch (e) { soundBroken = true; } // An engine without Web Audio stays silent rather than failing the key press.
+      src.stop(t + len + 0.01);
+    } catch (e) { audio = null; soundBroken = true; soundWhy += ', Web Audio failed: ' + e.name; }
   }
 
+  // ---------- Test readout (TV test builds only) ----------
+  // The remote's 0 button shows what the TV reports about sound and how smoothly the last moves ran, since this TV offers no debugger.
+  // Buttons 1 to 3 switch off one suspected cost each, to compare on the TV: the blurred photo behind the library, the squircle masks, the glass images.
+  var diagEl = null, diagLines = [], ZONE_NAMES = { fav: 'dock', lib: 'library' }, SWITCHES = ['blur', 'masks', 'glass'];
+  function ms(seconds) { return typeof seconds === 'number' ? Math.round(seconds * 1000) + ' ms' : 'n/a'; }
+  function diagText() {
+    return ['Firmware  ' + (about.firmware || 'reading…'),
+      'Storage   ' + (about.storage || 'reading…'),
+      'Sound     ' + (tvSound ? 'TV tap sound' : 'built-in (' + (soundWhy || 'not started') + ')'),
+      'Audio     ' + (audio ? audio.sampleRate + ' Hz, base ' + ms(audio.baseLatency) + ', output ' + ms(audio.outputLatency) + ', ' + audio.state : 'off'),
+      'TV saver  ' + saverWhy,
+      'Switches  ' + SWITCHES.map(function (w, i) { return (i + 1) + ' ' + w + (stage.classList.contains('t-no' + w) ? ' OFF' : ' on'); }).join(' · ')
+    ].concat(diagLines).join('\n');
+  }
+  function showDiag() { if (diagEl && diagEl.classList.contains('is-on')) diagEl.textContent = diagText(); }
+  function toggleDiag() {
+    if (!diagEl) { diagEl = document.createElement('pre'); diagEl.className = 'diag'; stage.appendChild(diagEl); }
+    tvReadAbout();
+    diagEl.classList.toggle('is-on');
+    showDiag();
+    setTimeout(showDiag, 1500);
+  }
+  // Frame gaps after a key that moved focus (700 ms) or a screensaver change. A gap over 20 ms is a missed frame at 60 Hz.
+  function measure(label, span) {
+    var times = [], start = window.performance.now(), until = span || 700;
+    function frame(t) {
+      var worst = 0, slow = 0, off, i, gap;
+      times.push(t);
+      if (t - start < until) { window.requestAnimationFrame(frame); return; }
+      for (i = 1; i < times.length; i++) { gap = times[i] - times[i - 1]; if (gap > worst) worst = gap; if (gap > 20) slow++; }
+      off = SWITCHES.filter(function (w) { return stage.classList.contains('t-no' + w); });
+      diagLines.unshift(label + '  ' + times.length + ' frames, worst ' + Math.round(worst) + ' ms, ' + slow + ' missed' + (off.length ? '  [no ' + off.join(', ') + ']' : ''));
+      diagLines.length = Math.min(diagLines.length, 8);
+      showDiag();
+    }
+    window.requestAnimationFrame(frame);
+  }
+  function zoneName(z) { return ZONE_NAMES[z] || z; }
+
   document.addEventListener('keydown', function (e) {
-    var k = KEYS[e.keyCode], was = focused;
+    var k = KEYS[e.keyCode], was = focused, wasZone = S.zone;
     if (document.activeElement && document.activeElement.classList.contains('p-field')) {
       if (k === 'ok' || (k === 'back' && e.keyCode !== 8)) { e.preventDefault(); act(k); }
       return;
@@ -869,6 +944,8 @@
     if (S.ambient) { e.preventDefault(); if (!e.repeat) exitAmbient(); return; }
     if (S.zone === 'panel' && pageDef().custom === 'zip' && ((e.keyCode >= 48 && e.keyCode <= 57) || (e.keyCode >= 96 && e.keyCode <= 105))) { zipDigit(e.keyCode - (e.keyCode >= 96 ? 96 : 48)); return; }
     /* preview */if (e.keyCode === KEY_AMBIENT) { enterAmbient(); return; }/* /preview */
+    if (e.keyCode === 48 || e.keyCode === 96) { toggleDiag(); return; }
+    if ((e.keyCode >= 49 && e.keyCode <= 51) || (e.keyCode >= 97 && e.keyCode <= 99)) { stage.classList.toggle('t-no' + SWITCHES[e.keyCode % 48 - 1]); showDiag(); return; }
     if (!k) return;
     e.preventDefault();
     armIdle();
@@ -876,6 +953,7 @@
     if (k === 'ok') sound('select');
     act(k);
     if (k !== 'ok' && focused !== was) sound('move');
+    if (focused !== was) measure(wasZone === S.zone ? zoneName(S.zone) : zoneName(wasZone) + ' → ' + zoneName(S.zone));
   });
   /* preview */
   // A click focuses the item and presses OK on it, so one click switches a tab or launches an app.
@@ -1002,6 +1080,7 @@
     var want = 'valley', first = 0, i;
     /* preview */want = (/[?&]wall=([a-z]+)/.exec(window.location.search) || [0, want])[1];/* /preview */
     tvSetup();
+    soundStart();
     for (i = 0; i < WALLS.length; i++) if (WALLS[i].id === want) first = i;
     load();
     build();

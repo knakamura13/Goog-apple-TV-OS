@@ -1140,6 +1140,7 @@
   }
   function setZip(zip) {
     if (zip !== S.weather.zip) { S.weather.zip = zip; S.place = null; S.wx = null; wxRetry = 0; }
+    zipMissing = ''; // Saving a ZIP code, even the same one, looks it up again.
     save();
     showWeather();
     updateWeather();
@@ -1251,7 +1252,7 @@
   // OK and Back act once per press, and so does any key that wakes Home or meets the HDMI view. Like CleanFrame's
   // held-key map, a held key's repeats are ignored whether or not the TV flags them, until key-up, window blur or
   // leaving the app, or 800 ms after the key's last event if no key-up arrives. Releasing OK resolves a tap.
-  var held = {}, fieldActed = 0;
+  var held = {}, fieldActed = -1e9; // performance.now() of the name field's last OK or Back; it never runs backwards.
   function hold(code) {
     clearTimeout(held[code]);
     held[code] = setTimeout(function () { release(code); }, 800);
@@ -1277,9 +1278,9 @@
       return;
     }
     // The TV's keyboard may follow Done or Cancel with Enter or Back for the same press; that second key is ignored.
-    if ((k === 'ok' || (k === 'back' && e.keyCode !== 8)) && Date.now() - fieldActed < 100) { e.preventDefault(); return; }
+    if ((k === 'ok' || (k === 'back' && e.keyCode !== 8)) && window.performance.now() - fieldActed < 100) { e.preventDefault(); return; }
     if (document.activeElement && document.activeElement.classList.contains('p-field')) {
-      if (k === 'ok' || (k === 'back' && e.keyCode !== 8)) { e.preventDefault(); hold(e.keyCode); fieldActed = Date.now(); act(k); }
+      if (k === 'ok' || (k === 'back' && e.keyCode !== 8)) { e.preventDefault(); hold(e.keyCode); fieldActed = window.performance.now(); act(k); }
       return;
     }
     /* preview */if (e.keyCode === KEY_HINTS) { $('hints').classList.toggle('is-off'); return; }/* /preview */

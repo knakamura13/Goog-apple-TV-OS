@@ -742,6 +742,12 @@ try {
     s = await snapshot(page);
     check('Done on the TV keyboard saves the name, once', s.panel.title === 'HDMI 1' && rowValue(s, 'Name') === 'Den TV' && s.saved?.inputs?.[0]?.name === 'Den TV', [s.panel.title, s.panel.rows, s.saved?.inputs]);
     check('The name field lets go of focus', await page.evaluate(() => document.activeElement === document.getElementById('stage')));
+    await page.clock.setSystemTime(new Date('2026-10-31T11:00:00')); // The TV sets its clock back an hour.
+    await page.waitForTimeout(150);
+    await press(page, 'Escape');
+    await settled(page);
+    check('Back still works after the TV sets its clock back', (await snapshot(page)).panel.title === 'Inputs');
+    await openRow(page, 'HDMI 1');
     await openRow(page, 'Name');
     await page.keyboard.type('Garage');
     await keyDownOnly(page, 65385); // Cancel on the TV's keyboard.

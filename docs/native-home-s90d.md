@@ -228,6 +228,17 @@ without `modelName`; a timeout path that claimed "nothing was written"; a stale-
 build check; and several doc statements that overstated what the evidence shows. The final round's
 verdict was that the read-only step is safe and that the remaining items were writing-mode guards.
 
+**Fourth round (the spawning session plus a separate reviewer).** Two further items, fixed here.
+(1) `restore` wrote the two firmware-derived keys with a strict readback before it reset autostart,
+so a synchronous re-derivation could throw and leave autostart in the applied state (the Home button
+still returns to stock, so it is not a brick). `restore` now writes every value `VerifyRestore`
+checks hard first, as `UndoApply` does, then writes the two derived keys loosely. (2) The
+build-integrity wording is softened: the stamp catches a stale source, not a swapped binary, so the
+binary-to-source match is procedural — rebuild from the reviewed source immediately before any
+device step. The derivation timing behind (1) is unproven on this TV; confirm it with a
+firmware-literate engineer. The falsifying observation is a `restore` that throws naming a
+firmware-derived key. This review record is therefore not a claim that no defect remains.
+
 Not changed on purpose: the assembly name, the staged paths, the base64 injection, the 400-byte
 argument cap, the 100 KB output cap and the callback peer check. couchroot used a distinct assembly
 name to avoid a stale same-named assembly resolving on its TV; no `CleanFrameHomeControl.dll` has
@@ -260,9 +271,12 @@ cp scripts/native-home/profile.example.json .local/native-home/profile.json
 Then rebuild the helper and stamp the reviewed source. Run both commands from
 `scripts/native-home/README.md`; they need this Mac's private verified SDK, which a public clone
 does not have. The runner compares `Control.cs` against the `CONTROL_SHA256` stamp beside the
-compiled copy and **refuses `apply` and `restore`** when the two disagree or the stamp is missing,
-because the staged DLL runs whatever was compiled, not what was reviewed. `query` only warns,
-since it writes no settings, and `inspect` never loads the helper.
+compiled copy and **refuses `apply` and `restore`** when the two disagree or the stamp is missing.
+That catches a source edited after the build, but it does **not** tie the compiled DLL to the
+reviewed source: the stamp and the DLL share one operator-writable folder and nothing hashes the
+binary. The binary-to-source match is therefore procedural, not enforced. Rebuild from the reviewed
+`Control.cs` immediately before any device step and treat the stamp only as a staleness tripwire.
+`query` only warns, since it writes no settings, and `inspect` never loads the helper.
 
 Review the profile, the compiled helper and the stamp in `.local/native-home/out/`, and this note.
 The runner refuses an empty model or app ID before it connects.

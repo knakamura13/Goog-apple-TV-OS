@@ -39,7 +39,12 @@ class Control {
  static void SetString(string key,string value){if(vconf_set_str(key,value)!=0||ReadString(key)!=value)throw new Exception("String write/readback failed: "+key);}
  static void SetAuto(int value){int v;if(vconf_set_int(AutoKey,value)!=0||vconf_get_int(AutoKey,out v)!=0||v!=value)throw new Exception("Autostart write/readback failed");}
  static void SetHome(string value){if(app_operation_set_current_app(Operation,value)!=0||Home()!=value)throw new Exception("Home operation write/readback failed");}
- static void Restore(Snapshot s){SetHome(s.Home);foreach(var k in Keys)SetString(k,s.Strings[k]);SetAuto(s.Autostart);}
+ // The firmware re-derives startup_appid and booting_appid_backup. Writing them with a strict
+ // readback could throw if the firmware re-derives one synchronously, which (before this ordering)
+ // left autostart unrestored. Restore now writes every value VerifyRestore checks hard first, as
+ // UndoApply does, then writes the two derived keys loosely for VerifyRestore to report.
+ static void SetStringLoose(string key,string value){try{SetString(key,value);}catch{/* firmware owns this key; VerifyRestore reports any residual difference */}}
+ static void Restore(Snapshot s){SetHome(s.Home);SetString("db/appfw/home_appid",s.Strings["db/appfw/home_appid"]);SetString("db/first_screen/type",s.Strings["db/first_screen/type"]);SetAuto(s.Autostart);foreach(var k in Derived)SetStringLoose(k,s.Strings[k]);}
  // A failed apply only needs the three values it writes undone; the firmware-owned fields were never
  // touched, and writing them here could fail mid-sequence and leave autostart set.
  static void UndoApply(Snapshot s){SetHome(s.Home);SetString("db/appfw/home_appid",s.Strings["db/appfw/home_appid"]);SetAuto(s.Autostart);}

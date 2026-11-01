@@ -11,12 +11,14 @@ files=[]; profile=None
 if mode!='inspect':
     profile_file=private/'profile.json'
     if not profile_file.is_file():raise SystemExit('Write .local/native-home/profile.json from profile.example.json; nothing staged.')
-    profile=json.loads(profile_file.read_text())
+    try:profile=json.loads(profile_file.read_text())
+    except ValueError:raise SystemExit('Profile is not valid JSON; nothing staged.')
     if not isinstance(profile,dict):raise SystemExit('Profile must be a JSON object; nothing staged.')
     for field in ['model','app_id']:
         if not isinstance(profile.get(field),str) or not profile[field].strip():raise SystemExit('Profile '+field+' is empty; nothing staged.')
     if not re.fullmatch(r'[A-Za-z0-9]{10}\.[A-Za-z0-9_-]{1,52}',profile['app_id'].strip()):raise SystemExit('Profile app_id is not a valid SDK application id; nothing staged.')
-    if mode in ['apply','restore'] and not (isinstance(profile.get('version'),str) and profile['version'].strip()):raise SystemExit('Profile version is empty; run query and copy PROFILE_VERSION before apply or restore.')
+    if profile.get('version') is not None and not isinstance(profile.get('version'),str):raise SystemExit('Profile version must be a JSON string or null; nothing staged.')
+    if mode in ['apply','restore'] and not (profile.get('version') or '').strip():raise SystemExit('Profile version is empty; run query and copy PROFILE_VERSION before apply or restore.')
     files=[(private/'out'/('CleanFrameHomeControl.'+suffix),staging+'/CleanFrameHomeControl.'+suffix) for suffix in ['dll','runtimeconfig.json','deps.json']]
     files.append((profile_file,staging+'/CleanFrameHomeProfile.json'))
     if mode in ['apply','restore']:files.append((private/'original.json',staging+'/CleanFrameHomeOriginal.json'))
@@ -27,15 +29,23 @@ if not device_file.is_file():raise SystemExit('Missing .local/device.json with t
 try:
     host=json.loads(device_file.read_text())['host'];ipaddress.ip_address(host)
 except (KeyError,TypeError,ValueError):raise SystemExit('.local/device.json has no usable host; nothing staged.')
-with urllib.request.urlopen('http://'+host+':8001/api/v2/',timeout=4) as response: info=json.load(response)
-observed=info.get('device',{}).get('modelName')
+observed=None
+try:
+    with urllib.request.urlopen('http://'+host+':8001/api/v2/',timeout=4) as response: observed=json.load(response).get('device',{}).get('modelName')
+except Exception as error:
+    # inspect is deliberately usable on a TV that is misbehaving, so a failed API read only stops
+    # the modes that would write through the model guard.
+    if mode!='inspect':raise SystemExit('Cannot read the device model from http://'+host+':8001/api/v2/ ('+str(error)+'); nothing staged.')
+    print('WARNING: device API unreachable ('+str(error)+'); inspect continues as a shell-only survey.',file=sys.stderr)
 # apply and restore must land on the profiled TV. Query stays read-only and warns instead, so a TV
 # whose public API model differs from /etc/prd_info.ini Model can still be surveyed and reported.
 if profile is not None and observed!=profile['model'].strip():
     message='Device public API reports '+repr(observed)+', profile expects '+repr(profile['model'].strip())+'.'
     if mode!='query':raise SystemExit('Model guard failed; nothing staged. '+message)
     print('WARNING: read-only query continues. '+message+' If /etc/prd_info.ini reports another model, stop and report; never edit the profile just to satisfy a guard.',file=sys.stderr)
-sdb=str(root/'.local/tizen-sdk/tools/sdb');serial=host+':26101'
+sdb_path=root/'.local/tizen-sdk/tools/sdb'
+if not sdb_path.is_file():raise SystemExit('Missing .local/tizen-sdk/tools/sdb (the private SDK); nothing staged.')
+sdb=str(sdb_path);serial=host+':26101'
 def run(args,timeout=20):
  p=subprocess.run([sdb,*args],capture_output=True,text=True,timeout=timeout)
  if p.returncode:raise RuntimeError('SDB transport failed: '+p.stdout[-300:]+p.stderr[-300:])
@@ -57,7 +67,8 @@ with socket.socket() as listener:
  if len(argument.encode())>400:raise SystemExit('Command exceeds reviewed transport length; not executed.')
  proc=subprocess.Popen([sdb,'-s',serial,'shell',argument],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
  try:
-  connection,peer=listener.accept()
+  try:connection,peer=listener.accept()
+  except socket.timeout:raise SystemExit('No callback from the TV within 18 s, so the helper did not run and nothing was written. sdbd or the package manager may still be busy; wait a few minutes and retry once, or check the firewall. Do not loop it.')
   if peer[0]!=host:raise RuntimeError('Unexpected callback peer; no data accepted.')
   chunks=[]
   with connection:
@@ -79,8 +90,11 @@ with socket.socket() as listener:
   status=[line.split('=',1)[1].strip() for line in output.splitlines() if line.startswith('CLEANFRAME_HOME_EXIT=')]
   if len(status)!=1:raise SystemExit('Probe incomplete: no single helper exit status, so the device state is unknown. Full output: '+str(saved)+'.')
   if status[0]!='0':
-   tail=[line for line in output.splitlines() if line.strip()][-6:]
-   raise SystemExit('Helper exited '+status[0]+'; no further step was run. Last output:\n'+'\n'.join(tail)+'\nFull output: '+str(saved))
+   lines=[line for line in output.splitlines() if line.strip()]
+   summary=[line for line in lines if line.startswith('CLEANFRAME_HOME_ERROR=')]
+   if not summary:
+    summary=[line for line in lines if 'Exception:' in line][:1] or lines[-3:]
+   raise SystemExit('Helper exited '+status[0]+'; no further step was run. '+'\n'.join(summary)+'\nFull output: '+str(saved))
   if mode=='query':
    found=[line.split('=',1)[1].strip() for line in output.splitlines() if line.startswith('CLEANFRAME_HOME_JSON=')]
    if len(found)!=1:raise SystemExit('Query output has no single snapshot, so nothing was saved. Full output: '+str(saved))

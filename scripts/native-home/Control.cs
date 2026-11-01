@@ -32,11 +32,17 @@ class Control {
  static string Home(){IntPtr b=bundle_create();if(b==IntPtr.Zero)throw new Exception("No bundle");try{if(aul_svc_set_operation(b,Operation)!=0)throw new Exception("Cannot set query operation");IntPtr p;if(aul_get_default_app(b,out p)!=0||p==IntPtr.Zero)throw new Exception("Cannot read Home operation");try{return Marshal.PtrToStringAnsi(p);}finally{free(p);}}finally{bundle_free(b);}}
  // Boot eligibility is advisory: a missing or changed symbol must not stop the read-only query.
  static int BootProbe(string app){try{return util_is_appbooting_supported_webapp_byappid(app)!=0?1:0;}catch(Exception e) when (e is EntryPointNotFoundException||e is DllNotFoundException||e is MarshalDirectiveException){return -1;}}
- static Snapshot Query(Profile p){var s=new Snapshot{Home=Home(),Strings=new Dictionary<string,string>(),Uid=getuid(),BootSupport=BootProbe(p.AppId),Model=p.Model,AppId=p.AppId};foreach(var k in Keys)s.Strings[k]=ReadString(k);int v;if(vconf_get_int(AutoKey,out v)!=0)throw new Exception("Cannot read autostart");s.Autostart=v;return s;}
+ // The baseline records the model the TV reported, not the profile's claim, so provenance checks
+ // still detect a baseline carried over from another set.
+ static string DeviceModel(Profile p){string m;var prd=PrdInfo();return prd.TryGetValue("Model",out m)&&!string.IsNullOrWhiteSpace(m)?m:p.Model;}
+ static Snapshot Query(Profile p){var s=new Snapshot{Home=Home(),Strings=new Dictionary<string,string>(),Uid=getuid(),BootSupport=BootProbe(p.AppId),Model=DeviceModel(p),AppId=p.AppId};foreach(var k in Keys)s.Strings[k]=ReadString(k);int v;if(vconf_get_int(AutoKey,out v)!=0)throw new Exception("Cannot read autostart");s.Autostart=v;return s;}
  static void SetString(string key,string value){if(vconf_set_str(key,value)!=0||ReadString(key)!=value)throw new Exception("String write/readback failed: "+key);}
  static void SetAuto(int value){int v;if(vconf_set_int(AutoKey,value)!=0||vconf_get_int(AutoKey,out v)!=0||v!=value)throw new Exception("Autostart write/readback failed");}
  static void SetHome(string value){if(app_operation_set_current_app(Operation,value)!=0||Home()!=value)throw new Exception("Home operation write/readback failed");}
  static void Restore(Snapshot s){SetHome(s.Home);foreach(var k in Keys)SetString(k,s.Strings[k]);SetAuto(s.Autostart);}
+ // A failed apply only needs the three values it writes undone; the firmware-owned fields were never
+ // touched, and writing them here could fail mid-sequence and leave autostart set.
+ static void UndoApply(Snapshot s){SetHome(s.Home);SetString("db/appfw/home_appid",s.Strings["db/appfw/home_appid"]);SetAuto(s.Autostart);}
  static string PackageDir(string appId){return "/opt/usr/apps/"+appId.Split('.')[0];}
  static Profile ReadProfile(string path){
   var p=JsonSerializer.Deserialize<Profile>(File.ReadAllText(path));if(p==null)throw new Exception("Profile is empty");
@@ -51,25 +57,27 @@ class Control {
   if(!exact)return;
   if(string.IsNullOrWhiteSpace(p.Version))throw new Exception("Profile version is empty; run query and copy PROFILE_VERSION");
   if(!string.Equals(model,p.Model,StringComparison.Ordinal))throw new Exception("Model in /etc/prd_info.ini is "+(model??"<absent>")+"; the profile expects "+p.Model+". Run query and copy PROFILE_MODEL, or stop if the public API and /etc/prd_info.ini disagree");
-  if(!string.Equals(version,p.Version,StringComparison.Ordinal))throw new Exception("Unexpected firmware: "+(version??"<absent>"));}
+  if(!string.Equals(version,p.Version,StringComparison.Ordinal))throw new Exception("Unexpected firmware: "+(version??"<absent>")+" (profile has "+p.Version+"). Run query (read-only), review, then re-pin version before restoring");}
  static void CheckSnapshot(Snapshot s,Profile p){
   if(s==null||string.IsNullOrWhiteSpace(s.Home)||s.Strings==null||s.Strings.Count!=Keys.Length||(s.Autostart!=0&&s.Autostart!=1))throw new Exception("Invalid original snapshot");
   foreach(var k in Keys)if(!s.Strings.ContainsKey(k)||string.IsNullOrWhiteSpace(s.Strings[k]))throw new Exception("Missing original setting: "+k);
-  // A capture taken after apply would make restore a no-op that looks successful.
-  if(s.Home==p.AppId)throw new Exception("Original snapshot names the launcher; capture the pre-change state instead");
+  // A capture taken after apply would make restore a no-op that looks successful. The derived
+  // startup field names the launcher in an applied state, which catches baselines with no
+  // provenance at all.
+  if(s.Home==p.AppId||(!string.IsNullOrEmpty(s.AppId)&&s.Home==s.AppId)||s.Strings["db/appfw/startup_appid"]==p.AppId)throw new Exception("Original snapshot names the launcher; capture the pre-change state instead");
   // Older baselines have no provenance fields; when present they must belong to this profile.
   if(!string.IsNullOrEmpty(s.Model)&&s.Model!=p.Model)throw new Exception("Original snapshot belongs to model "+s.Model);
   if(!string.IsNullOrEmpty(s.AppId)&&s.AppId!=p.AppId)throw new Exception("Original snapshot belongs to application "+s.AppId);}
- // Restore may only overwrite values this baseline explains: its own captured value, or the
- // launcher value this profile's apply produces. Anything else is another change, or another TV's
- // baseline, and must be reviewed rather than written over.
+ // Restore may only overwrite values this baseline explains. The gate is the three values apply
+ // writes; anything else live is either firmware-owned or another setting, noted before restore.
  static void CheckRecoverable(Snapshot live,Snapshot original,Profile p){
   var unexplained=new List<string>();
-  void Check(string name,string have,string captured,string derived){if(have!=captured&&have!=derived)unexplained.Add(name+"="+have);}
+  void Check(string name,string have,string captured,string applied){if(have!=captured&&have!=applied)unexplained.Add(name+"="+have);}
   Check("operation/main",live.Home,original.Home,p.AppId);
-  foreach(var k in Keys)if(k!="db/first_screen/type")Check(k,live.Strings[k],original.Strings[k],Array.IndexOf(Derived,k)>=0?p.AppId:null);
+  Check("db/appfw/home_appid",live.Strings["db/appfw/home_appid"],original.Strings["db/appfw/home_appid"],p.AppId);
   Check(AutoKey,live.Autostart.ToString(),original.Autostart.ToString(),"1");
-  if(live.Strings["db/first_screen/type"]!=original.Strings["db/first_screen/type"])Console.Error.WriteLine("Note: db/first_screen/type changed since the snapshot; restore puts the captured value back.");
+  foreach(var k in Derived)if(live.Strings[k]!=original.Strings[k])Console.Error.WriteLine("Note: "+k+" differs from the snapshot; the firmware owns it and restore writes the captured value back.");
+  if(live.Strings["db/first_screen/type"]!=original.Strings["db/first_screen/type"])Console.Error.WriteLine("Note: db/first_screen/type changed since the snapshot; restore writes the captured value back.");
   if(unexplained.Count>0)throw new Exception("Live state matches neither the snapshot nor this profile's applied state: "+string.Join(", ",unexplained)+"; restore would overwrite a value the baseline does not explain. Stop for review instead of restoring");}
  // Every value restore writes must match exactly, except the two the firmware re-derives; report
  // those instead of failing, because only the firmware can settle them.
@@ -99,9 +107,9 @@ class Control {
    if(before.Home!=original.Home||before.Autostart!=original.Autostart)throw new Exception("Configuration changed since snapshot");
    foreach(var k in Keys)if(before.Strings[k]!=original.Strings[k])throw new Exception("Setting changed since snapshot: "+k);
    if(!Directory.Exists(PackageDir(profile.AppId))||before.BootSupport!=1)throw new Exception("Installed launcher is not eligible for boot");
-   try{SetHome(profile.AppId);SetString("db/appfw/home_appid",profile.AppId);SetAuto(1);Console.WriteLine("CLEANFRAME_HOME_APPLIED="+JsonSerializer.Serialize(Query(profile)));}
-   catch(Exception error){try{Restore(original);}catch(Exception rollback){throw new Exception("Apply failed and automatic restore failed: "+rollback.Message+" | apply error: "+error.Message);}Console.Error.WriteLine("Original Home/startup values restored after a failed apply");throw;}
+   try{SetHome(profile.AppId);SetString("db/appfw/home_appid",profile.AppId);SetAuto(1);var applied=Query(profile);var wrong=new List<string>();if(applied.Home!=profile.AppId)wrong.Add("operation/main="+applied.Home);if(applied.Strings["db/appfw/home_appid"]!=profile.AppId)wrong.Add("db/appfw/home_appid="+applied.Strings["db/appfw/home_appid"]);if(applied.Autostart!=1)wrong.Add(AutoKey+"="+applied.Autostart);if(wrong.Count>0)throw new Exception("Applied values did not hold on readback: "+string.Join(", ",wrong));Console.WriteLine("CLEANFRAME_HOME_APPLIED="+JsonSerializer.Serialize(applied));}
+   catch(Exception error){try{UndoApply(original);}catch(Exception rollback){throw new Exception("Apply failed and automatic undo failed: "+rollback.Message+" | apply error: "+error.Message);}Console.Error.WriteLine("Original Home/home_appid/autostart restored after a failed apply");throw;}
    return 0;
-  }catch(Exception e){Console.Error.WriteLine(e.ToString());return 1;}
+  }catch(Exception e){Console.Error.WriteLine("CLEANFRAME_HOME_ERROR="+e.Message);Console.Error.WriteLine(e.ToString());return 1;}
  }
 }

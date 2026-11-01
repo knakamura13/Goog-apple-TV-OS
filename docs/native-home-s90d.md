@@ -1,6 +1,7 @@
 # Native Home on QN65S90DAFXZA: review and prepared procedure
 
-Prepared 31 October 2026 on branch `native-home-impl`. **Nothing has been run on this TV.** The
+Prepared 31 October 2026 on branch `native-home-impl`. **Nothing in this note has been run on this
+TV, and the re-profiled helper has never run here at all.** The
 read-only survey is a device action too: it stages temporary helper files and executes code as the
 SDK user, so it needs its own explicit authorisation. This note is source review and a plan only.
 
@@ -70,15 +71,16 @@ startup-app string to the hub itself", and "`db/first_screen/type` remains Samsu
 same derivation: Home, startup and boot-backup name the launcher while the first-screen type still
 names Samsung Home.
 
-The five-row table in the setup guide is a **baseline** table, not a write list. Writing
-`startup_appid` or `booting_appid_backup` directly would be an unproven mutation of a field the
-firmware derives, and writing `first_screen/type` would move a field that the proven configuration
-leaves alone.
+The five-row table in the setup guide is a **baseline** table, not a write list. In `apply`, writing
+`startup_appid` or `booting_appid_backup` would be an unproven mutation of a field the firmware
+derives, and writing `first_screen/type` would move a field that the proven configuration leaves
+alone. `restore` does write all five, because its job is to put the captured pre-change state back;
+the two derived keys are then reported separately, since only the firmware can re-settle them.
 
 **Implementation:** apply writes the native `main` operation, `db/appfw/home_appid` and
-`auto_start=1`. All five typed values and the operation are still captured and restored. Restore
-verifies every value except the two the firmware re-derives, and reports those that have not
-settled.
+`auto_start=1`, then re-reads and asserts those three before reporting success. All five typed
+values and the operation are still captured and restored. Restore verifies every value except the
+two the firmware re-derives, and reports those that have not settled.
 
 The reference originals are `com.samsung.tv.csfs` for Home, `org.tizen.tv-viewer` for startup and
 boot-backup, `com.samsung.tv.csfs` for the first-screen type, and `0` for autostart. They are
@@ -98,7 +100,9 @@ this TV's state.
    absent or differs on this model, the first read-only step would die. It is now advisory in
    `query` (`BOOT_SUPPORTED=true|false|unknown`) and required only for `apply`.
 3. A failed `apply` attempted an automatic restore, and a failure inside that restore would hide
-   the original error. Both errors are now reported.
+   the original error. Both errors are now reported. The automatic undo also writes only the three
+   values apply sets, so a half-failed apply no longer rewrites firmware-owned fields, and `apply`
+   now re-reads and asserts its own result instead of trusting the per-write readbacks alone.
 4. There is **no per-firmware hash or offset to re-verify** for this method, contrary to the
    handoff's instruction: the transport is a shell injection and the helper binds exported library
    functions by name, not addresses. The pins that actually matter are the exact firmware string,
@@ -106,16 +110,19 @@ this TV's state.
    `libapp-context-manager-common`, `libcapi-appfw-app-operation-tv` and `libvconf`. `inspect`
    reports all of them.
 
-One added recovery guard: a baseline whose Home value names the launcher is rejected, because
-restoring it would "succeed" without changing anything. A baseline that carries provenance for a
-different model or application is rejected too, so the two TVs' recovery files cannot be swapped by
-mistake. Baselines from the earlier build have no provenance fields and still load, so `restore`
-also compares live state for every value apply can change: each must be either the captured value
-or the launcher value this profile's apply produces. Anything else is another change or another
-TV's baseline, and restore refuses rather than writing over it. A change to
-`db/first_screen/type`, which apply never touches, is only noted before the captured value goes
-back. After writing, restore verifies every value except the two the firmware re-derives, and
-reports those instead of pretending the rollback is complete.
+One added recovery guard: a baseline whose native operation or derived `startup_appid` names the
+launcher is rejected, because restoring it would "succeed" without changing anything. The derived
+field catches a post-apply capture even in a baseline that carries no provenance. A baseline whose
+provenance names a different model or application is rejected too, so the two TVs' recovery files
+cannot be swapped by mistake. Baselines from the earlier build have no provenance fields and still
+load, so `restore`
+also checks live state before writing. The hard gate covers the three values apply writes — the
+native operation, `home_appid` and autostart — and each must be either the captured value or the
+launcher value this profile's apply produces. Anything else is another change or another TV's
+baseline, and restore refuses rather than writing over it. The two firmware-derived keys and
+`db/first_screen/type` are only noted, because refusing there would block the very rollback that
+repairs a misrouted Home button; restore writes the captured values back and reports what does not
+follow.
 
 ### Corrections to the framing in the handoff and research file
 
@@ -176,16 +183,22 @@ stop-and-report condition, not something to reconcile by editing the profile.
 - `scripts/native-home/Control.cs`: the target app ID and the model/firmware guard come from a
   required profile file; `query` is read-only and unguarded by firmware; the boot probe is
   advisory in `query`; a missing or unreadable `/etc/prd_info.ini` prints `<absent>` instead of
-  killing the survey; the failure path reports both errors; a baseline naming the launcher is
-  rejected; restore refuses live values the baseline does not explain and verifies what it wrote;
-  the "already applied" retry gets a clear message; query prints `PROFILE_MODEL`,
-  `PROFILE_VERSION`, `TARGET_PACKAGE_DIR`, `TARGET_PACKAGE_PRESENT` and `BOOT_SUPPORTED`.
-- `scripts/native-home/run.py`: requires the private profile, validates the app ID before staging,
-  checks the public API model **before staging anything**, verifies every local file before the
-  first push, pushes the profile, and extracts the query snapshot to `.local/native-home/query.json`.
-  It still never writes `original.json`. `inspect` needs neither the profile nor the compiled helper.
-  A missing marker and a non-zero helper exit are reported separately, so a refusal is no longer
-  described as "device state is unknown". The transport (injection shape, length cap, callback peer
+  killing the survey. `apply` re-reads and asserts the three values it writes, and a failed apply
+  undoes only those three instead of rewriting firmware-owned fields. A baseline whose operation or
+  derived `startup_appid` names the launcher is rejected; `restore` holds a hard gate on the three
+  values apply writes, notes firmware-owned differences, and verifies the result. Every failure
+  prints a single `CLEANFRAME_HOME_ERROR=` line before the stack trace; the "already applied" retry
+  gets a clear message; query prints `PROFILE_MODEL`, `PROFILE_VERSION`, `TARGET_PACKAGE_DIR`,
+  `TARGET_PACKAGE_PRESENT` and `BOOT_SUPPORTED`.
+- `scripts/native-home/run.py`: requires the private profile, validates the profile JSON and types
+  before staging, checks the public API model **before staging anything**, verifies every local file
+  plus `.local/device.json` and the SDK's `sdb` before the first push, pushes the profile, and
+  extracts the query snapshot to `.local/native-home/query.json`.
+  It still never writes `original.json`. `inspect` needs neither the profile nor the compiled helper,
+  and continues as a shell-only survey if the device API is unreachable; the writing modes stop.
+  A missing marker, a non-zero helper exit and a bad snapshot are reported separately, with the
+  helper's own `CLEANFRAME_HOME_ERROR=` line as the summary, and a callback timeout gets its own
+  message instead of a traceback. The transport (injection shape, length cap, callback peer
   check, output cap) is unchanged.
 - `query.sh`, `apply.sh`, `restore.sh`: pass the staged profile and snapshot paths, and always print
   the helper's exit status before the end marker.
@@ -221,6 +234,12 @@ mkdir -p .local/native-home
 cp scripts/native-home/profile.example.json .local/native-home/profile.json
 # edit model -> QN65S90DAFXZA, app_id -> Zm209bQNEk.Home, leave version null
 ```
+
+Then rebuild the helper if `Control.cs` has changed since the compiled copy in
+`.local/native-home/out/`; the rebuild command is in `scripts/native-home/README.md`. The steps
+below were prepared against this branch's source, so a stale compiled copy would fail closed only
+after the first authorised device step has already staged it. `dotnet build` needs this Mac's
+private verified SDK, which a public clone does not have.
 
 Review the profile, the compiled helper revision in `.local/native-home/out/`, and this note. The
 runner refuses an empty model or app ID before it connects.
@@ -294,7 +313,7 @@ that passes, and only if Kyle wants the change retained.
 
 | Risk | How it shows up | Mitigation | Residual |
 | --- | --- | --- | --- |
-| Foothold rejected on this exact build | `query` returns no markers or the SDB call fails | Fail closed; no settings written. Try a later SDB invocation, then stop | Unexplained |
+| Foothold rejected on this exact build | No callback within 18 s, or no markers | Fail closed; nothing is written. Wait a few minutes and retry once, then stop | Unexplained |
 | Runtime or library missing/changed | `inspect` or the helper errors | Inspect first; stop rather than substituting a library or a different runtime | Low |
 | Boot-eligibility probe says no/unknown | `apply` refuses | Stop and report; do not bypass | Blocks the change |
 | Partial write | Readback or exception after one setter | Automatic exact restore; if that fails the message names both errors. Samsung Home is still installed | Mixed state until restore |

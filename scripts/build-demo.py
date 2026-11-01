@@ -33,7 +33,13 @@ def copy(relative, out):
 
 
 def build(out):
+    out = out.resolve()
+    # The output folder is replaced, so refuse anything that is not a previous build.
+    if out == ROOT or out in ROOT.parents:
+        raise SystemExit(f'Refusing to build into {out}: it would replace the repository.')
     if out.exists():
+        if any(out.iterdir()) and not (out / 'build-info.js').exists():
+            raise SystemExit(f'Refusing to replace {out}: it is not empty and is not a previous build.')
         shutil.rmtree(out)
     out.mkdir(parents=True)
     for name in ('index.html', 'library.css', 'library.js'):

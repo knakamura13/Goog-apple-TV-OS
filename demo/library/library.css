@@ -326,7 +326,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .tilemenu{position:absolute;left:680px;top:330px;width:560px;height:420px;z-index:6;opacity:0;transform:scale(.97);transition:opacity 160ms linear,transform 240ms var(--glide);pointer-events:none;-webkit-mask-image:var(--tilemenu-mask);mask-image:var(--tilemenu-mask)}
 .tilemenu .glass-tint{background:rgba(12,16,20,.58)}
 .is-menu .tilemenu{opacity:1;transform:scale(1);pointer-events:auto}
-.tm-title{position:relative;padding:48px 56px 8px;font-size:38px;line-height:46px;font-weight:600;letter-spacing:-.6px}
+.tm-title{position:relative;padding:48px 56px 8px;font-size:38px;line-height:46px;font-weight:600;letter-spacing:-.6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tm-rows{position:relative;margin:12px 24px 0}
 .tm-row{position:relative;height:84px;line-height:84px;padding:0 32px;font-size:30px;font-weight:500;border-radius:24px;color:var(--ink-soft,rgba(255,255,255,.82))}
 .tm-row.is-focus{background:rgba(255,255,255,.14);color:#fff}

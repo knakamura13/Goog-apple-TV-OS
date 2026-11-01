@@ -213,7 +213,7 @@
     S.scroll = null;
   }
   // The resume card shows the last app opened from Home, when it is still installed.
-  function resumeApp() { return S.lastId ? byId(S.lastId) : null; }
+  function resumeApp() { return S.lastId && S.hiddenIds.indexOf(S.lastId) < 0 ? byId(S.lastId) : null; }
   function buildResume() {
     var a = resumeApp();
     resumeSlot.innerHTML = a ? appHtml(a, 'resume', 0, 0) : '';
@@ -305,8 +305,9 @@
     toggle(dock, 'is-above', t < SHALLOW);
     for (r = 0; r < ROWS.length; r++) toggle(library.children[r], 'is-above', rowTop(r) + t < TOP_EDGE);
   }
+  function layoutZone() { return S.zone === 'menu' ? S.menuFrom : S.zone; }
   function label() {
-    var on = S.zone === 'lib', a, x;
+    var on = layoutZone() === 'lib', a, x;
     toggle(focusName, 'is-on', on);
     if (!on) return;
     a = ROWS[S.lr][S.lc];
@@ -334,7 +335,7 @@
     toggle(navFocus, 'is-on', S.zone === 'nav');
     toggle(stage, 'tab-inputs', S.tab === 1);
     toggle(stage, 'has-resume', S.tab === 0 && !!resumeApp());
-    toggle(stage, 'is-library', S.zone === 'lib');
+    toggle(stage, 'is-library', layoutZone() === 'lib');
     toggle(stage, 'is-panel', S.zone === 'panel');
     toggle(stage, 'is-dialog', S.zone === 'dialog');
     toggle(stage, 'is-menu', S.zone === 'menu');
@@ -343,7 +344,7 @@
     if (S.zone === 'apps') renderEditor();
     toggle(stage, 'is-picker', S.zone === 'wallpaper');
     if (S.zone === 'wallpaper') renderPicker();
-    scrollTo(S.zone === 'lib' ? libScroll(S.lr) : 0);
+    scrollTo(layoutZone() === 'lib' ? libScroll(S.lr) : 0);
     label();
     lastZone = S.zone;
   }
@@ -445,12 +446,12 @@
     var a = S.zone === 'fav' ? FAVS[S.fav] : S.zone === 'lib' ? ROWS[S.lr][S.lc] : null, isFav, items;
     if (!a) return;
     isFav = S.favIds.indexOf(a.id) >= 0;
-    items = [{ label: 'Move', run: function () { tileMove(a.id); } }];
+    items = [{ label: 'Open', run: function () { S.zone = S.menuFrom; launch(S.menu.tile, a); } }, { label: 'Move', run: function () { tileMove(a.id); } }];
     items.push(isFav ? { label: 'Remove from Favorites', run: function () { tileUnfav(a.id); } }
                      : { label: 'Add to Favorites', run: function () { tileFav(a.id); } });
     items.push({ label: 'Hide', run: function () { tileHide(a.id); } });
     S.menuFrom = S.zone;
-    S.menu = { i: 0, items: items };
+    S.menu = { i: 0, items: items, tile: focused };
     tilemenuTitle.textContent = a.name;
     tilemenuRows.innerHTML = items.map(function (it, n) { return '<div class="tm-row" data-z="menu" data-i="' + n + '">' + esc(it.label) + '</div>'; }).join('');
     S.zone = 'menu';
@@ -458,15 +459,19 @@
     render();
   }
   function tileMove(id) {
-    openEditor();
+    var col = S.menuFrom === 'lib' ? S.lc : Math.max(0, S.favIds.indexOf(id));
+    openEditor('home');
     S.ed.focus = id;
+    S.ed.col = col;
     S.ed.carry = { id: id, sec: sectionOf(id), idx: Math.max(0, S.favIds.indexOf(id)), from: sectionOf(id) };
     S.ed.hint = 'Moving ' + byId(id).name + '. Arrows move it, OK drops it, Back cancels.';
   }
   function afterTileEdit(id, msg) {
+    var fi;
     save();
     buildHome();
-    var fi = S.favIds.indexOf(id);
+    buildResume();
+    fi = S.favIds.indexOf(id);
     S.zone = 'fav';
     S.fav = fi >= 0 ? fi : Math.min(S.fav, Math.max(0, FAVS.length - 1));
     toast(msg);
@@ -488,18 +493,22 @@
     S.favIds.push(id);
     afterTileEdit(id, byId(id).name + ' added to Favorites.');
   }
-  // OK on a Home tile: a tap launches, a hold opens the menu. Resolved on key-up so a tap never opens the menu.
-  var okTimer = null, okPending = false, okArmed = false;
-  function okHoldStart() {
-    okPending = true; okArmed = false;
+  // OK on a Home tile: a tap launches on key-up, a hold of 450 ms opens the menu. Like CleanFrame's held-key map,
+  // a held OK ignores its repeats whether or not the TV flags them, and key-up, window blur or leaving the app
+  // releases it. If no key-up arrives at all, an 800 ms expiry after the last OK event releases it instead.
+  var okTimer = null, okExpire = null, okHeld = false, okPending = false, okArmed = false, okEl = null;
+  function okPress() {
+    okPending = true; okArmed = false; okEl = focused;
     clearTimeout(okTimer);
-    okTimer = setTimeout(function () { if (okPending) { okArmed = true; openTileMenu(); } }, 450);
+    okTimer = setTimeout(function () { if (okPending && focused === okEl) { okArmed = true; openTileMenu(); } }, 450);
   }
-  function okHoldEnd() {
-    if (!okPending) return;
-    clearTimeout(okTimer);
-    if (!okArmed) { sound('select'); act('ok'); }
-    okPending = false; okArmed = false;
+  function okCancel() { clearTimeout(okTimer); okPending = false; okArmed = false; okEl = null; }
+  function okRelease() {
+    var tap = okPending && !okArmed && focused === okEl;
+    clearTimeout(okExpire);
+    okHeld = false;
+    okCancel();
+    if (tap) { sound('select'); act('ok'); }
   }
   function chooseInput(s) {
     press(focused);
@@ -673,6 +682,7 @@
   }
   function closePicker() {
     clearTimeout(previewTimer);
+    wallToken++; // Drops a preview still loading.
     if (shownWall !== S.wall) showWall(S.wall, false);
     S.zone = 'panel';
   }
@@ -695,7 +705,7 @@
     else if (k === 'up' && i > 1) S.pk.i = i - 2;
     else if (k === 'down' && i + 2 <= last) S.pk.i = i + 2;
     else if (k === 'down' && Math.floor(i / 2) < Math.floor(last / 2)) S.pk.i = last;
-    else if (k === 'ok') { clearTimeout(previewTimer); setWall(i); }
+    else if (k === 'ok') { clearTimeout(previewTimer); S.wall = i; save(); setWall(i); }
     else if (k === 'back') closePicker();
   }
 
@@ -705,7 +715,7 @@
   // the other apps slide aside, OK drops it and Back cancels. Every drop saves at once.
   var ED_HINT = 'Press OK on an app to pick it up, then move it with the arrows.';
   var SECTION_NAMES = { fav: 'Favorites', lib: 'Library', hid: 'Hidden' };
-  function openEditor() {
+  function openEditor(from) {
     var i;
     if (!edTiles.firstChild) {
       edTiles.innerHTML = APPS.map(function (a, n) { return '<div class="ed-slot" data-id="' + a.id + '">' + appHtml(a, 'edapp', n, 0) + '<div class="ed-name"><span>' + esc(a.name) + '</span></div></div>'; }).join('');
@@ -716,12 +726,17 @@
       for (i = 0; i < FAV_MAX; i++) $('edFree').insertAdjacentHTML('beforeend', '<svg class="ed-free" viewBox="0 0 ' + TILE_W + ' ' + TILE_H + '" style="left:' + (GRID_LEFT + i * PITCH) + 'px" aria-hidden="true"><path d="' + tilePath + '"/><text x="125" y="84">Free</text></svg>');
     }
     S.ed = { focus: S.favIds[0], col: 0, carry: null, scroll: 0, hint: ED_HINT, first: true };
+    S.edFrom = from === 'home' ? 'home' : 'panel';
     S.zone = 'apps';
   }
+  // Back to Settings when opened there; Move from Home's tile menu returns to the dock, on the moved app if it is a
+  // favorite. Never back to the library: the lists changed, so its row and column may no longer exist.
   function closeEditor() {
+    var fi = S.favIds.indexOf(S.ed.focus);
     S.ed.carry = null;
     buildHome();
-    S.zone = 'panel';
+    buildResume();
+    if (S.edFrom === 'home') { S.zone = 'fav'; S.fav = fi >= 0 ? fi : Math.min(S.fav, Math.max(0, FAVS.length - 1)); } else S.zone = 'panel';
   }
   function count(n) { return n + (n === 1 ? ' app' : ' apps'); }
   function sectionOf(id) { return S.favIds.indexOf(id) >= 0 ? 'fav' : S.hiddenIds.indexOf(id) >= 0 ? 'hid' : 'lib'; }
@@ -894,8 +909,13 @@
   }
   // On this QD-OLED, Samsung's panel-protection screensaver can't be disabled and takes over after a still-ish
   // minute or two. We don't fight it (it protects the panel); ours shows first, then Samsung's runs on long idle.
-  // Returning to Home after another app or the screensaver re-arms the idle timer.
-  document.addEventListener('visibilitychange', armIdle);
+
+  // Our screensaver only counts idle time while Home is in front; leaving also releases a held OK.
+  document.addEventListener('visibilitychange', function () {
+    okHeld = false;
+    okCancel();
+    if (document.hidden) clearTimeout(idleTimer); else armIdle();
+  });
   // A slow drift keeps the clock from burning a fixed shape into the OLED panel.
   function drift() { ambDrift.style.transform = 'translate3d(' + Math.round(Math.random() * 40 - 20) + 'px,' + Math.round(Math.random() * 24 - 12) + 'px,0)'; }
   function enterAmbient() {
@@ -905,15 +925,18 @@
     if (S.zone === 'apps') closeEditor();
     if (S.zone === 'panel') closePanel();
     if (S.zone === 'dialog') S.zone = 'fav';
+    if (S.zone === 'menu') S.zone = S.menuFrom;
+    okHeld = false;
+    okCancel();
     S.ambient = true;
-    S.homeWall = S.wall;
+    S.ambWall = S.wall;
     clearTimeout(idleTimer);
     render();
     stage.classList.add('is-ambient');
     driftTimer = setInterval(drift, 20000);
-    rotateTimer = setInterval(function () { setWall(S.wall + 1); }, 40000);
+    rotateTimer = setInterval(function () { S.ambWall = (S.ambWall + 1) % WALLS.length; showWall(S.ambWall, false); }, 40000);
   }
-  // Home keeps its chosen photo; the screensaver's slideshow is temporary.
+  // Home keeps its chosen photo; the screensaver's slideshow only shows others and never changes the choice.
   function exitAmbient() {
     measure('screensaver out', 1000);
     S.ambient = false;
@@ -921,7 +944,8 @@
     clearInterval(driftTimer);
     clearInterval(rotateTimer);
     ambDrift.style.transform = '';
-    if (S.wall !== S.homeWall) setWall(S.homeWall);
+    wallToken++; // Drops a slideshow photo still loading.
+    if (shownWall !== S.wall) showWall(S.wall, false);
     armIdle();
   }
 
@@ -1029,14 +1053,21 @@
     if (!k) return;
     e.preventDefault();
     armIdle();
-    if (e.repeat && (k === 'ok' || k === 'back')) return;
-    if (k === 'ok' && (S.zone === 'fav' || S.zone === 'lib')) { okHoldStart(); return; }
-    if (k === 'ok') sound('select');
+    if (k !== 'ok' && okPending) okCancel(); // Another key during a hold cancels it.
+    if (k === 'ok') {
+      clearTimeout(okExpire);
+      okExpire = setTimeout(okRelease, 800);
+      if (okHeld || e.repeat) return;
+      okHeld = true;
+      if (S.zone === 'fav' || S.zone === 'lib') { okPress(); return; }
+      sound('select');
+    } else if (e.repeat && k === 'back') return;
     act(k);
     if (k !== 'ok' && focused !== was) sound(k);
     if (focused !== was) measure(wasZone === S.zone ? zoneName(S.zone) : zoneName(wasZone) + ' → ' + zoneName(S.zone));
   });
-  document.addEventListener('keyup', function (e) { if (KEYS[e.keyCode] === 'ok') okHoldEnd(); });
+  document.addEventListener('keyup', function (e) { if (KEYS[e.keyCode] === 'ok') okRelease(); });
+  window.addEventListener('blur', function () { okHeld = false; okCancel(); });
   /* preview */
   // A click focuses the item and presses OK on it, so one click switches a tab or launches an app.
   stage.addEventListener('click', function (e) {

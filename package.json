@@ -23,7 +23,8 @@
     "check:library-a11y": "node scripts/a11y-library.mjs",
     "build:demo": "python3 scripts/build-demo.py",
     "test:library": "node --test scripts/test-library.mjs",
-    "check:mutation": "node scripts/mutate-library.mjs"
+    "check:mutation": "node scripts/mutate-library.mjs",
+    "check:home": "npm run test:library && npm run check:mutation && npm run check:library && npm run check:library-a11y && npm run check:library-perf"
   },
   "devDependencies": {
     "eslint": "10.13.0",

@@ -1,4 +1,4 @@
-// Accessibility checks for the Library Home prototype (demo/library/), screen by screen, in Chromium at 1920×1080
+// Accessibility checks for Home (demo/library/), screen by screen, in Chromium at 1920×1080
 // with reduced motion and transitions off, so every state is read at rest. A stand-in for the TV's Tizen API
 // supplies the apps. Never contacts a TV. A11Y_SCREEN=<text> checks only matching screens; A11Y_VERBOSE=1 lists
 // every label instead of the worst of each kind.
@@ -24,7 +24,6 @@ import { hold, launchBrowser, openLauncher, press, settled, startPreview } from 
 
 const NORMAL = 4.5, LARGE = 3;
 const isLarge = (size, weight) => size >= 32 || (size >= 24 && weight >= 700);
-const SKIP_ROWS = ['Sleep timer']; // Being changed in parallel; its row uses the same styles as the others.
 
 async function gotoRow(page, label) {
   const rows = await page.$$eval('#panelRows > .p-row', list => list.map(row => [row.querySelector('.p-label').textContent, row.classList.contains('is-focus')]));
@@ -56,7 +55,7 @@ const SCREENS = [
     labels: [['Title', '#panelTitle'], ['Row labels', '#panelRows .p-label'], ['Row values', '#panelRows .p-value'],
       ['Focused row label', '#panelInk .p-label'], ['Focused row value', '#panelInk .p-value']] },
   { name: 'Wallpaper picker', setup: async page => { await openSettings(page); await openRow(page, 'Wallpaper'); },
-    target: '#pkGrid > .pk-item.is-focus', away: 'ArrowLeft', back: 'ArrowRight',
+    target: '#pkGrid > .pk-item.is-focus', away: 'ArrowRight', back: 'ArrowLeft', // Opens on Daily photo, in the left column.
     labels: [['Breadcrumb', '#picker .p-crumb'], ['Title', '#picker .p-title'], ['Photo names', '#pkGrid .pk-name > span'],
       ['Preview title', '#pkTitle'], ['Preview credit', '#pkCredit']] },
   { name: 'Apps editor', setup: async page => { await openSettings(page); await openRow(page, 'Apps'); },
@@ -80,7 +79,7 @@ const SCREENS = [
 
 // Installed once per page. Hit tests follow what the eye sees: anything visible can be hit and nothing invisible
 // can, whatever pointer-events says, so text under a solid focus pill or clipped by a scroller counts as hidden.
-function pageHelpers(skipRows) {
+function pageHelpers() {
   const opacityOf = el => { let o = 1; for (let e = el; e; e = e.parentElement) o *= +getComputedStyle(e).opacity; return o; };
   function asSeen(fn) {
     const all = [...document.querySelectorAll('#stage, #stage *')];
@@ -100,8 +99,6 @@ function pageHelpers(skipRows) {
     return asSeen(() => specs.map(([name, selector, options = {}]) => {
       const found = [];
       for (const el of document.querySelectorAll(selector)) {
-        const row = el.closest('.p-row')?.querySelector('.p-label')?.textContent;
-        if (skipRows.includes(row)) continue;
         const style = getComputedStyle(el), nodes = texts(el, options.own), rects = [];
         if (style.visibility !== 'visible' || !nodes.length) continue;
         for (const node of nodes) {
@@ -337,7 +334,7 @@ try {
       // The preview's key hints sit outside the TV stage. Reduced motion still runs 1 ms transitions on every
       // property, so they are switched off to read each state exactly.
       await page.addStyleTag({ content: '#hints{display:none!important}#stage *,#stage *::before,#stage *::after{transition:none!important;animation:none!important}' });
-      await page.evaluate(pageHelpers, SKIP_ROWS);
+      await page.evaluate(pageHelpers);
       await screen.setup(page);
       await page.waitForFunction(() => document.getElementById('panelBody').className === 'p-body');
       await rest(page);

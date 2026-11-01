@@ -1,8 +1,11 @@
-// Development only. Shared setup for the Library Home prototype checks (scripts/*-library.mjs).
+// Development only. Shared setup for Home's checks (scripts/*-library.mjs).
 // Serves demo/library/ from the loopback preview, drives Playwright's Chromium and installs a stand-in for the
-// TV's public Tizen API before the page loads, so the launcher runs its TV code paths. Never contacts a TV.
+// TV's public Tizen API before the page loads, so the launcher runs its TV code paths. The weather and photo
+// services are answered from fixtures (or fail, to check offline behaviour), so no check reaches the internet.
+// Never contacts a TV.
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -80,8 +83,34 @@ function tizenStandIn({ apps, self, system }) {
 
 // Stands in for the TV's own icon files, which only a TV can serve.
 const TV_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="250" height="150"><rect width="250" height="150" fill="#1b4fd8"/></svg>';
-// Samsung's library only exists on the TV, so the preview's request for it is expected to fail.
-const TV_ONLY = /\/\$WEBAPIS\/webapis\/webapis\.js$/;
+
+// The online services and their fixtures. Zippopotam.us knows Costa Mesa (the default ZIP code) and answers any
+// other ZIP code with one test place; Open-Meteo reports 18.9 °C, cloudy, at night (66 °F). Picsum's list holds
+// three landscape photos and one portrait photo (never picked); bundled photos stand in for the online images.
+export const ONLINE = /^https:\/\/(api\.zippopotam\.us|api\.open-meteo\.com|(?:fastly\.)?picsum\.photos)\//;
+export const PHOTOS = [
+  { id: '1001', author: 'Ada Lens', width: 5000, height: 3333, file: 'forest' },
+  { id: '1002', author: 'Ben Frame', width: 4000, height: 2250, file: 'ridge' },
+  { id: '1003', author: 'Cy Shutter', width: 6000, height: 4000, file: 'peaks' },
+  { id: '1004', author: 'Dee Tall', width: 3000, height: 4500, file: 'misty' }
+];
+const CORS = { 'Access-Control-Allow-Origin': '*' };
+async function answerOnline(route) {
+  const url = route.request().url();
+  const json = body => route.fulfill({ headers: CORS, contentType: 'application/json', body: JSON.stringify(body) });
+  let match;
+  if ((match = /api\.zippopotam\.us\/us\/(\d{5})$/.exec(url))) {
+    return json(match[1] === '92626' ? { places: [{ 'place name': 'Costa Mesa', latitude: '33.6801', longitude: '-117.9085' }] }
+      : { places: [{ 'place name': 'Testville', latitude: '34.05', longitude: '-118.24' }] });
+  }
+  if (/api\.open-meteo\.com\/v1\/forecast\?/.test(url)) return json({ current: { temperature_2m: 18.9, weather_code: 3, is_day: 0 } });
+  if (/picsum\.photos\/v2\/list\?/.test(url)) return json(PHOTOS.map(({ file, ...entry }) => ({ ...entry, url: 'https://unsplash.com/photos/' + entry.id })));
+  if ((match = /picsum\.photos\/id\/(\d+)\/\d+\/\d+$/.exec(url))) {
+    const photo = PHOTOS.find(entry => entry.id === match[1]);
+    if (photo) return route.fulfill({ headers: CORS, contentType: 'image/jpeg', body: readFileSync(join(repo, 'app/assets/wallpapers', photo.file + '.jpg')) });
+  }
+  return route.fulfill({ status: 404, headers: CORS, body: '' });
+}
 
 export async function startPreview() {
   const args = ['-u', 'scripts/preview.py', '--port', '0'];
@@ -114,19 +143,23 @@ export function launchBrowser() {
 
 // A fresh profile per call. `seed` is written to the launcher's storage once, before the first load only, so a
 // reload sees what the launcher itself saved. `clock` installs Playwright's fake clock before navigation.
-export async function openLauncher(browser, base, { seed, clock, reducedMotion = 'no-preference' } = {}) {
+// `offline` makes every request to the online services fail, as on a TV without internet. `requests` lists the
+// online requests the page made, in order.
+export async function openLauncher(browser, base, { seed, clock, offline = false, reducedMotion = 'no-preference' } = {}) {
   const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1, reducedMotion });
   const page = await context.newPage();
-  const errors = [], failures = [];
+  const errors = [], failures = [], requests = [];
   page.on('pageerror', error => errors.push(error.message));
+  page.on('request', request => { if (ONLINE.test(request.url())) requests.push(request.url()); });
   page.on('response', response => {
-    if (response.status() >= 400 && !TV_ONLY.test(response.url())) failures.push(response.status() + ' ' + response.url());
+    if (response.status() >= 400) failures.push(response.status() + ' ' + response.url());
   });
   page.on('requestfailed', request => {
     const reason = request.failure()?.errorText;
-    if (!page.__closing && reason !== 'net::ERR_ABORTED' && !TV_ONLY.test(request.url())) failures.push(reason + ' ' + request.url());
+    if (!page.__closing && reason !== 'net::ERR_ABORTED' && !(offline && ONLINE.test(request.url()))) failures.push(reason + ' ' + request.url());
   });
   await context.route('**/opt/usr/globalapps/**', route => route.fulfill({ contentType: 'image/svg+xml', body: TV_ICON }));
+  await context.route(ONLINE, route => (offline ? route.abort('internetdisconnected') : answerOnline(route)));
   await page.addInitScript(tizenStandIn, { apps: TV_APPS, self: SELF_ID, system: SYSTEM });
   if (seed) {
     await page.addInitScript(([key, value]) => {
@@ -138,7 +171,7 @@ export async function openLauncher(browser, base, { seed, clock, reducedMotion =
   if (clock) await page.clock.install({ time: clock });
   await page.goto(base + '/demo/library/');
   await ready(page);
-  return { context, page, errors, failures, close: async () => { page.__closing = true; await context.close(); } };
+  return { context, page, errors, failures, requests, close: async () => { page.__closing = true; await context.close(); } };
 }
 
 // Home is built and the wallpaper (with its glass layers) has been applied.
@@ -195,8 +228,14 @@ export function snapshot(page) {
       dialog: $$('.d-actions > .d-btn').map(text),
       editor: { carry: $$('.ed-slot.is-carry').map(slot => slot.getAttribute('data-id')), hint: text($('#edHint')),
         hidden: $$('.ed-slot.is-hidden').map(slot => slot.getAttribute('data-id')), apps: $$('.ed-slot').map(slot => slot.getAttribute('data-id')) },
-      picker: { focused: +($('#pkGrid > .pk-item.is-focus')?.getAttribute('data-i') ?? -1), applied: +($('#pkGrid > .pk-item.is-applied')?.getAttribute('data-i') ?? -1), title: text($('#pkTitle')) },
+      picker: { focused: +($('#pkGrid > .pk-item.is-focus')?.getAttribute('data-i') ?? -1), applied: +($('#pkGrid > .pk-item.is-applied')?.getAttribute('data-i') ?? -1), title: text($('#pkTitle')),
+        credit: text($('#pkCredit')), dailyThumb: $('#pkGrid > .pk-item img')?.getAttribute('src') || '' },
       photo: $('.bg-photo.is-front')?.getAttribute('src') || '',
+      glass: [...new Set($$('.glass-img').map(img => img.getAttribute('data-material') + ' ' + (img.src.startsWith('blob:') ? 'blob' : img.getAttribute('src'))))].sort(),
+      caption: { title: text($('#ambTitle')), credit: text($('#ambCredit')) },
+      weather: { on: !$('.weather').classList.contains('is-off'), text: text($('.weather span')), label: $('.weather').getAttribute('aria-label') },
+      inputs: $$('#inRow > .tile').map(el => text(el.querySelector('.in-name'))),
+      tvwindow: (window.__tvwindow || []).slice(),
       toast: $('#toast').classList.contains('is-on') ? text($('#toast')) : '',
       launches: (window.__launches || []).slice(),
       saved

@@ -31,6 +31,20 @@ For manual review, use `npm run dev` and open `/home/`. Use the arrow keys, Ente
 
 `CLEANFRAME_PUBLIC_FONTS=1 npm run check:performance` runs the existing 4× CPU-throttled Chromium regression screen. Compare navigation work, frame stalls, retained DOM/heap and live-filter checks before and after rendering changes. This is not a physical-TV benchmark.
 
+## Home (demo/library/)
+
+```sh
+npm run check:home
+```
+
+`check:home` runs Home's checks in Playwright Chromium (set `CHROMIUM_PATH` to use a browser other than Playwright's own). None of them contacts a TV or the internet: a stand-in for the Tizen API reports the apps and one HDMI port, and fixtures answer the weather and photo services (or fail, for the offline checks).
+
+- `test:library`: unit tests for the pure logic in `demo/library/logic.js`.
+- `check:mutation`: changes `logic.js` one operator at a time; the unit tests must catch at least 90% of the changes.
+- `check:library`: every screen driven with remote keys, including hold-OK editing, inputs, weather, the daily photo, the screensaver slideshow, offline behaviour and saves from earlier builds.
+- `check:library-a11y`: visible focus and WCAG AA text contrast on every screen; contrast that depends on the photo is a warning.
+- `check:library-perf`: frame gaps for the main moves with the CPU throttled 6×, a regression guard rather than a TV benchmark.
+
 ## Physical TV checks
 
 Run these only under a task that includes TV testing. Announce any installation or launch first, then follow `development.md`. SDK success alone is not a visible result. Ask Nathan to confirm the normal remote behaviour and record the version, firmware, result and any open checks in `tv-status.md`.

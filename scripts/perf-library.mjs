@@ -1,4 +1,4 @@
-// Frame-gap regression guard for the Library Home prototype (demo/library/) in Chromium, with the CPU throttled
+// Frame-gap regression guard for Home (demo/library/) in Chromium, with the CPU throttled
 // 6× through the DevTools protocol. Never contacts a TV.
 //
 // The TV's GPU is the real target. This measures main-thread work (JavaScript, style, layout) and Chromium's own

@@ -230,7 +230,7 @@
     S.daily = d.daily === true; // Builds before the daily photo saved only a bundled choice, which stands.
     S.dailyPick = d.photo && typeof d.photo === 'object' ? d.photo : null;
     if (H.validIndex(d.amb, AMBIENT.length)) S.amb = d.amb;
-    if (d.weather) S.weather = { zip: /^\d{5}$/.test(d.weather.zip) ? d.weather.zip : '', units: d.weather.units === 'C' ? 'C' : 'F' };
+    if (d.weather && typeof d.weather === 'object') S.weather = { zip: /^\d{5}$/.test(d.weather.zip) ? d.weather.zip : S.weather.zip, units: d.weather.units === 'C' ? 'C' : 'F' };
     S.place = H.savedPlace(d.place, S.weather.zip);
     S.wx = H.savedReading(d.wx, S.weather.zip);
     if (Array.isArray(d.inputs)) S.inputs.forEach(function (inp, n) {

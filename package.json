@@ -18,6 +18,9 @@
     "lint": "eslint app demo/library",
     "check:device": "node --test scripts/test-device.mjs",
     "check:performance": "node scripts/check-performance.mjs",
+    "check:library": "node scripts/check-library.mjs",
+    "check:library-perf": "node scripts/perf-library.mjs",
+    "check:library-a11y": "node scripts/a11y-library.mjs",
     "build:demo": "python3 scripts/build-demo.py",
     "test:library": "node --test scripts/test-library.mjs",
     "check:mutation": "node scripts/mutate-library.mjs"

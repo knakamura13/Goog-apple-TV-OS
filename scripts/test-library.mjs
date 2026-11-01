@@ -89,6 +89,20 @@ test('homeLists never leaves Favorites empty', () => {
   assert.deepEqual(first.hid, ['sling']);
 });
 
+test('keepMissing keeps saved apps the TV doesn\'t list right now, in their saved places', () => {
+  // Plex is being updated: Home shows the rest, and the save keeps Plex first.
+  assert.deepEqual(plain(L.keepMissing(['youtube', 'netflix'], ['plex', 'youtube', 'netflix'], ['youtube', 'netflix'], 24)), ['plex', 'youtube', 'netflix']);
+  // An installed app the owner removed stays removed.
+  assert.deepEqual(plain(L.keepMissing(['youtube'], ['plex', 'youtube'], ['plex', 'youtube'], 24)), ['youtube']);
+  // A missing app saved past the end of the shown list goes last.
+  assert.deepEqual(plain(L.keepMissing(['a'], ['a', 'b', 'c', 'gone'], ['a', 'b', 'c'], 24)), ['a', 'gone']);
+  // Duplicates and damaged entries are dropped; a damaged list counts as empty.
+  assert.deepEqual(plain(L.keepMissing(['a'], ['x', 'x', 7, null], ['a'], 24)), ['x', 'a']);
+  assert.deepEqual(plain(L.keepMissing(['a'], 'oops', ['a'], 24)), ['a']);
+  // The list never grows past its cap.
+  assert.deepEqual(plain(L.keepMissing(['a', 'b'], ['z'], ['a', 'b'], 2)), ['z', 'a']);
+});
+
 test('libraryIds lists the rest A–Z', () => {
   assert.deepEqual(plain(L.libraryIds(['sling', 'plex', 'alexa', 'disney', 'hulu'], ['plex'], ['disney'], nameOf)), ['alexa', 'hulu', 'sling']);
 });

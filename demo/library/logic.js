@@ -41,6 +41,16 @@
     return { fav: fav, hid: hid };
   };
 
+  // The owner's list to save: what Home shows, plus saved apps the TV doesn't list right now, each back at its saved
+  // place (an app being updated can drop out of a read). Installed apps the owner removed stay removed. Capped at max.
+  L.keepMissing = function (shown, saved, installed, max) {
+    var out = shown.slice();
+    (Array.isArray(saved) ? saved : []).forEach(function (id, i) {
+      if (typeof id === 'string' && installed.indexOf(id) < 0 && out.indexOf(id) < 0) out.splice(Math.min(i, out.length), 0, id);
+    });
+    return out.slice(0, max);
+  };
+
   // The library: every installed app that is neither a favorite nor hidden, A–Z.
   L.libraryIds = function (installed, fav, hid, nameOf) {
     return installed.filter(function (id) { return fav.indexOf(id) < 0 && hid.indexOf(id) < 0; })

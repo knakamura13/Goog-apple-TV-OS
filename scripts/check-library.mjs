@@ -651,6 +651,10 @@ try {
     const expected = launcher.failures.filter(failure => /zippopotam\.us\/us\/00000$/.test(failure));
     check('Its lookup was the only failed request', expected.length >= 1 && expected.length === launcher.failures.length, launcher.failures);
     launcher.failures.length = 0;
+    const lookups = () => launcher.requests.filter(url => /zippopotam\.us\/us\/00000$/.test(url)).length, tried = lookups();
+    await page.clock.fastForward(6 * 60 * 1000);
+    await page.waitForTimeout(300);
+    check('An unknown ZIP code isn\'t looked up again until it changes', lookups() === tried, [tried, lookups()]);
   });
 
   await section('Inputs tab', {}, async (launcher, page) => {
@@ -731,10 +735,12 @@ try {
     let s = await snapshot(page);
     check('No screensaver while a name is typed', !has(s, 'is-ambient') && has(s, 'is-panel') && s.panel.title === 'Name', [s.classes, s.panel.title]);
     await page.keyboard.type('Den TV');
-    await keyDownOnly(page, 65376); // Done on the TV's keyboard.
+    await keyDownOnly(page, 65376); // Done on the TV's keyboard ...
+    await keyDownOnly(page, 13); // ... which may be followed by Enter for the same press.
     await settled(page);
+    await page.waitForTimeout(300);
     s = await snapshot(page);
-    check('Done on the TV keyboard saves the name', s.panel.title === 'HDMI 1' && rowValue(s, 'Name') === 'Den TV' && s.saved?.inputs?.[0]?.name === 'Den TV', [s.panel.title, s.panel.rows, s.saved?.inputs]);
+    check('Done on the TV keyboard saves the name, once', s.panel.title === 'HDMI 1' && rowValue(s, 'Name') === 'Den TV' && s.saved?.inputs?.[0]?.name === 'Den TV', [s.panel.title, s.panel.rows, s.saved?.inputs]);
     check('The name field lets go of focus', await page.evaluate(() => document.activeElement === document.getElementById('stage')));
     await openRow(page, 'Name');
     await page.keyboard.type('Garage');
@@ -791,17 +797,43 @@ try {
   });
 
   await section('Apps installed while Home runs', {}, async (launcher, page) => {
+    await openSettings(page);
+    await openRow(page, 'Apps');
     await page.evaluate(() => window.__tv.apps.push({ id: '3KA0pm7a7V.TubiTV', name: 'Tubi - Free Movies & TV', iconPath: '/opt/usr/globalapps/3KA0pm7a7V.TubiTV/shared/res/icon.png', show: true }));
     await visibility(page, true);
     await visibility(page, false);
-    await page.waitForFunction(() => document.querySelectorAll('#library .tile').length === 6, null, { timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(300);
     let s = await snapshot(page);
-    check('An app installed while Home was in the background joins the library, A–Z, when Home returns', same(s.library, [['amazonalexa', 'hbomax', 'Samsung TV Plus', 'smartthings', 'spotify', 'tubi']]), s.library);
+    check('While the Apps editor is open, a newly installed app waits', has(s, 'is-editor') && !s.editor.apps.includes('tubi'), s.editor.apps);
+    await press(page, 'Escape');
+    await page.waitForFunction(() => document.querySelectorAll('#library .tile').length === 6, null, { timeout: 5000 }).catch(() => {});
+    await closeSettings(page);
+    s = await snapshot(page);
+    check('Once the editor closes, the app joins the library, A–Z', same(s.library, [['amazonalexa', 'hbomax', 'Samsung TV Plus', 'smartthings', 'spotify', 'tubi']]), s.library);
     check('The favourites are unchanged', same(s.fav, FAV_MARKS), s.fav);
     await openSettings(page);
     await openRow(page, 'Apps');
     s = await snapshot(page);
     check('The Apps editor lists it too', s.editor.apps.includes('tubi') && s.editor.apps.length === INSTALLED.length + 1, s.editor.apps);
+  });
+
+  await section('An app the TV briefly doesn\'t list', {}, async (launcher, page) => {
+    await page.evaluate(() => { window.__tv.all = window.__tv.apps; window.__tv.apps = window.__tv.apps.filter(app => !/plex|slingtv/i.test(app.id)); });
+    await visibility(page, true);
+    await visibility(page, false);
+    await page.waitForFunction(() => document.querySelectorAll('#favRow .tile').length === 5, null, { timeout: 5000 }).catch(() => {});
+    let s = await snapshot(page);
+    check('While Plex is missing from the TV\'s list, Home shows the other favourites', same(s.fav, FAV_MARKS.slice(1)), s.fav);
+    await press(page, 'Enter'); // A launch saves.
+    await afterCallbacks(page);
+    s = await snapshot(page);
+    check('A save meanwhile keeps Plex first in Favorites and Sling TV hidden', s.saved?.fav?.[0] === 'plex' && !!s.saved?.hid?.includes('ZmmGjO6VKO.slingtv') && same(s.launches, [APP.youtube]), [s.saved, s.launches]);
+    await page.evaluate(() => { window.__tv.apps = window.__tv.all; });
+    await visibility(page, true);
+    await visibility(page, false);
+    await page.waitForFunction(() => document.querySelectorAll('#favRow .tile').length === 6, null, { timeout: 5000 }).catch(() => {});
+    s = await snapshot(page);
+    check('Listed again, Plex is back first in the dock and Sling TV is still hidden', same(s.fav, FAV_MARKS) && !s.library.flat().some(app => /sling/i.test(app)), [s.fav, s.library]);
   });
 
   await section('A damaged save', { seed: { fav: 'netflix', hid: 5, inputs: 'abc', wall: 99, amb: -1, weather: 7, place: [], wx: 'x', photo: 5, daily: 'yes' } }, async (launcher, page) => {

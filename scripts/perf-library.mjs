@@ -79,7 +79,7 @@ let preview, browser, launcher;
 try {
   preview = await startPreview();
   browser = await launchBrowser();
-  launcher = await openLauncher(browser, preview.base);
+  launcher = await openLauncher(browser, preview.base, { photoIds: ['1001'] }); // The same daily photo every run.
   page = launcher.page;
   await page.waitForLoadState('networkidle');
   await page.evaluate(() => document.fonts.ready);

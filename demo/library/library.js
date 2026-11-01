@@ -245,11 +245,16 @@
       if (typeof saved.show === 'boolean') inp.show = saved.show;
     });
   }
-  // Until the TV's app list has been read, the owner's saved Favorites and Hidden are written back unchanged.
+  // Saves keep the owner's Favorites and Hidden whole: until the TV's app list has been read they are written back
+  // unchanged, and afterwards apps the TV doesn't list right now keep their places (HomeLogic.keepMissing).
+  function ownerLists() {
+    var installed = allIds();
+    return { fav: H.keepMissing(S.favIds, savedLists && savedLists.fav, installed, 24), hid: H.keepMissing(S.hiddenIds, savedLists && savedLists.hid, installed, 200) };
+  }
   function save() {
     var inputs = S.inputs.map(function (inp) { return { name: inp.name, show: inp.show }; });
-    var fav = appsFromTv ? S.favIds : savedLists && savedLists.fav, hid = appsFromTv ? S.hiddenIds : savedLists && savedLists.hid;
-    try { window.localStorage.setItem(STORE, JSON.stringify({ version: SAVE_VERSION, fav: fav, hid: hid, last: S.lastId, wall: S.wall, daily: S.daily, photo: S.dailyPick, amb: S.amb, glass: S.glassTiles, weather: S.weather, place: S.place, wx: S.wx, inputs: inputs })); } catch (e) { /* Home still works without saved choices. */ }
+    savedLists = appsFromTv ? ownerLists() : savedLists || { fav: null, hid: null };
+    try { window.localStorage.setItem(STORE, JSON.stringify({ version: SAVE_VERSION, fav: savedLists.fav, hid: savedLists.hid, last: S.lastId, wall: S.wall, daily: S.daily, photo: S.dailyPick, amb: S.amb, glass: S.glassTiles, weather: S.weather, place: S.place, wx: S.wx, inputs: inputs })); } catch (e) { /* Home still works without saved choices. */ }
   }
   function inputLabel(inp) { return inp.name || (inp.connected ? 'Connected' : 'No device'); }
   function buildInputs() {
@@ -425,6 +430,7 @@
         break;
     }
     render();
+    refreshLater();
   }
   // Restart the press animation on the face. A click that moves focus only grows the tile, without a press.
   function press(tile) {
@@ -491,7 +497,7 @@
     S.zone = 'fav';
     if (fi >= 0) S.fav = fi;
   }
-  // OK on a Home tile: a tap launches when OK is released, a hold of 450 ms opens the menu (see heldCode below).
+  // OK on a Home tile: a tap launches when OK is released, a hold of 450 ms opens the menu (see the held-key rule below).
   var okTimer = null, okPending = false, okArmed = false, okEl = null;
   function okPress() {
     okPending = true; okArmed = false; okEl = focused;
@@ -894,9 +900,9 @@
     // (ut.tr, clockMist) and how much its frost needs veiling; the capsules darken by those amounts to keep text readable.
     stage.style.setProperty('--tint-tl', (0.36 + (w.frostVeil || 0.12) * 0.5 + (w.clockMist ? 0.12 : 0)).toFixed(3));
     stage.style.setProperty('--tint-tr', ({ light: 0.34, mist: 0.5, dark: 0.62 }[w.ut && w.ut.tr] || 0.4) + (w.tone === 'light' ? 0.04 : 0));
-    stage.style.setProperty('--dock-tint', (0.20 + (w.frostVeil || 0.12) * 0.5).toFixed(3));
-    // A bright online photo also darkens the panels, plates and shades over it; bundled photos keep their tints.
+    // A bright online photo also darkens the dock, panels, plates and shades over it; bundled photos keep their tints.
     lift = w.lift || 0;
+    stage.style.setProperty('--dock-tint', (0.20 + (w.frostVeil || 0.12) * 0.5 + lift).toFixed(3));
     stage.style.setProperty('--panel-tint', (0.56 + lift).toFixed(3));
     stage.style.setProperty('--menu-tint', (0.58 + lift).toFixed(3));
     stage.style.setProperty('--veil', (0.42 + lift).toFixed(3));
@@ -940,12 +946,12 @@
   // for the frost. Made at half size, which the blur hides, once for each new photo and again after a restart.
   // done(null, true) means this TV can't do it at all (no canvas filters, or the photo can't be read back).
   function makeGlass(img, done) {
-    var w = 960, h = 540, pad = 48, out = {}, left = 3, r = cover(img, w, h), padded, pc, x, y;
+    var w = 960, h = 540, pad = 48, out = {}, left = 3, r = cover(img, w, h), never = false, padded, pc, x, y;
     function canvas(cw, ch) { var c = document.createElement('canvas'); c.width = cw; c.height = ch; return c; }
     try {
       padded = canvas(w + 2 * pad, h + 2 * pad);
       pc = padded.getContext('2d');
-      if (!('filter' in pc)) throw new Error('No canvas filters');
+      if (!('filter' in pc)) { never = true; throw new Error('No canvas filters'); }
       for (y = -1; y <= 1; y++) for (x = -1; x <= 1; x++) {
         pc.setTransform(x ? -1 : 1, 0, 0, y ? -1 : 1, pad + (x === 1 ? 2 * w : 0), pad + (y === 1 ? 2 * h : 0));
         pc.drawImage(img, r[0], r[1], r[2], r[3], 0, 0, w, h);
@@ -960,7 +966,7 @@
           if (out.clear && out.blur && out.frost) done(out); else { retiredGlass.push(out); sweepGlass(); done(null, false); }
         }, 'image/jpeg', 0.86);
       });
-    } catch (e) { done(null, true); }
+    } catch (e) { done(null, never || e.name === 'SecurityError'); }
   }
   // Glass made for an earlier daily photo is released once nothing shows it.
   function sweepGlass() {
@@ -1096,7 +1102,7 @@
   }
   function updateWeather() {
     var zip = S.weather.zip, now = Date.now();
-    if (wxBusy || !zip || now < wxRetry || (S.wx && !H.isStale(S.wx.at, now, H.WEATHER_MAX_AGE))) return;
+    if (wxBusy || !zip || zip === zipMissing || now < wxRetry || (S.wx && !H.isStale(S.wx.at, now, H.WEATHER_MAX_AGE))) return;
     wxBusy = true;
     function finish(ok) {
       wxBusy = false;
@@ -1197,6 +1203,7 @@
     if (slid || shownKey !== homePhoto().key) showHome();
     slid = false;
     armIdle();
+    refreshLater();
   }
 
   // ---------- Sounds ----------
@@ -1244,34 +1251,35 @@
   // OK and Back act once per press, and so does any key that wakes Home or meets the HDMI view. Like CleanFrame's
   // held-key map, a held key's repeats are ignored whether or not the TV flags them, until key-up, window blur or
   // leaving the app, or 800 ms after the key's last event if no key-up arrives. Releasing OK resolves a tap.
-  var heldCode = 0, heldTimer = null;
+  var held = {}, fieldActed = 0;
   function hold(code) {
-    heldCode = code;
-    clearTimeout(heldTimer);
-    heldTimer = setTimeout(release, 800);
+    clearTimeout(held[code]);
+    held[code] = setTimeout(function () { release(code); }, 800);
   }
-  function release() {
-    var ok = KEYS[heldCode] === 'ok';
-    heldCode = 0;
-    clearTimeout(heldTimer);
-    if (ok) okRelease();
+  function release(code) {
+    if (!held[code]) return;
+    clearTimeout(held[code]);
+    delete held[code];
+    if (KEYS[code] === 'ok') okRelease();
   }
   function letGo() {
-    heldCode = 0;
-    clearTimeout(heldTimer);
+    Object.keys(held).forEach(function (code) { clearTimeout(held[code]); });
+    held = {};
     okCancel();
   }
   document.addEventListener('keydown', function (e) {
     var k = KEYS[e.keyCode], was = focused, digit = e.keyCode >= 96 && e.keyCode <= 105 ? e.keyCode - 96 : e.keyCode >= 48 && e.keyCode <= 57 ? e.keyCode - 48 : -1;
-    if (e.keyCode === heldCode) { e.preventDefault(); hold(e.keyCode); return; }
+    if (held[e.keyCode]) { e.preventDefault(); hold(e.keyCode); return; }
     if (S.ambient || tvWindowOn) {
       e.preventDefault();
       hold(e.keyCode);
       if (S.ambient) exitAmbient(); else if (k === 'back') tvHideSource();
       return;
     }
+    // The TV's keyboard may follow Done or Cancel with Enter or Back for the same press; that second key is ignored.
+    if ((k === 'ok' || (k === 'back' && e.keyCode !== 8)) && Date.now() - fieldActed < 100) { e.preventDefault(); return; }
     if (document.activeElement && document.activeElement.classList.contains('p-field')) {
-      if (k === 'ok' || (k === 'back' && e.keyCode !== 8)) { e.preventDefault(); hold(e.keyCode); act(k); }
+      if (k === 'ok' || (k === 'back' && e.keyCode !== 8)) { e.preventDefault(); hold(e.keyCode); fieldActed = Date.now(); act(k); }
       return;
     }
     /* preview */if (e.keyCode === KEY_HINTS) { $('hints').classList.toggle('is-off'); return; }/* /preview */
@@ -1292,7 +1300,7 @@
     act(k);
     if (k !== 'ok' && focused !== was) sound(k);
   });
-  document.addEventListener('keyup', function (e) { if (e.keyCode === heldCode) release(); });
+  document.addEventListener('keyup', function (e) { release(e.keyCode); });
   window.addEventListener('blur', letGo);
   /* preview */
   var quietPress = false;
@@ -1397,7 +1405,7 @@
   // TV's name and icon (HomeLogic.tvApp). The list is read at start and again whenever Home comes back to the
   // front, so apps installed meanwhile join the library; a failed read retries every 10 seconds. Until a read
   // succeeds, the sample apps hold Home's place and save() keeps the owner's Favorites and Hidden as they were.
-  var BRANDS = APPS, appsFromTv = !window.tizen, savedLists = null, appsKey = '', appsBusy = false, appsTimer = null;
+  var BRANDS = APPS, appsFromTv = !window.tizen, savedLists = null, appsKey = '', appsBusy = false, appsTimer = null, appsPending = false;
   function onTv() { return !!(window.tizen && window.tizen.application && window.FrameDevice); }
   function readApps(done) {
     appsBusy = true;
@@ -1413,9 +1421,9 @@
   function refreshApps() {
     if (!onTv() || appsBusy || !S.favIds.length) return;
     readApps(function (list, key) {
-      var keep = appsFromTv ? lists() : savedLists, next;
+      var keep = appsFromTv ? ownerLists() : savedLists, next;
       if (!list || key === appsKey) return;
-      if (S.ambient || S.zone === 'apps' || S.zone === 'menu') { appsTimer = setTimeout(refreshApps, 10000); return; } // Not mid-edit.
+      if (busyWithApps()) { appsPending = true; return; } // Applied when that ends (refreshLater).
       APPS = list;
       appsKey = key;
       appsFromTv = true;
@@ -1428,6 +1436,13 @@
       if (S.zone === 'lib') S.zone = 'fav'; // Its rows may have changed.
       render();
     });
+  }
+  // Not while the screensaver runs, apps are being edited, or OK is held on a tile (its row would be rebuilt).
+  function busyWithApps() { return S.ambient || okPending || S.zone === 'apps' || S.zone === 'menu'; }
+  function refreshLater() {
+    if (!appsPending || busyWithApps()) return;
+    appsPending = false;
+    refreshApps();
   }
   function start() {
     if (!onTv()) { begin(); return; }

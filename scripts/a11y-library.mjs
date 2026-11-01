@@ -328,7 +328,8 @@ try {
   for (const screen of SCREENS) {
     if (process.env.A11Y_SCREEN && !screen.name.toLowerCase().includes(process.env.A11Y_SCREEN.toLowerCase())) continue;
     console.log('\n## ' + screen.name);
-    const launcher = await openLauncher(browser, preview.base, { reducedMotion: 'reduce' });
+    // One fixture photo as the daily photo, so every run measures the same backgrounds.
+    const launcher = await openLauncher(browser, preview.base, { reducedMotion: 'reduce', photoIds: ['1001'] });
     const { page } = launcher;
     try {
       // The preview's key hints sit outside the TV stage. Reduced motion still runs 1 ms transitions on every

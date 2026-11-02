@@ -246,6 +246,7 @@ try {
     await hold(page);
     let s = await snapshot(page);
     check('Holding OK on a favourite opens its menu instead of launching', has(s, 'is-menu') && s.menu.title === 'Plex' && same(s.launches, []), [s.menu, s.launches]);
+    check('The dock app\'s name hides while its menu is open (its tile drops back under the menu)', s.focusName === '' || !(await page.evaluate(() => document.getElementById('focusName').classList.contains('is-on'))), s.focusName);
     check('Favourite menu offers Open, Move, Remove from Favorites, Hide', same(s.menu.rows, ['Open', 'Move', 'Remove from Favorites', 'Hide']), s.menu.rows);
     check('The menu opens with Open focused', focusIs(s, 'menu', 0) && s.f.label === 'Open', s.f);
     await page.waitForTimeout(300); // The menu settles at full size.

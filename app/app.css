@@ -111,10 +111,12 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .t-face .rim{stroke:rgba(255,255,255,.16)}
 .tile.is-focus{transform:scale(1.18);z-index:1}
 .tile.is-focus::before,.tile.is-focus .t-sheen{opacity:1}
-/* A focused dock app lifts past the dock's top edge over a dark drop shadow; its name shows inside the dock. */
-.fav-tiles .tile::before{transition:opacity var(--focus-t) linear,transform var(--focus-t) var(--glide)}
+/* A focused dock app lifts past the dock's top edge over a drop shadow; its name shows inside the dock. The dock's
+   shadow blob is compact (it ends just below the tile, above the name) and keeps its shape whether shown or not, so
+   only its opacity and offset animate. */
+.fav-tiles .tile::before{left:-3%;right:-3%;top:22%;bottom:-6%;background:radial-gradient(closest-side,rgba(0,0,0,.5),rgba(0,0,0,.22) 60%,rgba(0,0,0,0));transition:opacity var(--focus-t) linear,transform var(--focus-t) var(--glide)}
 .fav-tiles .tile.is-focus{transform:translate3d(0,-45px,0) scale(1.14)}
-.fav-tiles .tile.is-focus::before{left:-4%;right:-4%;background:radial-gradient(closest-side,rgba(0,0,0,.9),rgba(0,0,0,.6) 50%,rgba(0,0,0,0));transform:translate3d(0,36px,0) scale(1.04,1.05)}
+.fav-tiles .tile.is-focus::before{transform:translate3d(0,8px,0)}
 /* Move on Home: the carried app stays on top; an app crossing between dock and library travels above the rest. */
 .tile.is-travel{z-index:2;transition-duration:var(--scroll-t)}
 .is-moving .tile.is-focus{z-index:3}

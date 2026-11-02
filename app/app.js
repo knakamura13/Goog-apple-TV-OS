@@ -333,7 +333,8 @@
   function layoutZone() { return S.zone === 'menu' ? S.menuFrom : S.zone === 'move' ? S.mv.c.sec : S.zone; }
   // The focused app's name: inside the dock under a lifted favourite, or under a library tile.
   function label() {
-    var z = layoutZone(), dock = z === 'fav', on = dock || z === 'lib', a, x;
+    // Not while the hold-OK menu is open over a favourite: that tile drops back, and its name would sit on it.
+    var z = layoutZone(), dock = z === 'fav' && S.zone !== 'menu', on = dock || z === 'lib', a, x;
     toggle(focusName, 'is-on', on);
     if (!on) return;
     a = dock ? FAVS[S.fav] : ROWS[S.lr][S.lc];

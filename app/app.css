@@ -306,7 +306,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .is-ambient .amb-clock,.is-ambient .amb-caption{transform:translate3d(0,0,0);transition:transform 1600ms cubic-bezier(.2,.8,.2,1) 500ms}
 
 /* preview */
-/* ---------- Prototype-only key hints, outside the TV stage ---------- */
+/* ---------- Preview-only key hints, outside the TV stage ---------- */
 .hints{position:fixed;left:50%;top:8px;z-index:10;transform:translateX(-50%);padding:7px 16px;border-radius:999px;background:rgba(0,0,0,.70);color:#d6d6d2;font:500 13px/18px Manrope,Arial,sans-serif;white-space:nowrap}
 .hints b{color:#fff;font-weight:700}
 .hints.is-off{display:none}

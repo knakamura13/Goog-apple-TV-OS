@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { APP, PHOTOS, SAMSUNG_HOME, SAMSUNG_SETTINGS, hold, launchBrowser, openLauncher, press, repo, settled, snapshot, startPreview, startStatic } from './harness.mjs';
+import { APP, PHOTOS, SAMSUNG_HOME, SAMSUNG_SETTINGS, STORE, hold, launchBrowser, openLauncher, press, repo, settled, snapshot, startPreview, startStatic } from './harness.mjs';
 
 // First run with the stand-in TV: the first six installed apps from the owners' list are favourites, the rest of
 // that list fills the library (A–Z) and every other installed app starts hidden.
@@ -790,7 +790,7 @@ try {
     await afterCallbacks(page);
     s = await snapshot(page);
     check('A stand-in app launches nothing and says why', same(s.launches, []) && /still reading the TV’s apps/.test(s.toast), [s.launches, s.toast]);
-    await page.waitForFunction(() => !!JSON.parse(localStorage.getItem('library-prototype.v1') || '{}').wx, null, { timeout: 5000 }).catch(() => {});
+    await page.waitForFunction(key => !!JSON.parse(localStorage.getItem(key) || '{}').wx, STORE, { timeout: 5000 }).catch(() => {});
     s = await snapshot(page);
     check('A save meanwhile keeps the owner\'s Favorites and Hidden as they were', !!s.saved?.wx && same(s.saved?.fav, ['netflix', 'plex']) && same(s.saved?.hid, ['ZmmGjO6VKO.slingtv']), s.saved);
     await page.clock.fastForward(10000);

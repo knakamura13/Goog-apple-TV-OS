@@ -30,7 +30,7 @@ certificate-password.txt
 *.pdb
 *.exe
 
-# Proprietary fonts are injected from .local/ at preview/package time.
+# Proprietary fonts stay in .local/ and never enter the source tree.
 /app/assets/private-fonts/
 PP*.ttf
 PP*.otf

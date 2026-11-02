@@ -5,12 +5,12 @@
 // Each section starts from a fresh profile. Never contacts a TV or the internet.
 //
 // Prints PASS / FAIL per assertion and exits 1 on any failure, page error or unexpected resource failure.
-// LIBRARY_SECTION=<text> runs only the sections whose names contain <text>.
+// E2E_SECTION=<text> runs only the sections whose names contain <text>.
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { APP, PHOTOS, SAMSUNG_HOME, SAMSUNG_SETTINGS, hold, launchBrowser, openLauncher, press, repo, settled, snapshot, startPreview, startStatic } from './library-harness.mjs';
+import { APP, PHOTOS, SAMSUNG_HOME, SAMSUNG_SETTINGS, hold, launchBrowser, openLauncher, press, repo, settled, snapshot, startPreview, startStatic } from './harness.mjs';
 
 // First run with the stand-in TV: the first six installed apps from the owners' list are favourites, the rest of
 // that list fills the library (A–Z) and every other installed app starts hidden.
@@ -36,7 +36,7 @@ const has = (s, cls) => s.classes.includes(cls);
 let preview, browser;
 // Each section gets its own profile and fails on any page error or resource failure it caused.
 async function section(name, options, body) {
-  if (process.env.LIBRARY_SECTION && !name.toLowerCase().includes(process.env.LIBRARY_SECTION.toLowerCase())) return;
+  if (process.env.E2E_SECTION && !name.toLowerCase().includes(process.env.E2E_SECTION.toLowerCase())) return;
   console.log('\n## ' + name);
   let launcher;
   try {
@@ -851,7 +851,7 @@ try {
   const buildDir = mkdtempSync(join(tmpdir(), 'home-build-'));
   let built;
   try {
-    execFileSync('python3', ['scripts/build-demo.py', '--out', buildDir], { cwd: repo, stdio: 'pipe' });
+    execFileSync('python3', ['scripts/build.py', '--out', buildDir], { cwd: repo, stdio: 'pipe' });
     built = await startStatic(buildDir);
     await section('The built package', { base: built.base, path: '/index.html' }, async (launcher, page) => {
       let s = await snapshot(page);

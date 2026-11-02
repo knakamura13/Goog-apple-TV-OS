@@ -1,5 +1,5 @@
 // Unit tests for Home's pure logic (app/logic.js), loaded in a plain sandbox exactly as the TV
-// loads it. HOME_LOGIC_FILE points the tests at another copy; scripts/mutate-library.mjs uses that.
+// loads it. HOME_LOGIC_FILE points the tests at another copy; scripts/mutate-logic.mjs uses that.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

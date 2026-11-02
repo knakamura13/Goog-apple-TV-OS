@@ -20,7 +20,7 @@
 // contrast failure whatever the photo, or a page error. Unmeasurable labels and photo-dependent contrast are
 // warnings, listed again at the end.
 import { inflateSync } from 'node:zlib';
-import { hold, launchBrowser, openLauncher, press, settled, startPreview } from './library-harness.mjs';
+import { hold, launchBrowser, openLauncher, press, settled, startPreview } from './harness.mjs';
 
 const NORMAL = 4.5, LARGE = 3;
 const isLarge = (size, weight) => size >= 32 || (size >= 24 && weight >= 700);

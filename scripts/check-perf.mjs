@@ -9,12 +9,12 @@
 // frame before the key until WINDOW_MS after the last key; a gap over 20 ms is a missed frame at 60 Hz.
 // Prints PASS / FAIL against the budgets below and exits 1 if any budget is exceeded.
 import { cpus } from 'node:os';
-import { launchBrowser, openLauncher, press, startPreview } from './library-harness.mjs';
+import { launchBrowser, openLauncher, press, startPreview } from './harness.mjs';
 
 const THROTTLE = 6, ROUNDS = 3, WINDOW_MS = 800, SLOW_MS = 20;
 
 // Baseline, 31 October 2026: Apple M3 Max, Playwright's Chromium headless shell (build 1243), five runs, one of them
-// beside two concurrent check-library runs, with a load average of 7–9 from other work. Frames arrive on the 60 Hz
+// beside two concurrent check-e2e runs, with a load average of 7–9 from other work. Frames arrive on the 60 Hz
 // clock, so gaps come in whole frames: 16.7 ms is on time and 33.4 ms is one missed frame.
 //
 //   interaction                median  worst  gaps >20 ms per round
@@ -120,7 +120,7 @@ try {
   if (preview) await preview.stop();
 }
 
-console.log('Library Home frame gaps in Chromium, CPU throttled ' + THROTTLE + '×, ' + ROUNDS + ' rounds of each interaction, ' + WINDOW_MS + ' ms windows.');
+console.log('Home frame gaps in Chromium, CPU throttled ' + THROTTLE + '×, ' + ROUNDS + ' rounds of each interaction, ' + WINDOW_MS + ' ms windows.');
 console.log('Measured on ' + cpus()[0].model + '. Regression guard only: the TV\'s GPU is the real target, and this does not measure it.\n');
 console.log('interaction                  frames  median   worst  >' + SLOW_MS + 'ms  long tasks');
 for (const [name, rounds] of Object.entries(results)) {

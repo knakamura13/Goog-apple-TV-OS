@@ -1,8 +1,8 @@
-"""Assemble Home, the launcher, as a self-contained, unsigned Tizen web app in dist/library-demo/.
+"""Assemble Home, the launcher, as a self-contained, unsigned Tizen web app in dist/home/.
 
 The browser preview serves Home from app/ at /home/, with assets under /home/assets/. The TV loads files
 from inside the widget, so this copies only the assets Home uses and rewrites those paths to be relative.
-Sign the result with the official SDK, for example: tizen package -t wgt -s <profile> -- dist/library-demo
+Sign a copy of the result with the official SDK, for example: tizen package -t wgt -s <profile> -o dist -- <copy of dist/home>
 """
 import argparse
 import json
@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / 'app'
 ASSETS = APP / 'assets'
-OUT = ROOT / 'dist/library-demo'
+OUT = ROOT / 'dist/home'
 MATERIALS = ('field-clear', 'field-blur', 'field-frost')
 # Code between preview markers serves only the browser preview: key hints, keyboard shortcuts, mouse clicks.
 PREVIEW = re.compile(r'<!-- preview -->.*?<!-- /preview -->|/\* preview \*/.*?/\* /preview \*/', re.S)
@@ -76,7 +76,7 @@ def build(out):
     size = sum(path.stat().st_size for path in out.rglob('*') if path.is_file())
     commit = subprocess.run(['git', 'describe', '--always', '--dirty'], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
     info = {'commit': commit, 'date': datetime.now().strftime('%b %-d, %-I:%M %p'), 'size': f'{size / 1e6:.1f} MB'}
-    (out / 'build-info.js').write_text('window.LibraryBuild = ' + json.dumps(info) + ';\n')
+    (out / 'build-info.js').write_text('window.HomeBuild = ' + json.dumps(info) + ';\n')
     count = sum(1 for path in out.rglob('*') if path.is_file())
     rel = out.relative_to(ROOT) if ROOT in out.parents else out
     print(f'Built {rel}: {count} files, {size / 1e6:.1f} MB')
@@ -84,5 +84,5 @@ def build(out):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument('--out', type=Path, default=OUT, help='Output folder (default: dist/library-demo)')
+    parser.add_argument('--out', type=Path, default=OUT, help='Output folder (default: dist/home)')
     build(parser.parse_args().out.resolve())

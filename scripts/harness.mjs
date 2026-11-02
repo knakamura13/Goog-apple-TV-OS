@@ -1,4 +1,4 @@
-// Development only. Shared setup for Home's checks (scripts/*-library.mjs).
+// Development only. Shared setup for Home's browser checks (scripts/check-e2e.mjs, check-a11y.mjs, check-perf.mjs).
 // Serves app/ (at /home/) from the loopback preview, drives Playwright's Chromium and installs a stand-in for the
 // TV's public Tizen API before the page loads, so the launcher runs its TV code paths. The weather and photo
 // services are answered from fixtures (or fail, to check offline behaviour), so no check reaches the internet.
@@ -146,7 +146,7 @@ export async function startPreview() {
   }
 }
 
-// Serves a built package (a folder such as dist/library-demo) on loopback, to check what the TV runs.
+// Serves a built package (a folder such as dist/home) on loopback, to check what the TV runs.
 export async function startStatic(dir) {
   const server = spawn('python3', ['-u', '-m', 'http.server', '0', '--bind', '127.0.0.1', '--directory', dir], { stdio: ['ignore', 'pipe', 'pipe'] });
   process.once('exit', () => server.kill());

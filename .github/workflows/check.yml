@@ -27,5 +27,5 @@ jobs:
       - run: npm run check:tools
       - run: npm run check:public
       - run: npx playwright install --with-deps chromium-headless-shell
-      - run: npm run check:library
-      - run: npm run check:library-a11y
+      - run: npm run check:e2e
+      - run: npm run check:a11y

@@ -8,7 +8,7 @@
   var ASSETS = '/home/assets/', ICONS = ASSETS + 'icons/';
   // 65376 and 65385 are Done and Cancel on the TV's on-screen keyboard.
   var KEYS = { 37: 'left', 38: 'up', 39: 'right', 40: 'down', 13: 'ok', 27: 'back', 8: 'back', 10009: 'back', 461: 'back', 65376: 'ok', 65385: 'back' };
-  // Code between preview markers is for the browser preview only; scripts/build-demo.py strips it from the TV build.
+  // Code between preview markers is for the browser preview only; scripts/build.py strips it from the TV build.
   /* preview */var KEY_AMBIENT = 65, KEY_HINTS = 72;/* /preview */
 
   // Stage geometry in 1920 x 1080 pixels, proportioned after the tvOS Home screen.
@@ -78,8 +78,8 @@
     { label: 'Samsung Home', kind: 'link', ok: samsungHome },
     { label: 'About', kind: 'page', ok: function () { tvReadAbout(); pushPage('about'); } }
   ];
-  // Build details come from scripts/build-demo.py; TV details are read each time About opens.
-  var BUILD = window.LibraryBuild || null, about = { model: '', firmware: '', tizen: '', storage: '' };
+  // Build details come from scripts/build.py; TV details are read each time About opens.
+  var BUILD = window.HomeBuild || null, about = { model: '', firmware: '', tizen: '', storage: '' };
   // Rows that open a Samsung screen show an outward arrow; rows that open a screen of ours show a chevron.
   var LINK_ICON = '<svg class="ico p-link" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>';
   var CHEVRON = '<svg class="ico p-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';

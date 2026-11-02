@@ -1,5 +1,5 @@
 // Mutation testing for Home's pure logic: changes app/logic.js one operator at a time and runs
-// scripts/test-library.mjs against each copy. A mutant the tests still pass is a fault they would miss.
+// scripts/test-logic.mjs against each copy. A mutant the tests still pass is a fault they would miss.
 // Mutants that no longer compile are skipped, so syntax errors never count as caught faults.
 import { spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -45,7 +45,7 @@ function run(m, i) {
   const file = join(dir, 'mutant-' + i + '.js');
   writeFileSync(file, m.text);
   return new Promise(resolve => {
-    const child = spawn(process.execPath, ['--test', join(root, 'scripts/test-library.mjs')], { env: { ...process.env, HOME_LOGIC_FILE: file }, stdio: 'ignore' });
+    const child = spawn(process.execPath, ['--test', join(root, 'scripts/test-logic.mjs')], { env: { ...process.env, HOME_LOGIC_FILE: file }, stdio: 'ignore' });
     child.on('exit', code => resolve({ ...m, caught: code !== 0 }));
   });
 }

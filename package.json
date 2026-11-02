@@ -5,7 +5,7 @@
   "description": "Home, a personal launcher for a Samsung Tizen TV.",
   "scripts": {
     "dev": "python3 scripts/preview.py",
-    "check": "npm run lint && python3 scripts/check.py && npm run check:device && npm run test:library",
+    "check": "npm run lint && python3 scripts/check.py && npm run check:device && npm run test:unit",
     "tv:info": "python3 scripts/tv.py info",
     "tv:install": "python3 scripts/tv.py install",
     "tv:launch": "python3 scripts/tv.py launch",
@@ -13,13 +13,13 @@
     "check:tools": "python3 -B scripts/test-tools.py",
     "lint": "eslint app",
     "check:device": "node --test scripts/test-device.mjs",
-    "check:library": "node scripts/check-library.mjs",
-    "check:library-perf": "node scripts/perf-library.mjs",
-    "check:library-a11y": "node scripts/a11y-library.mjs",
-    "build:demo": "python3 scripts/build-demo.py",
-    "test:library": "node --test scripts/test-library.mjs",
-    "check:mutation": "node scripts/mutate-library.mjs",
-    "check:home": "npm run test:library && npm run check:mutation && npm run check:library && npm run check:library-a11y && npm run check:library-perf"
+    "check:e2e": "node scripts/check-e2e.mjs",
+    "check:perf": "node scripts/check-perf.mjs",
+    "check:a11y": "node scripts/check-a11y.mjs",
+    "build": "python3 scripts/build.py",
+    "test:unit": "node --test scripts/test-logic.mjs",
+    "check:mutation": "node scripts/mutate-logic.mjs",
+    "check:all": "npm run test:unit && npm run check:mutation && npm run check:e2e && npm run check:a11y && npm run check:perf"
   },
   "devDependencies": {
     "eslint": "10.13.0",

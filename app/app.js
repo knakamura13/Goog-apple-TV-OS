@@ -54,7 +54,7 @@
   // The owners' apps in their order. A first run makes the first six installed ones favorites and hides every other app. Settings › Apps changes both.
   var OWNER_APPS = ['plex', 'youtube', 'netflix', 'appletv', 'hulu', 'primevideo', 'hbomax', 'spotify',
     'HEPsqFNie0.tvplusstandalone', 'alexa', 'smartthings'];
-  var FAV_MAX = 6, STORE = 'library-prototype.v1';
+  var FAV_MAX = 6, STORE = 'home.v1', OLD_STORE = 'library-prototype.v1'; // Builds up to V1 saved under OLD_STORE.
   // HDMI ports. Names and visibility are the owner's choices; each port counts as connected until the TV reports.
   var INPUT_DEFAULTS = [{ port: 'HDMI 1', show: true }, { port: 'HDMI 2', show: true }, { port: 'HDMI 3', show: true }, { port: 'HDMI 4', show: false }];
   var SOURCE_APP = 'org.tizen.SMSourceAPP'; // Samsung's source list, for sources Home doesn't show (USB, antenna).
@@ -221,6 +221,7 @@
   var SAVE_VERSION = 1;
   function load() {
     var d, lists, old;
+    try { H.moveSave(window.localStorage, OLD_STORE, STORE); } catch (e) { /* Storage full or blocked: read what is there. */ }
     try { d = JSON.parse(window.localStorage.getItem(STORE) || 'null'); } catch (e) { d = null; }
     if (!d || typeof d !== 'object') d = null;
     savedLists = d && { fav: d.fav, hid: d.hid };

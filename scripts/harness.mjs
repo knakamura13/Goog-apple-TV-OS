@@ -13,7 +13,8 @@ import { fileURLToPath } from 'node:url';
 export const repo = fileURLToPath(new URL('../', import.meta.url));
 const { chromium } = createRequire(join(repo, 'package.json'))('playwright');
 
-export const STORE = 'library-prototype.v1';
+export const STORE = 'home.v1';
+export const OLD_STORE = 'library-prototype.v1'; // The key builds up to V1 saved under; Home moves it to STORE.
 export const SELF_ID = 'Zm209bQNEk.Home';
 
 // What the owners' TV reports from tizen.application.getAppsInfo, with the TV's own names (Plex's carries a
@@ -175,8 +176,8 @@ export function launchBrowser() {
 // reload sees what the launcher itself saved. `clock` installs Playwright's fake clock before navigation.
 // `offline` makes every request to the online services fail, as on a TV without internet. `requests` lists the
 // online requests the page made, in order. `appsFail` fails the first app-list reads, `photoIds` picks which
-// fixture photos Picsum's list offers, and `path` opens another page (a built package's index.html).
-export async function openLauncher(browser, base, { seed, clock, offline = false, appsFail = 0, photoIds, path = '/home/', reducedMotion = 'no-preference' } = {}) {
+// fixture photos Picsum's list offers, `seedKey` writes the seed under another key, and `path` opens another page (a built package's index.html).
+export async function openLauncher(browser, base, { seed, seedKey = STORE, clock, offline = false, appsFail = 0, photoIds, path = '/home/', reducedMotion = 'no-preference' } = {}) {
   const listed = photoIds ? ALL_PHOTOS.filter(photo => photoIds.includes(photo.id)) : PHOTOS;
   const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1, reducedMotion });
   const page = await context.newPage();
@@ -198,7 +199,7 @@ export async function openLauncher(browser, base, { seed, clock, offline = false
       if (sessionStorage.getItem('__seeded')) return;
       localStorage.setItem(key, value);
       sessionStorage.setItem('__seeded', '1');
-    }, [STORE, JSON.stringify(seed)]);
+    }, [seedKey, JSON.stringify(seed)]);
   }
   if (clock) await page.clock.install({ time: clock });
   await page.goto(base + path);

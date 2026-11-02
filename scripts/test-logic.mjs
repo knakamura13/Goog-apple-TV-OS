@@ -299,3 +299,48 @@ test('picker index maps Daily photo first, then bundled photos', () => {
   assert.deepEqual(plain(L.pickerTarget(1)), { daily: false, wall: 0 });
   assert.deepEqual(plain(L.pickerTarget(6)), { daily: false, wall: 5 });
 });
+
+// A stand-in for localStorage: getItem returns null for a missing key, as the browser does.
+function storage(entries, failSet = false) {
+  const map = new Map(Object.entries(entries));
+  return {
+    map,
+    getItem: key => (map.has(key) ? map.get(key) : null),
+    setItem: (key, value) => { if (failSet) throw new Error('QuotaExceededError'); map.set(key, String(value)); },
+    removeItem: key => { map.delete(key); }
+  };
+}
+
+test('moveSave copies an old save to the new key once, then removes the old key', () => {
+  const s = storage({ old: '{"fav":["plex"]}' });
+  assert.equal(L.moveSave(s, 'old', 'new'), true);
+  assert.deepEqual([...s.map.entries()], [['new', '{"fav":["plex"]}']]);
+  assert.equal(L.moveSave(s, 'old', 'new'), false);
+  assert.deepEqual([...s.map.entries()], [['new', '{"fav":["plex"]}']]);
+});
+
+test('moveSave never overwrites a save under the new key, and leaves the old key alone then', () => {
+  const s = storage({ old: 'old save', new: 'new save' });
+  assert.equal(L.moveSave(s, 'old', 'new'), false);
+  assert.equal(s.getItem('new'), 'new save');
+  assert.equal(s.getItem('old'), 'old save');
+});
+
+test('moveSave keeps an empty-string save under the new key', () => {
+  const s = storage({ old: 'old save', new: '' });
+  assert.equal(L.moveSave(s, 'old', 'new'), false);
+  assert.equal(s.getItem('new'), '');
+});
+
+test('moveSave does nothing without an old save', () => {
+  const s = storage({});
+  assert.equal(L.moveSave(s, 'old', 'new'), false);
+  assert.equal(s.map.size, 0);
+});
+
+test('moveSave keeps the old save if the copy cannot be stored', () => {
+  const s = storage({ old: 'old save' }, true);
+  assert.throws(() => L.moveSave(s, 'old', 'new'));
+  assert.equal(s.getItem('old'), 'old save');
+  assert.equal(s.getItem('new'), null);
+});

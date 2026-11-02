@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { APP, PHOTOS, SAMSUNG_HOME, SAMSUNG_SETTINGS, STORE, hold, launchBrowser, openLauncher, press, repo, settled, snapshot, startPreview, startStatic } from './harness.mjs';
+import { APP, PHOTOS, SAMSUNG_HOME, SAMSUNG_SETTINGS, STORE, OLD_STORE, hold, launchBrowser, openLauncher, press, repo, settled, snapshot, startPreview, startStatic } from './harness.mjs';
 
 // First run with the stand-in TV: the first six installed apps from the owners' list are favourites, the rest of
 // that list fills the library (A–Z) and every other installed app starts hidden.
@@ -793,6 +793,13 @@ try {
     await press(page, 'Enter');
     const s = await snapshot(page);
     check('Names the owner typed are kept, even ones that match the old samples', same(s.inputs.slice(0, 2), ['PlayStation 5', 'Mac mini']), s.inputs);
+  });
+
+  await section('A save under the old key', { seed: { version: 1, fav: ['netflix', 'plex'], hid: ['disneyplus'], wall: 4 }, seedKey: OLD_STORE }, async (launcher, page) => {
+    const s = await snapshot(page);
+    const keys = await page.evaluate(([to, from]) => [localStorage.getItem(to) !== null, localStorage.getItem(from)], [STORE, OLD_STORE]);
+    check('Favorites saved under the old key are kept', same(s.fav.slice(0, 2), ['netflix', 'plex']), s.fav);
+    check('The save moves to the new key and the old key is removed', keys[0] === true && keys[1] === null && same(s.saved?.fav?.slice(0, 2), ['netflix', 'plex']), [keys, s.saved?.fav]);
   });
 
   await section('The TV\'s app list fails at first', { appsFail: 1, clock: new Date('2026-10-31T12:00:00'), seed: { version: 1, fav: ['netflix', 'plex'], hid: ['ZmmGjO6VKO.slingtv'] } }, async (launcher, page) => {

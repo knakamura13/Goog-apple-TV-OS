@@ -186,5 +186,17 @@
   L.pickerIndex = function (daily, wall) { return daily ? 0 : wall + 1; };
   L.pickerTarget = function (p) { return p === 0 ? { daily: true } : { daily: false, wall: p - 1 }; };
 
+  // Saved choices moved from an earlier key to a new one: copied once, when the new key has nothing yet, and the old
+  // key removed only after the copy is stored. Returns true when it moved a save.
+  L.moveSave = function (storage, from, to) {
+    var old;
+    if (storage.getItem(to) !== null) return false;
+    old = storage.getItem(from);
+    if (old === null) return false;
+    storage.setItem(to, old);
+    storage.removeItem(from);
+    return true;
+  };
+
   root.HomeLogic = L;
 }(typeof window !== 'undefined' ? window : this));

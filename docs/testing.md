@@ -30,7 +30,7 @@ npm run check:all
 - `check:mutation`: changes `logic.js` one operator at a time; the unit tests must catch at least 90% of the changes (`scripts/mutate-logic.mjs`).
 - `check:e2e`: every screen driven with remote keys, including hold-OK editing, inputs, weather, the daily photo, the screensaver slideshow, offline behaviour, saves from earlier builds and a run from the built files (`scripts/check-e2e.mjs`; `E2E_SECTION=<text>` runs matching sections only).
 - `check:a11y`: visible focus and WCAG AA text contrast on every screen; contrast that depends on the photo is a warning (`scripts/check-a11y.mjs`; `A11Y_SCREEN=<text>`, `A11Y_VERBOSE=1`).
-- `check:perf`: frame gaps for the main moves with the CPU throttled 6×, a regression guard rather than a TV benchmark (`scripts/check-perf.mjs`). Its budgets are sensitive to load on this machine.
+- `check:perf`: frame gaps for the main moves with the CPU throttled 6×, a regression guard rather than a TV benchmark (`scripts/check-perf.mjs`). Its budgets are sensitive to load on this machine: on 1 November 2026 three idle runs met every budget on both main and this layout, while runs beside other browser work exceeded 3–9 budgets on either. It is therefore not part of CI.
 
 The shared setup is `scripts/harness.mjs`. The GitHub workflow runs `check`, `check:tools`, `check:public`, `check:e2e` and `check:a11y`.
 

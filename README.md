@@ -49,7 +49,7 @@ npm run tv:install
 
 [Development](docs/development.md) covers the TV setup, signing and install in detail; [testing](docs/testing.md) covers the browser checks (`npm run check:all`). The design spec is [docs/home-redesign.md](docs/home-redesign.md).
 
-An optional helper makes Home the TV's native Home and startup app; see [docs/native-home-s90d.md](docs/native-home-s90d.md).
+An optional, reversible helper makes the remote's Home button open Home (a cold power-on still shows Samsung Home); see [docs/native-home-s90d.md](docs/native-home-s90d.md).
 
 ## Licence and credits
 

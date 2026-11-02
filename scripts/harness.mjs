@@ -101,7 +101,7 @@ const ALL_PHOTOS = [
   { id: '1002', author: 'Ben Frame', width: 4000, height: 2250, file: 'ridge' },
   { id: '1003', author: 'Cy Shutter', width: 6000, height: 4000, file: 'peaks' },
   { id: '1004', author: 'Dee Tall', width: 3000, height: 4500, file: 'misty' },
-  { id: '1005', author: 'Eve Night', width: 6000, height: 4000, file: 'summit' }
+  { id: '1005', author: 'Eve Night', width: 6000, height: 4000, file: 'night' }
 ];
 export const PHOTOS = ALL_PHOTOS.filter(photo => photo.id !== '1005');
 const CORS = { 'Access-Control-Allow-Origin': '*' };

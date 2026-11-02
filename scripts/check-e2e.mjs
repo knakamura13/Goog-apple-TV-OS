@@ -515,12 +515,12 @@ try {
     await openRow(page, 'Wallpaper');
     s = await snapshot(page);
     const names = await page.evaluate(() => window.CleanFrameWallpapers.map(w => w.name));
-    check('A first run uses the daily photo, and the picker opens on it', has(s, 'is-picker') && start === 'Daily photo' && s.picker.focused === 0 && s.picker.applied === 0 && s.picker.title === 'Daily photo', [start, s.picker]);
+    check('A first run uses Random photo, and the picker opens on it', has(s, 'is-picker') && start === 'Random photo' && s.picker.focused === 0 && s.picker.applied === 0 && s.picker.title === 'Random photo', [start, s.picker]);
     await press(page, 'ArrowRight');
     s = await snapshot(page);
     check('Right moves to the first bundled photo', s.picker.focused === 1 && s.picker.title === names[0], s.picker);
     await press(page, 'ArrowLeft');
-    check('Left moves back to Daily photo', (await snapshot(page)).picker.focused === 0);
+    check('Left moves back to Random photo', (await snapshot(page)).picker.focused === 0);
     await press(page, 'ArrowDown', 3);
     s = await snapshot(page);
     check('Down moves a row at a time (to ' + names[5] + ')', s.picker.focused === 6 && s.picker.title === names[5], s.picker);
@@ -529,7 +529,7 @@ try {
     await press(page, 'Enter');
     await page.waitForFunction(() => document.querySelector('#pkGrid > .pk-item.is-applied')?.getAttribute('data-i') === '6', null, { timeout: 5000 }).catch(() => {});
     s = await snapshot(page);
-    check('OK applies the photo (check mark moves to it) and saves it', s.picker.applied === 6 && s.saved?.daily === false && s.saved?.wall === 5, [s.picker, s.saved?.daily, s.saved?.wall]);
+    check('OK applies the photo (check mark moves to it) and saves it', s.picker.applied === 6 && s.saved?.daily === false && s.saved?.wall === 'peaks', [s.picker, s.saved?.daily, s.saved?.wall]);
     await press(page, 'ArrowRight');
     await photoMatches(page, /\/bridge\.jpg$/);
     await press(page, 'Escape');
@@ -540,69 +540,77 @@ try {
     await page.reload();
     await photoMatches(page, /\/peaks\.jpg$/).catch(() => {});
     s = await snapshot(page);
-    check('The applied wallpaper persists across a reload', /\/peaks\.jpg$/.test(s.photo) && s.saved?.wall === 5, { photo: s.photo, saved: s.saved?.wall });
+    check('The applied wallpaper persists across a reload, saved by its id', /\/peaks\.jpg$/.test(s.photo) && s.saved?.wall === 'peaks', { photo: s.photo, saved: s.saved?.wall });
   });
 
-  await section('Daily photo', {}, async (launcher, page) => {
+  await section('Random photo', {}, async (launcher, page) => {
     await photoMatches(page, ONLINE_PHOTO);
     let s = await snapshot(page);
     const id = onlineId(s.photo);
     check('A first run shows an online photo (a landscape one)', !!id, s.photo);
     check('Its glass is made in the page: softened, blurred and frosted copies', same(s.glass, DAILY_GLASS), s.glass);
     check('Its caption credits the photographer', s.caption.credit === 'Photo by ' + author(id) + ' on Unsplash' && s.caption.title === '', s.caption);
-    check('Today\'s pick is saved', s.saved?.daily === true && s.saved?.photo?.id === id && /^\d{4}-\d\d-\d\d$/.test(s.saved?.photo?.day), s.saved?.photo);
+    check('The pick is saved', s.saved?.daily === true && s.saved?.photo?.id === id, s.saved?.photo);
     check('One list page was asked for', launcher.requests.filter(url => /v2\/list/.test(url)).length === 1, launcher.requests);
     const tints = await page.evaluate(() => ['--tint-tl', '--tint-tr', '--dock-tint'].map(name => getComputedStyle(document.getElementById('stage')).getPropertyValue(name).trim()));
     check('The measured look sets the capsule tints', tints.every(value => /^0\.\d+$/.test(value)), tints);
     launcher.requests.length = 0;
     await page.reload();
     await photoMatches(page, new RegExp('/id/' + id + '/'));
-    check('The same day keeps the same photo after a restart, without asking the list again', !launcher.requests.some(url => /v2\/list/.test(url)), launcher.requests);
+    check('A restart keeps the same photo, without asking the list again', !launcher.requests.some(url => /v2\/list/.test(url)), launcher.requests);
 
     await openSettings(page);
     await openRow(page, 'Wallpaper');
     s = await snapshot(page);
-    check('The Daily photo tile shows today\'s photo', s.picker.dailyThumb === s.photo, [s.picker.dailyThumb, s.photo]);
-    check('Its caption credits the photographer and says it changes daily', s.picker.credit === 'Photo by ' + author(id) + ' on Unsplash · a new one each day', s.picker.credit);
+    check('The Random photo tile shows the current photo', s.picker.dailyThumb === s.photo, [s.picker.dailyThumb, s.photo]);
+    check('Its caption credits the photographer and says how often it changes', s.picker.credit === 'Photo by ' + author(id) + ' on Unsplash · a new one every minute', s.picker.credit);
     await press(page, 'ArrowRight');
     await press(page, 'Enter');
     await photoMatches(page, /wallpapers\/[a-z]+\.jpg$/);
     s = await snapshot(page);
-    check('Choosing a bundled photo replaces the daily one, glass included', s.glass.every(entry => /materials\//.test(entry)) && s.saved?.daily === false, [s.glass, s.saved?.daily]);
+    check('Choosing a bundled photo replaces the random one, glass included', s.glass.every(entry => /materials\//.test(entry)) && s.saved?.daily === false, [s.glass, s.saved?.daily]);
     await page.waitForTimeout(1100); // The 900 ms glass cross-fade, with margin.
     s = await snapshot(page);
     check('Once the photo has faded in, the old glass is gone and the new glass is decoded', s.ghosts.length === 0 && s.brokenGlass.length === 0, [s.ghosts, s.brokenGlass]);
+    launcher.requests.length = 0;
     await press(page, 'ArrowLeft');
     await press(page, 'Enter');
-    await photoMatches(page, new RegExp('/id/' + id + '/'));
+    await page.waitForFunction(old => { const src = document.querySelector('.bg-photo.is-front')?.getAttribute('src') || ''; return /picsum/.test(src) && !src.includes('/id/' + old + '/'); }, id, { timeout: 8000 }).catch(() => {});
     s = await snapshot(page);
-    check('Choosing Daily photo again brings back today\'s photo and its glass', s.saved?.daily === true && same(s.glass, DAILY_GLASS), [s.saved?.daily, s.glass]);
+    check('Choosing Random photo again loads a new photo, with its own glass', onlineId(s.photo) && onlineId(s.photo) !== id && s.saved?.daily === true && s.saved?.photo?.id === onlineId(s.photo) && same(s.glass, DAILY_GLASS) && launcher.requests.some(url => /v2\/list/.test(url)), [id, s.photo, s.saved?.photo, s.glass]);
     await page.waitForTimeout(1100);
     s = await snapshot(page);
-    check('After the fade the daily glass still shows: its object URLs were not revoked', s.ghosts.length === 0 && s.brokenGlass.length === 0 && same(s.glass, DAILY_GLASS), [s.ghosts, s.brokenGlass, s.glass]);
+    check('After the fade the random photo\'s glass still shows: its object URLs were not revoked', s.ghosts.length === 0 && s.brokenGlass.length === 0 && same(s.glass, DAILY_GLASS), [s.ghosts, s.brokenGlass, s.glass]);
     await press(page, 'Escape');
     await settled(page);
-    check('The Wallpaper row says Daily photo', rowValue(await snapshot(page), 'Wallpaper') === 'Daily photo');
+    check('The Wallpaper row says Random photo', rowValue(await snapshot(page), 'Wallpaper') === 'Random photo');
   });
 
-  await section('Daily photo: a new one after midnight', { clock: new Date('2026-10-31T23:58:00') }, async (launcher, page) => {
+  await section('Random photo: a new one every screensaver delay', { clock: new Date('2026-10-31T12:00:00') }, async (launcher, page) => {
     await photoMatches(page, ONLINE_PHOTO);
-    const before = await snapshot(page), id = onlineId(before.photo);
-    check('Before midnight the pick is for October 31', before.saved?.photo?.day === '2026-10-31', before.saved?.photo);
-    await page.clock.fastForward(61000); // The screensaver starts at 23:59.
-    await page.clock.fastForward(2 * 60 * 1000);
-    await page.clock.fastForward(6000); // The clock checks every 5 s.
+    const id = onlineId((await snapshot(page)).photo);
+    await page.clock.fastForward(40000);
+    await press(page, 'ArrowRight'); // Activity keeps the screensaver away.
+    await page.clock.fastForward(15000);
     await page.waitForTimeout(300);
-    let after = await snapshot(page);
-    check('Past midnight no new daily photo is picked while the screensaver runs', has(after, 'is-ambient') && after.saved?.photo?.day === '2026-10-31', [after.classes, after.saved?.photo]);
-    await press(page, 'ArrowDown'); // Wake: Home picks and shows its photo for the new day.
+    let s = await snapshot(page);
+    check('Before the 1-minute delay the photo stays', onlineId(s.photo) === id && !has(s, 'is-ambient'), [s.photo, s.classes]);
+    await page.clock.fastForward(10000); // Past a minute; the clock checks every 5 s.
     await page.waitForFunction(old => { const src = document.querySelector('.bg-photo.is-front')?.getAttribute('src') || ''; return /picsum/.test(src) && !src.includes('/id/' + old + '/'); }, id, { timeout: 8000 }).catch(() => {});
-    after = await snapshot(page);
-    check('After midnight Home shows a different photo, picked for November 1', onlineId(after.photo) && onlineId(after.photo) !== id && after.saved?.photo?.day === '2026-11-01', [before.photo, after.photo, after.saved?.photo]);
-    check('The new photo gets its own glass', same(after.glass, DAILY_GLASS), after.glass);
+    s = await snapshot(page);
+    check('After the screensaver delay Home shows a new random photo, saved, with its own glass', onlineId(s.photo) && onlineId(s.photo) !== id && s.saved?.photo?.id === onlineId(s.photo) && same(s.glass, DAILY_GLASS) && !has(s, 'is-ambient'), [id, s.photo, s.saved?.photo, s.classes]);
   });
 
-  await section('Daily photo: the screensaver slideshow', { clock: new Date('2026-10-31T12:00:00') }, async (launcher, page) => {
+  await section('Random photo: Screensaver Off keeps the photo', { clock: new Date('2026-10-31T12:00:00'), seed: { version: 1, daily: true, amb: 3 } }, async (launcher, page) => {
+    await photoMatches(page, ONLINE_PHOTO);
+    const id = onlineId((await snapshot(page)).photo);
+    await page.clock.fastForward(10 * 60 * 1000);
+    await page.waitForTimeout(500);
+    const s = await snapshot(page);
+    check('With the screensaver Off, the random photo changes only when chosen', onlineId(s.photo) === id && s.saved?.photo?.id === id, [id, s.photo]);
+  });
+
+  await section('Random photo: the screensaver slideshow', { clock: new Date('2026-10-31T12:00:00') }, async (launcher, page) => {
     await photoMatches(page, ONLINE_PHOTO);
     const home = await snapshot(page);
     launcher.requests.length = 0;
@@ -634,12 +642,12 @@ try {
     let s = await snapshot(page);
     check('Without internet a first run shows the bundled photo with its glass', s.glass.every(entry => /materials\/valley-/.test(entry)), s.glass);
     check('Without internet the weather stays hidden (no made-up temperature)', !s.weather.on && s.weather.text === '', s.weather);
-    check('Daily photo stays the setting, to show once the TV is online', s.saved === null || s.saved?.daily !== false, s.saved);
+    check('Random photo stays the setting, to show once the TV is online', s.saved === null || s.saved?.daily !== false, s.saved);
     await openSettings(page);
-    check('The Wallpaper row says Daily photo', rowValue(await snapshot(page), 'Wallpaper') === 'Daily photo');
+    check('The Wallpaper row says Random photo', rowValue(await snapshot(page), 'Wallpaper') === 'Random photo');
     await openRow(page, 'Wallpaper');
     s = await snapshot(page);
-    check('The Daily photo tile has no photo yet and says why', s.picker.dailyThumb === '' && s.picker.credit === 'A new photo each day, once the TV is online', s.picker);
+    check('The Random photo tile has no photo yet and says why', s.picker.dailyThumb === '' && s.picker.credit === 'A random photo, once the TV is online', s.picker);
     await closeSettings(page);
     await page.clock.fastForward(61000);
     await page.clock.fastForward(40000);
@@ -655,19 +663,19 @@ try {
     await photoMatches(page, /\/valley\.jpg$/, 5000);
     await page.waitForTimeout(300);
     const first = launcher.requests.length;
-    check('A first try was made for the weather and the daily photo', launcher.requests.some(url => /zippopotam/.test(url)) && launcher.requests.some(url => /v2\/list/.test(url)), launcher.requests);
+    check('A first try was made for the weather and the random photo', launcher.requests.some(url => /zippopotam/.test(url)) && launcher.requests.some(url => /v2\/list/.test(url)), launcher.requests);
     await page.clock.fastForward(4 * 60 * 1000);
     await page.waitForTimeout(300);
     check('Nothing is tried again within 5 minutes', launcher.requests.length === first, launcher.requests.slice(first));
     await page.clock.fastForward(66 * 1000);
     await page.waitForTimeout(300);
     const later = launcher.requests.slice(first);
-    check('After 5 minutes the weather and the daily photo are tried again', later.some(url => /zippopotam/.test(url)) && later.some(url => /v2\/list/.test(url)), later);
+    check('After 5 minutes the weather and the random photo are tried again', later.some(url => /zippopotam/.test(url)) && later.some(url => /v2\/list/.test(url)), later);
   });
 
   const tints = {};
   for (const [label, ids] of [['bright', ['1003']], ['dark', ['1005']]]) {
-    await section('Daily photo: the tints over a ' + label + ' photo', { photoIds: ids }, async (launcher, page) => {
+    await section('Random photo: the tints over a ' + label + ' photo', { photoIds: ids }, async (launcher, page) => {
       await photoMatches(page, new RegExp('/id/' + ids[0] + '/'));
       tints[label] = await tintsOf(page);
       check('The tints are set from the ' + label + ' photo', Object.values(tints[label]).every(value => value > 0 && value < 1), tints[label]);
@@ -836,6 +844,18 @@ try {
     s = await snapshot(page);
     check('The two sample input names earlier builds saved are cleared; an owner\'s name stays', same(s.inputs.slice(0, 3), ['Connected', 'No device', 'Xbox']), s.inputs);
   });
+
+  for (const [wall, file, label] of [[12, 'amber', 'its V1 index still finds Amber hills'], [10, 'valley', 'a removed photo (Gold Coast dusk) falls back to Mountain valley']]) {
+    await section('A V1 save naming its photo by index: ' + label, { seed: { version: 1, daily: false, wall } }, async (launcher, page) => {
+      await photoMatches(page, new RegExp('/' + file + '\\.jpg$'));
+      const s = await snapshot(page);
+      check('A V1 wallpaper index ' + wall + ' shows ' + file, new RegExp('/' + file + '\\.jpg$').test(s.photo), s.photo);
+      await openSettings(page);
+      await openRow(page, 'Screensaver'); // Any change saves.
+      const saved = (await snapshot(page)).saved;
+      check('The next save names it by id (' + file + ')', saved?.wall === file, saved?.wall);
+    });
+  }
 
   await section('A V1 save', { seed: { version: 1, inputs: [{ name: 'PlayStation 5', show: true }, { name: 'Mac mini', show: true }, { name: '', show: true }, { name: '', show: false }] } }, async (launcher, page) => {
     await press(page, 'ArrowUp');

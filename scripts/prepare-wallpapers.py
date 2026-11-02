@@ -23,14 +23,11 @@ PHOTOS = [
     ('bridge', 'Bridge at dusk', 'justin-wolff-pbp_Ww2cewA-unsplash.jpg', 'Justin Wolff', 'pbp_Ww2cewA', 'dark'),
     ('ridge', 'Sunlit ridges', 'cristina-gottardi-wndpWTiDuT0-unsplash.jpg', 'Cristina Gottardi', 'wndpWTiDuT0', 'dark'),
     ('golden', 'Golden hour', 'big-sur-golden-hour.jpg', 'Karthik Sreenivas', 'tmtkhWbgMu8', 'dark'),
-    ('summit', 'Sunlit summits', 'rudra-gupta-PuTSzJJ-qyU-unsplash.jpg', 'Rudra Gupta', 'PuTSzJJ-qyU', 'dark'),
-    ('goldcoast', 'Gold Coast dusk', 'city-of-gold-coast-YiaGblobOGI-unsplash.jpg', 'City of Gold Coast', 'YiaGblobOGI', 'light'),
-    ('sydney', 'Sydney Harbour', 'caleb-JmuyB_LibRo-unsplash.jpg', 'Caleb', 'JmuyB_LibRo', 'light'),
     ('amber', 'Amber hills', 'chris-barbalis-vazZtmYFgFY-unsplash.jpg', 'Chris Barbalis', 'vazZtmYFgFY', 'light'),
     ('mint', 'Mint wave', 'magicpattern-87PP9Zd7MNo-unsplash.jpg', 'MagicPattern', '87PP9Zd7MNo', 'light'),
     ('alpine', 'Alpine glow', 'cristina-gottardi-CSpjU6hYo_0-unsplash.jpg', 'Cristina Gottardi', 'CSpjU6hYo_0', 'light'),
 ]
-COVER_IDS = {'summit', 'goldcoast', 'sydney', 'amber', 'mint', 'alpine'}
+COVER_IDS = {'amber', 'mint', 'alpine'}
 
 
 def file_hash(path):

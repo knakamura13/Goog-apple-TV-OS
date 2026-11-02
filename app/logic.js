@@ -167,13 +167,14 @@
 
   // ---------- Online photos (Lorem Picsum serves Unsplash photos without a key) ----------
 
-  L.dayKey = function (date) {
-    var m = date.getMonth() + 1, d = date.getDate();
-    return date.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (d < 10 ? '0' : '') + d;
+  // The saved random photo to start on, if the save holds a usable one (saves before v1.2 also carry a day).
+  L.savedPick = function (saved) {
+    return saved && typeof saved === 'object' && typeof saved.id === 'string' && /^\d+$/.test(saved.id) ? { id: saved.id, author: typeof saved.author === 'string' ? saved.author.slice(0, 60) : '' } : null;
   };
-  // Today's daily photo is the saved one while the day matches, so Home keeps one photo all day.
-  L.dailyFor = function (saved, today) {
-    return saved && saved.day === today && typeof saved.id === 'string' && saved.id ? saved : null;
+  // A new random photo is due once the shown one has been up for the screensaver delay; never while that is Off (0),
+  // and not when the screensaver starts (ambientAt) before the clock's next 5 s check: it has its own slideshow.
+  L.randomDue = function (now, shownAt, every, ambientAt) {
+    return every > 0 && shownAt > 0 && now - shownAt >= every && !(ambientAt > 0 && ambientAt - now <= 5000);
   };
   L.photoUrl = function (id, w, h) { return 'https://picsum.photos/id/' + encodeURIComponent(id) + '/' + w + '/' + h; };
   L.listUrl = function (page) { return 'https://picsum.photos/v2/list?page=' + page + '&limit=30'; };
@@ -216,9 +217,16 @@
     return L.photoLook(region(0, 0, 47, 26), region(37, 1, 45, 2), region(2, 1, 10, 2), region(1, 19, 46, 24));
   };
 
-  // The wallpaper picker lists Daily photo first, then the bundled photos.
-  L.pickerIndex = function (daily, wall) { return daily ? 0 : wall + 1; };
-  L.pickerTarget = function (p) { return p === 0 ? { daily: true } : { daily: false, wall: p - 1 }; };
+  // The wallpaper picker lists Random photo first, then the bundled photos.
+  L.pickerIndex = function (random, wall) { return random ? 0 : wall + 1; };
+  L.pickerTarget = function (p) { return p === 0 ? { random: true } : { random: false, wall: p - 1 }; };
+
+  // The saved bundled photo as an index into the catalogue's ids. Saves from v1.2 on name it by id; earlier saves hold
+  // its index in the V1 catalogue (v1Ids). An unknown or removed photo gives the fallback.
+  L.wallIndex = function (saved, ids, v1Ids, fallback) {
+    var id = typeof saved === 'string' ? saved : L.validIndex(saved, v1Ids.length) ? v1Ids[saved] : '', i = ids.indexOf(id);
+    return i >= 0 ? i : fallback;
+  };
 
   // The screensaver's next drift point: the chosen point, or the point that far along the way at most max px from where
   // the text is now, so a leg of fixed duration never moves faster than max / duration.

@@ -270,19 +270,24 @@ test('weatherIcon maps WMO codes and day/night', () => {
   assert.equal(L.WEATHER_WORDS.storm, 'Thunderstorm');
 });
 
-test('dayKey zero-pads the local date', () => {
-  assert.equal(L.dayKey(new Date(2026, 0, 5)), '2026-01-05');
-  assert.equal(L.dayKey(new Date(2026, 10, 30)), '2026-11-30');
-  assert.equal(L.dayKey(new Date(2026, 9, 10)), '2026-10-10');
-  assert.equal(L.dayKey(new Date(2026, 8, 9)), '2026-09-09');
+test('savedPick keeps a usable saved photo, whatever day a V1 save gave it', () => {
+  assert.deepEqual(plain(L.savedPick({ day: '2026-10-31', id: '1015', author: 'A' })), { id: '1015', author: 'A' });
+  assert.deepEqual(plain(L.savedPick({ id: '7' })), { id: '7', author: '' });
+  assert.equal(L.savedPick({ id: '7', author: 'B'.repeat(70) }).author.length, 60);
+  for (const bad of [null, 5, 'x', { id: '' }, { id: 12 }, { id: 'a1' }]) assert.equal(L.savedPick(bad), null, JSON.stringify(bad));
 });
 
-test('dailyFor keeps today\'s photo only', () => {
-  const saved = { day: '2026-10-31', id: '1015', author: 'A' };
-  assert.equal(L.dailyFor(saved, '2026-10-31'), saved);
-  assert.equal(L.dailyFor(saved, '2026-11-01'), null);
-  assert.equal(L.dailyFor({ day: '2026-10-31', id: '' }, '2026-10-31'), null);
-  assert.equal(L.dailyFor(null, '2026-10-31'), null);
+test('randomDue: a new random photo after the screensaver delay, never while it is Off or nothing has shown', () => {
+  assert.equal(L.randomDue(160000, 100000, 60000, 0), true);
+  assert.equal(L.randomDue(159999, 100000, 60000, 0), false);
+  assert.equal(L.randomDue(999999, 100000, 0, 0), false);
+  assert.equal(L.randomDue(999999, 0, 60000, 0), false);
+});
+
+test('randomDue: not when the screensaver starts before the next 5 s check', () => {
+  assert.equal(L.randomDue(160000, 100000, 60000, 165000), false);
+  assert.equal(L.randomDue(160000, 100000, 60000, 165001), true);
+  assert.equal(L.randomDue(160000, 100000, 60000, 158000), false); // Already due: it is starting.
 });
 
 test('photo URLs and credits', () => {
@@ -348,13 +353,23 @@ test('pickPhoto picks a random landscape photo other than the one showing', () =
   assert.equal(L.PHOTO_PAGES, 33);
 });
 
-test('picker index maps Daily photo first, then bundled photos', () => {
+test('picker index maps Random photo first, then bundled photos', () => {
   assert.equal(L.pickerIndex(true, 5), 0);
   assert.equal(L.pickerIndex(false, 0), 1);
   assert.equal(L.pickerIndex(false, 4), 5);
-  assert.deepEqual(plain(L.pickerTarget(0)), { daily: true });
-  assert.deepEqual(plain(L.pickerTarget(1)), { daily: false, wall: 0 });
-  assert.deepEqual(plain(L.pickerTarget(6)), { daily: false, wall: 5 });
+  assert.deepEqual(plain(L.pickerTarget(0)), { random: true });
+  assert.deepEqual(plain(L.pickerTarget(1)), { random: false, wall: 0 });
+  assert.deepEqual(plain(L.pickerTarget(6)), { random: false, wall: 5 });
+});
+
+test('wallIndex reads a saved photo by id, or by its place in the V1 catalogue', () => {
+  const ids = ['misty', 'valley', 'amber'], v1 = ['misty', 'valley', 'summit', 'amber'];
+  assert.equal(L.wallIndex('amber', ids, v1, 1), 2);
+  assert.equal(L.wallIndex(3, ids, v1, 1), 2); // V1 index 3 was Amber hills.
+  assert.equal(L.wallIndex(0, ids, v1, 1), 0);
+  assert.equal(L.wallIndex(2, ids, v1, 1), 1); // A removed photo falls back.
+  assert.equal(L.wallIndex('summit', ids, v1, 1), 1);
+  for (const bad of [4, -1, 1.5, null, undefined, '', 'nope']) assert.equal(L.wallIndex(bad, ids, v1, 1), 1, String(bad));
 });
 
 // A stand-in for localStorage: getItem returns null for a missing key, as the browser does.

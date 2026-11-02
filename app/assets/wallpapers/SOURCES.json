@@ -90,36 +90,6 @@
     "source": "https://unsplash.com/photos/tmtkhWbgMu8"
   },
   {
-    "id": "summit",
-    "name": "Sunlit summits",
-    "src": "assets/wallpapers/summit.jpg",
-    "thumb": "assets/wallpapers/summit-thumb.jpg",
-    "pos": "50% 50%",
-    "tone": "dark",
-    "credit": "Rudra Gupta",
-    "source": "https://unsplash.com/photos/PuTSzJJ-qyU"
-  },
-  {
-    "id": "goldcoast",
-    "name": "Gold Coast dusk",
-    "src": "assets/wallpapers/goldcoast.jpg",
-    "thumb": "assets/wallpapers/goldcoast-thumb.jpg",
-    "pos": "50% 50%",
-    "tone": "light",
-    "credit": "City of Gold Coast",
-    "source": "https://unsplash.com/photos/YiaGblobOGI"
-  },
-  {
-    "id": "sydney",
-    "name": "Sydney Harbour",
-    "src": "assets/wallpapers/sydney.jpg",
-    "thumb": "assets/wallpapers/sydney-thumb.jpg",
-    "pos": "50% 50%",
-    "tone": "light",
-    "credit": "Caleb",
-    "source": "https://unsplash.com/photos/JmuyB_LibRo"
-  },
-  {
     "id": "amber",
     "name": "Amber hills",
     "src": "assets/wallpapers/amber.jpg",

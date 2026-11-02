@@ -64,14 +64,16 @@
   var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   var WALLS = window.CleanFrameWallpapers || [];
+  // The V1 catalogue's order: saves before v1.2 name their bundled photo by its index in it (HomeLogic.wallIndex).
+  var V1_WALLS = ['misty', 'cove', 'forest', 'valley', 'night', 'peaks', 'bridge', 'ridge', 'golden', 'summit', 'goldcoast', 'sydney', 'amber', 'mint', 'alpine'];
   var FAVS = [], ROWS = [], INS = []; // Home's favourites, library rows and input tiles, rebuilt from the owner's choices.
 
-  var S = { tab: 0, zone: 'fav', nav: 0, fav: 0, lr: 0, lc: 0, inp: 0, panel: 0, dialog: 0, glassTiles: false, wall: 0, ambWall: 0, daily: true, dailyPick: null, amb: 0, ambient: false, scroll: 0,
+  var S = { tab: 0, zone: 'fav', nav: 0, fav: 0, lr: 0, lc: 0, inp: 0, panel: 0, dialog: 0, glassTiles: false, wall: 0, ambWall: 0, random: true, randomPick: null, amb: 0, ambient: false, scroll: 0,
     favIds: [], hiddenIds: [], libOrder: [], mv: null, lastId: '', ed: null, menu: null, menuFrom: 'fav', pages: [], panelFrom: 'gear', paging: false, pageEntered: false, queued: [],
     weather: { zip: '92626', units: 'F' }, place: null, wx: null, zip: [], zipAt: 0, inputAt: 0, // Default location: Costa Mesa, CA (where the TV is).
     inputs: INPUT_DEFAULTS.map(function (p) { return { port: p.port, name: '', show: p.show, connected: true }; }) };
   var SETTINGS = [
-    { label: 'Wallpaper', kind: 'screen', value: function () { return S.daily ? 'Daily photo' : WALLS[S.wall] ? WALLS[S.wall].name : ''; }, ok: openPicker },
+    { label: 'Wallpaper', kind: 'screen', value: function () { return S.random ? 'Random photo' : WALLS[S.wall] ? WALLS[S.wall].name : ''; }, ok: openPicker },
     { label: 'Apps', kind: 'screen', value: function () { return S.favIds.length + (S.favIds.length === 1 ? ' favorite' : ' favorites'); }, ok: openEditor },
     { label: 'Weather', kind: 'page', value: function () { return S.weather.zip ? S.weather.zip + ' · °' + S.weather.units : 'Set location'; }, ok: function () { pushPage('weather'); } },
     { label: 'Screensaver', value: function () { return AMBIENT[S.amb].name; }, ok: function () { S.amb = (S.amb + 1) % AMBIENT.length; save(); armIdle(); } },
@@ -99,7 +101,7 @@
   var editorEl = $('editor'), edPage = $('edPage'), edTiles = $('edTiles'), edStyle = $('edStyle'), edHint = $('edHint');
   var edFavLabel = $('edFavLabel'), edLibLabel = $('edLibLabel'), edHidLabel = $('edHidLabel'), edEmpty = $('edEmpty'), edFavBox = $('edFavBox'), edSlots = {};
   var pills, panelRows = $('panelRows').children, dialogBtns, tileRim = '', thumbRim = '', tilePath = '', ringSvg = '', focused = null, lastZone = null, credits = {}, statusWidth = 0;
-  var idleTimer = null, driftTimer = null, rotateTimer = null, toastTimer = null, statusAt = 0;
+  var idleTimer = null, ambientAt = 0, driftTimer = null, rotateTimer = null, toastTimer = null, statusAt = 0;
   var tvSources = {}, tvWindowOn = false; // On the TV only: real HDMI sources by port name, and whether one is showing.
 
   function $(id) { return document.getElementById(id); }
@@ -243,9 +245,10 @@
     old = d.version !== SAVE_VERSION;
     S.glassTiles = !!d.glass;
     if (typeof d.last === 'string') S.lastId = d.last;
-    if (H.validIndex(d.wall, WALLS.length)) S.wall = d.wall;
-    S.daily = d.daily === true; // Builds before the daily photo saved only a bundled choice, which stands.
-    S.dailyPick = d.photo && typeof d.photo === 'object' ? d.photo : null;
+    S.wall = H.wallIndex(d.wall, WALLS.map(function (w) { return w.id; }), V1_WALLS, S.wall);
+    // `daily` and `photo` keep their V1 names in the save: Random photo was Daily photo until v1.2.
+    S.random = d.daily === true; // Builds before the daily photo saved only a bundled choice, which stands.
+    S.randomPick = H.savedPick(d.photo);
     if (H.validIndex(d.amb, AMBIENT.length)) S.amb = d.amb;
     if (d.weather && typeof d.weather === 'object') S.weather = { zip: typeof d.weather.zip === 'string' && /^\d{5}$/.test(d.weather.zip) ? d.weather.zip : S.weather.zip, units: d.weather.units === 'C' ? 'C' : 'F' };
     S.place = H.savedPlace(d.place, S.weather.zip);
@@ -267,7 +270,7 @@
   function save() {
     var inputs = S.inputs.map(function (inp) { return { name: inp.name, show: inp.show }; });
     savedLists = appsFromTv ? ownerLists() : savedLists || { fav: null, hid: null, lib: null };
-    try { window.localStorage.setItem(STORE, JSON.stringify({ version: SAVE_VERSION, fav: savedLists.fav, hid: savedLists.hid, lib: savedLists.lib, last: S.lastId, wall: S.wall, daily: S.daily, photo: S.dailyPick, amb: S.amb, glass: S.glassTiles, weather: S.weather, place: S.place, wx: S.wx, inputs: inputs })); } catch (e) { /* Home still works without saved choices. */ }
+    try { window.localStorage.setItem(STORE, JSON.stringify({ version: SAVE_VERSION, fav: savedLists.fav, hid: savedLists.hid, lib: savedLists.lib, last: S.lastId, wall: WALLS[S.wall].id, daily: S.random, photo: S.randomPick, amb: S.amb, glass: S.glassTiles, weather: S.weather, place: S.place, wx: S.wx, inputs: inputs })); } catch (e) { /* Home still works without saved choices. */ }
   }
   function inputLabel(inp) { return inp.name || (inp.connected ? 'Connected' : 'No device'); }
   function buildInputs() {
@@ -747,22 +750,22 @@
 
   // ---------- Wallpaper picker ----------
 
-  // Daily photo comes first, then the bundled photos. Focus resting on a photo previews it full screen after a short
+  // Random photo comes first, then the bundled photos. Focus resting on a photo previews it full screen after a short
   // pause, so fast browsing never loads every photo. OK applies it; Back returns to Home's photo.
   var CHECK_ICON = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
   var PHOTO_ICON = '<svg class="ico pk-none" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="15.5" cy="9.5" r="1.5"/></svg>';
-  function pickerPhoto(n) { var t = H.pickerTarget(n); return t.daily ? dailyPhoto : bundled(t.wall); }
+  function pickerPhoto(n) { var t = H.pickerTarget(n); return t.random ? randomPhoto : bundled(t.wall); }
   function openPicker() {
     if (!pkGrid.firstChild) {
-      pkGrid.innerHTML = [{ name: 'Daily photo' }].concat(WALLS).map(function (w, n) {
+      pkGrid.innerHTML = [{ name: 'Random photo' }].concat(WALLS).map(function (w, n) {
         return '<div class="pk-item" data-z="pk" data-i="' + n + '" style="transform:translate3d(' + (PK_LEFT + (n % 2) * (THUMB_W + PK_GAP)) + 'px,' + (PK_TOP + Math.floor(n / 2) * PK_ROW) + 'px,0)">'
           + '<div class="pk-thumb"><div class="pk-face squircle">' + (n ? '' : PHOTO_ICON) + '<img alt=""' + (n ? ' src="' + ASSETS + 'wallpapers/' + w.id + '-thumb.jpg"' : '') + '><div class="t-sheen"></div>' + thumbRim + '</div>'
           + '<span class="pk-check">' + CHECK_ICON + '</span></div><div class="pk-name"><span>' + esc(w.name) + '</span></div></div>';
       }).join('');
     }
-    S.pk = { i: H.pickerIndex(S.daily, S.wall), scroll: 0, first: true };
+    S.pk = { i: H.pickerIndex(S.random, S.wall), scroll: 0, first: true };
     S.zone = 'wallpaper';
-    updateDaily(); // So the Daily photo tile can show today's photo.
+    updateRandom(false); // So the Random photo tile can show the current photo.
   }
   function closePicker() {
     clearTimeout(previewTimer);
@@ -772,15 +775,15 @@
   }
   function renderPicker() {
     var items = pkGrid.children, n = S.pk.i, p = pickerPhoto(n), lastFirst = Math.max(0, Math.ceil(items.length / 2) - 2), thumb = items[0].querySelector('img'), i;
-    for (i = 0; i < items.length; i++) toggle(items[i], 'is-applied', i === H.pickerIndex(S.daily, S.wall));
-    if (dailyPhoto && thumb.getAttribute('src') !== dailyPhoto.src) thumb.src = dailyPhoto.src;
-    toggle(items[0], 'is-none', !dailyPhoto);
+    for (i = 0; i < items.length; i++) toggle(items[i], 'is-applied', i === H.pickerIndex(S.random, S.wall));
+    if (randomPhoto && thumb.getAttribute('src') !== randomPhoto.src) thumb.src = randomPhoto.src;
+    toggle(items[0], 'is-none', !randomPhoto);
     S.pk.scroll = -clamp(Math.floor(n / 2) - 1, 0, lastFirst) * PK_ROW;
     toggle(pickerEl, 'is-instant', S.pk.first);
     pkGrid.style.transform = 'translate3d(0,' + S.pk.scroll + 'px,0)';
     if (S.pk.first) { void pickerEl.offsetWidth; pickerEl.classList.remove('is-instant'); S.pk.first = false; }
-    pkTitle.textContent = n ? p.title : 'Daily photo';
-    pkCredit.textContent = n ? p.credit : dailyPhoto ? dailyPhoto.credit + ' · a new one each day' : dailyRetry === Infinity ? 'This TV can’t make the daily photo’s glass' : 'A new photo each day, once the TV is online';
+    pkTitle.textContent = n ? p.title : 'Random photo';
+    pkCredit.textContent = n ? p.credit : randomPhoto ? randomPhoto.credit + ' · ' + randomEvery() : randomRetry === Infinity ? 'This TV can’t make the random photo’s glass' : 'A random photo, once the TV is online';
     clearTimeout(previewTimer);
     if (p && shownKey !== p.key) previewTimer = setTimeout(function () { showPhoto(p); }, 260);
   }
@@ -794,10 +797,11 @@
     else if (k === 'ok') {
       clearTimeout(previewTimer);
       t = H.pickerTarget(i);
-      S.daily = t.daily;
-      if (!t.daily) S.wall = t.wall;
+      S.random = t.random;
+      if (!t.random) S.wall = t.wall;
       save();
       showHome();
+      if (t.random && randomRetry !== Infinity) { randomRetry = 0; updateRandom(true); } // A new photo each time it's chosen, now.
     }
     else if (k === 'back') closePicker();
   }
@@ -922,11 +926,11 @@
 
   // ---------- Photos ----------
 
-  // Home shows a bundled photo with its prepared glass materials, or the daily photo: a new Unsplash photo each day
-  // from Lorem Picsum (no key needed), whose glass is made on the TV. The screensaver's slideshow shows more online
+  // Home shows a bundled photo with its prepared glass materials, or the random photo: an Unsplash photo from Lorem
+  // Picsum (no key needed), whose glass is made on the TV. The screensaver's slideshow shows more online
   // photos (the bundled ones when offline) and changes only the background and caption, never Home's choice or glass.
   // Home writes no image files; the web engine's cache keeps recently loaded photos and evicts them by itself.
-  var shownKey = '', photoToken = 0, dailyPhoto = null, dailyBusy = false, dailyRetry = 0, appliedGlass = null, retiredGlass = [];
+  var shownKey = '', photoToken = 0, randomPhoto = null, randomBusy = false, randomRetry = 0, randomAt = 0, appliedGlass = null, retiredGlass = [];
   var slides = [], nextSlide = null, slideId = '', slid = false, onlineSlides = 0;
   // Samsung's screensaver covers ours after a minute or two while ours keeps running, so each screensaver session
   // loads at most this many online photos and then shows the bundled ones.
@@ -957,7 +961,7 @@
     return { key: 'wall:' + w.id, src: ASSETS + 'wallpapers/' + w.id + '.jpg', title: w.name, credit: credits[w.id] ? 'Photographed by ' + credits[w.id] : '',
       look: w, glass: { clear: base + '-field-clear.jpg', blur: base + '-field-blur.jpg', frost: base + '-field-frost.jpg' } };
   }
-  function homePhoto() { return S.daily && dailyPhoto ? dailyPhoto : bundled(S.wall); }
+  function homePhoto() { return S.random && randomPhoto ? randomPhoto : bundled(S.wall); }
   function photoClasses(w) {
     var keep = [], i, lift;
     for (i = 0; i < stage.classList.length; i++) if (stage.classList[i].indexOf('tone-') !== 0) keep.push(stage.classList[i]);
@@ -1063,7 +1067,7 @@
       });
     } catch (e) { done(null, never || e.name === 'SecurityError'); }
   }
-  // Glass made for an earlier daily photo is released once nothing shows it.
+  // Glass made for an earlier random photo is released once nothing shows it.
   function sweepGlass() {
     if (glassFadeTimer) return; // The fading copies may still show retired glass; the fade's end sweeps.
     retiredGlass = retiredGlass.filter(function (g) {
@@ -1083,15 +1087,17 @@
       return H.lookOf(cx.getImageData(0, 0, H.LOOK_W, H.LOOK_H).data);
     } catch (e) { return H.photoLook(0.5, 0.5, 0.5, 0.5); }
   }
-  // Today's photo is picked once a day from a random page of Picsum's list, then loaded and given its glass.
-  // A failure retries in 5 minutes, and never on a TV that can't make the glass; meanwhile Home keeps the bundled photo.
-  function updateDaily() {
-    var today = H.dayKey(new Date()), pick = H.dailyFor(S.dailyPick, today);
-    if ((dailyPhoto && pick && dailyPhoto.id === pick.id) || dailyBusy || Date.now() < dailyRetry) return;
-    dailyBusy = true;
+  // The random photo comes from a random page of Picsum's list and is given its glass. Home starts on the saved one
+  // (usually in the cache); `fresh` asks for a new one: each time Random photo is chosen, and once the shown one has
+  // been up for the screensaver delay (randomEvery). A failure retries in 5 minutes, and never on a TV that can't make
+  // the glass; meanwhile Home keeps the photo it has.
+  function updateRandom(fresh) {
+    var pick = S.randomPick;
+    if (randomBusy || Date.now() < randomRetry || (!fresh && randomPhoto && pick && randomPhoto.id === pick.id)) return;
+    randomBusy = true;
     function fail(never) {
-      dailyBusy = false;
-      dailyRetry = never ? Infinity : Date.now() + 5 * 60 * 1000;
+      randomBusy = false;
+      randomRetry = never ? Infinity : Date.now() + 5 * 60 * 1000;
       if (!shownKey) showHome(); // Starting offline: show the bundled photo at once.
     }
     function load(p) {
@@ -1100,22 +1106,28 @@
         if (!img) { fail(); return; }
         makeGlass(img, function (glass, never) {
           if (!glass) { fail(never); return; }
-          if (dailyPhoto) retiredGlass.push(dailyPhoto.glass);
-          dailyPhoto = { key: 'daily:' + p.id, id: p.id, src: src, title: '', credit: H.credit(p.author), look: measureLook(img), glass: glass };
-          dailyBusy = false;
+          if (randomPhoto) retiredGlass.push(randomPhoto.glass);
+          randomPhoto = { key: 'random:' + p.id, id: p.id, src: src, title: '', credit: H.credit(p.author), look: measureLook(img), glass: glass };
+          randomBusy = false;
+          randomAt = Date.now();
           sweepGlass();
-          if (S.zone === 'wallpaper') render(); else if (S.daily && !S.ambient) showHome();
+          if (S.zone === 'wallpaper') render(); else if (S.random && !S.ambient) showHome();
         });
       });
     }
-    if (pick) { load(pick); return; }
+    if (pick && !fresh) { load(pick); return; }
     getJson(H.listUrl(1 + Math.floor(Math.random() * H.PHOTO_PAGES)), function (list) {
-      var p = H.pickPhoto(list, Math.random, S.dailyPick ? S.dailyPick.id : '');
+      var p = H.pickPhoto(list, Math.random, S.randomPick ? S.randomPick.id : '');
       if (!p) { fail(); return; }
-      S.dailyPick = { day: today, id: p.id, author: p.author };
+      S.randomPick = p;
       save();
-      load(S.dailyPick);
+      load(S.randomPick);
     });
+  }
+  // How often the random photo changes: with the screensaver delay, for now (Settings › Screensaver; Off keeps it).
+  function randomEvery() {
+    var min = AMBIENT[S.amb].ms / 60000;
+    return !min ? 'a new one each time you choose it' : min === 1 ? 'a new one every minute' : 'a new one every ' + min + ' minutes';
   }
   // The screensaver loads its next online photo ahead, so each change shows at once; offline, the bundled photos show.
   function prepareSlide() {
@@ -1165,7 +1177,7 @@
     ambDate.textContent = DAYS[d.getDay()] + ', ' + MONTHS[d.getMonth()] + ' ' + ordinal(d.getDate());
     updateWeather();
     showWeather();
-    if (S.daily && shownKey && !S.ambient) updateDaily();
+    if (S.random && shownKey && !S.ambient && S.zone !== 'wallpaper') updateRandom(H.randomDue(Date.now(), randomAt, AMBIENT[S.amb].ms, ambientAt));
   }
   // The status capsule changes width with the hour's digits and the weather; its glass must follow its left edge.
   function fitStatus() { if (statusEl.offsetWidth !== statusWidth) { statusWidth = statusEl.offsetWidth; registerGlass(); } }
@@ -1244,7 +1256,8 @@
   // No screensaver while an HDMI port shows, or while a name is typed (the TV's keyboard may keep keys from Home).
   function armIdle() {
     clearTimeout(idleTimer);
-    if (AMBIENT[S.amb].ms && !S.ambient && !tvWindowOn && !renaming()) idleTimer = setTimeout(enterAmbient, AMBIENT[S.amb].ms);
+    ambientAt = 0;
+    if (AMBIENT[S.amb].ms && !S.ambient && !tvWindowOn && !renaming()) { idleTimer = setTimeout(enterAmbient, AMBIENT[S.amb].ms); ambientAt = Date.now() + AMBIENT[S.amb].ms; }
   }
   function renaming() { return S.zone === 'panel' && pageDef().custom === 'rename'; }
   // On this QD-OLED, Samsung's panel-protection screensaver can't be disabled and takes over after a still-ish
@@ -1282,7 +1295,7 @@
     S.ambient = true;
     S.ambWall = S.wall;
     onlineSlides = 0;
-    slideId = dailyPhoto && shownKey === dailyPhoto.key ? dailyPhoto.id : ''; // Not shown twice in a row.
+    slideId = randomPhoto && shownKey === randomPhoto.key ? randomPhoto.id : ''; // Not shown twice in a row.
     clearTimeout(idleTimer);
     render();
     stage.classList.add('is-ambient');
@@ -1309,6 +1322,7 @@
     slides = [];
     if (slid || shownKey !== homePhoto().key) showHome();
     slid = false;
+    if (randomAt) randomAt = Date.now(); // A full delay after waking before the next random photo.
     armIdle();
     refreshLater();
   }
@@ -1567,7 +1581,7 @@
     soundStart();
     for (i = 0; i < WALLS.length; i++) if (WALLS[i].id === want) S.wall = i;
     load(); // The owner's saved choice wins over the default.
-    /* preview */if (forced) S.daily = false;/* /preview */
+    /* preview */if (forced) S.random = false;/* /preview */
     build();
     if (resumeApp()) S.zone = 'resume';
     fit();
@@ -1576,9 +1590,9 @@
     registerGlass();
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { statusWidth = 0; tick(); });
     loadCredits(function () {
-      if (!S.daily) { showHome(); return; }
+      if (!S.random) { showHome(); return; }
       // Today's photo usually comes from the cache in a moment; showing it first avoids a flash of the bundled one.
-      updateDaily();
+      updateRandom(false);
       setTimeout(function () { if (!shownKey) showHome(); }, 2500);
     });
     setInterval(tick, 5000);

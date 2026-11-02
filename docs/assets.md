@@ -4,10 +4,10 @@ The app includes all runtime JPEGs, thumbnails, registered material fields, publ
 
 ## Materials
 
-Home uses fifteen photographs. Each has a background, a thumbnail and three full-stage glass fields (`field-clear`, `field-blur`, `field-frost`), which `scripts/build.py` copies into the TV build. The runtime never generates blur or reads photo pixels. Generate selected materials with:
+Home uses twelve photographs. Each has a background, a thumbnail and three full-stage glass fields (`field-clear`, `field-blur`, `field-frost`), which `scripts/build.py` copies into the TV build. The runtime never generates blur or reads photo pixels. Generate selected materials with:
 
 ```sh
-node scripts/build-materials.mjs summit,goldcoast,sydney,amber,mint,alpine
+node scripts/build-materials.mjs amber,mint,alpine
 ```
 
 Omit the argument to regenerate every catalogue entry. Output goes to ignored `.local/materials/builder/`. Review it, then copy the three JPEGs per photo to `app/assets/materials/`.
@@ -16,7 +16,7 @@ Omit the argument to regenerate every catalogue entry. Output goes to ignored `.
 - `field-frost`: the same registered crop with 42px blur.
 - `field-clear`: 2px blur and saturation 1.06, with no baked veil.
 
-All fields use the centred 1920 x 1080 crop. The six new backgrounds use baseline sRGB JPEG at quality 90 with full chroma; thumbnails use quality 85. Their originals remain unchanged.
+All fields use the centred 1920 x 1080 crop. The three newest backgrounds use baseline sRGB JPEG at quality 90 with full chroma; thumbnails use quality 85. Their originals remain unchanged.
 
 `app/assets/wallpapers/catalog.js` stores names and surface parameters. New photographs need a rendered review of Home's screens over the photo and its three glass fields before their metadata is accepted. An average image colour alone does not establish readable text.
 
@@ -29,10 +29,10 @@ All fields use the centred 1920 x 1080 crop. The six new backgrounds use baselin
 Full-size original photographs are local inputs and are not required for glass regeneration: the bundled 1920px JPEGs are the rendering inputs. To recreate JPEGs/thumbnails from the original supplied filenames on a Mac:
 
 ```sh
-python3 scripts/prepare-wallpapers.py /path/to/originals --ids summit,goldcoast,sydney,amber,mint,alpine
+python3 scripts/prepare-wallpapers.py /path/to/originals --ids amber,mint,alpine
 ```
 
-The retained generator covers all fifteen filenames and writes `.local/materials/wallpapers/`. The original nine keep their macOS `sips` recipe. The new six require Pillow and use the reviewed centred crop and JPEG settings; Pillow is a development dependency only. Supply Golden Hour as `big-sur-golden-hour.jpg` in the originals folder. Install Pillow in a local Python environment when using the six newer photos.
+The retained generator covers all twelve filenames and writes `.local/materials/wallpapers/`. The original nine keep their macOS `sips` recipe. The newest three require Pillow and use the reviewed centred crop and JPEG settings; Pillow is a development dependency only. Supply Golden Hour as `big-sur-golden-hour.jpg` in the originals folder. Install Pillow in a local Python environment when using the three newest photos.
 
 For another photo, add its source/credit to `SOURCES.json`, prepare its background and thumbnail, add the gallery entry in `catalog.js`, generate the three registered materials, then measure and review its foreground metadata. Keep the crop identical across all assets. Run source and browser checks before building.
 

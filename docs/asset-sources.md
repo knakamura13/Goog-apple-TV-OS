@@ -1,6 +1,6 @@
 # Asset sources
 
-Reviewed on 20 October 2026. Each of the fifteen linked Unsplash photo pages displayed the listed author and “Free to use under the Unsplash License”. The bundled wallpapers, thumbnails and material fields derive from these photos. Keep these credits with redistributions and follow the [Unsplash License](https://unsplash.com/license).
+Reviewed on 20 October 2026. Each of the twelve linked Unsplash photo pages displayed the listed author and “Free to use under the Unsplash License”. The bundled wallpapers, thumbnails and material fields derive from these photos. Keep these credits with redistributions and follow the [Unsplash License](https://unsplash.com/license).
 
 | Wallpaper | Photographer | Source |
 | --- | --- | --- |
@@ -13,9 +13,6 @@ Reviewed on 20 October 2026. Each of the fifteen linked Unsplash photo pages dis
 | Bridge at dusk | Justin Wolff | [Photo page](https://unsplash.com/photos/pbp_Ww2cewA) |
 | Sunlit ridges | Cristina Gottardi | [Photo page](https://unsplash.com/photos/wndpWTiDuT0) |
 | Golden hour | Karthik Sreenivas | [Photo page](https://unsplash.com/photos/tmtkhWbgMu8) |
-| Sunlit summits | Rudra Gupta | [Photo page](https://unsplash.com/photos/PuTSzJJ-qyU) |
-| Gold Coast dusk | City of Gold Coast | [Photo page](https://unsplash.com/photos/YiaGblobOGI) |
-| Sydney Harbour | Caleb | [Photo page](https://unsplash.com/photos/JmuyB_LibRo) |
 | Amber hills | Chris Barbalis | [Photo page](https://unsplash.com/photos/vazZtmYFgFY) |
 | Mint wave | MagicPattern | [Photo page](https://unsplash.com/photos/87PP9Zd7MNo) |
 | Alpine glow | Cristina Gottardi | [Photo page](https://unsplash.com/photos/CSpjU6hYo_0) |

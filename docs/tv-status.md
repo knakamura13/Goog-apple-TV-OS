@@ -24,7 +24,7 @@ CleanFrame 0.6.1 was signed, installed in place and launched on 20 October. The 
 - Application: `nClrkHome1.FrameHome`
 - Display name: `CleanFrame` (earlier builds used `Frame Home Test`)
 
-The current interface has List and Dock, independent appearance choices, an app editor, grouped Settings and fifteen wallpapers. Public builds contain Manrope, Geist and Newsreader. The public-source cleanup changed neither the installed widget nor the native configuration.
+The current interface has List and Dock, independent appearance choices, an app editor, grouped Settings and twelve wallpapers. Public builds contain Manrope, Geist and Newsreader. The public-source cleanup changed neither the installed widget nor the native configuration.
 
 ## Physically confirmed
 

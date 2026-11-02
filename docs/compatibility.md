@@ -21,7 +21,7 @@ Contributor reports have not been reproduced by the maintainer. Browser regressi
 
 ## Native Home limits
 
-The maintained helper stays on its reference .NET 6 target and firmware guard. A .NET 3.1 build reported by a contributor has not been checked on the reference TV. Keep generated `bin/`, `obj/`, DLLs and debug symbols private; they can contain local paths and are not reviewed source.
+The maintained helper stays on its .NET 6 target and takes its model and firmware guard from a private per-TV profile, so it still refuses an untested target. A .NET 3.1 build reported by a contributor has not been checked on the reference TV. Keep generated `bin/`, `obj/`, DLLs and debug symbols private; they can contain local paths and are not reviewed source.
 
 The current helper requires non-empty original Home and string values. It does not restore absent keys or an initially empty Home operation. Do not substitute Samsung Home for an empty or missing original value. That case needs a reviewed getter/reset contract and a separate reversible experiment.
 

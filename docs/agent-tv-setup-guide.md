@@ -173,7 +173,7 @@ Samsung documents the [project wizard and configuration file](https://developer.
 
 For existing source, have the agent inspect its manifest first and create a consistent identity for your independent app. If an installed launcher already owns native Home routing, restore that routing before changing its identity.
 
-For CleanFrame, put the SDK-generated `package_id` and `app_id`, SDK path and existing signing profile in ignored `.local/signing.json`, using `signing.example.json` as the template. The packager changes the generated manifest, and the installer and app self-filter use the same identity. Leave tracked identity guards intact. The native Home helper remains tied to the reference setup and needs separate review and authority. See [local signing setup](development.md#local-tv-tools-and-signing) for SDK-managed passwords and the optional protected password file.
+For CleanFrame, put the SDK-generated `package_id` and `app_id`, SDK path and existing signing profile in ignored `.local/signing.json`, using `signing.example.json` as the template. The packager changes the generated manifest, and the installer and app self-filter use the same identity. Leave tracked identity guards intact. The native Home helper now takes model, firmware and app identity from a private per-TV profile, and still needs separate review and authority. See [local signing setup](development.md#local-tv-tools-and-signing) for SDK-managed passwords and the optional protected password file.
 
 ### Use the apps installed on your TV
 
@@ -224,7 +224,7 @@ The helper assigned the native main Home operation, `http://tizen.org/appcontrol
 
 The [published S90D native Home work](https://github.com/splitcipher/couchroot/blob/83906b468836869933012da03a4018fb339462b3/docs/devices/s90d/README.md) explains the underlying method on a different model. It is a technical reference, not a universal installer. Review its native Home implementation with your own app IDs, addresses and saved originals before preparing any command.
 
-Your agent must review or adapt a native helper implementation for your exact firmware and `<APP_ID>`, then prepare concrete query, apply and restore commands. Replacing an app name in a command is insufficient.
+Your agent must review or adapt a native helper implementation for your exact firmware and `<APP_ID>`, then prepare concrete query, apply and restore commands. Replacing an app name in a command is insufficient. A worked assumption review and prepared procedure for one 65-inch unit is in [native Home on QN65S90DAFXZA](native-home-s90d.md); it is a review and a plan, not a device result.
 
 ### Contributor reports and transport limits
 

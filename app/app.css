@@ -291,7 +291,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 /* ---------- Screensaver: time and date bottom-left, the photo's title bottom-right ---------- */
 .ambient{position:absolute;left:0;top:0;width:1920px;height:1080px;z-index:4;opacity:0;transition:opacity 250ms linear;pointer-events:none}
 .amb-shade{position:absolute;left:0;top:560px;width:1920px;height:520px;background:linear-gradient(to bottom,rgba(4,8,12,0),rgba(4,8,12,.5))}
-.amb-drift{position:absolute;left:0;top:0;width:1920px;height:1080px;transition:transform 8s linear}
+.amb-drift{position:absolute;left:0;top:0;width:1920px;height:1080px;transition:transform 30s linear} /* One drift leg; see drift() in app.js. */
 .amb-clock{position:absolute;left:96px;bottom:84px;z-index:0;text-shadow:0 2px 12px rgba(0,0,0,.45)}
 .amb-clock::before,.amb-caption::before{content:"";position:absolute;bottom:-150px;z-index:-1;height:560px;pointer-events:none;background:radial-gradient(closest-side,rgba(4,8,12,.66),rgba(4,8,12,.42) 55%,rgba(4,8,12,0))}
 .amb-clock::before{left:-220px;width:1040px}

@@ -220,6 +220,13 @@
   L.pickerIndex = function (daily, wall) { return daily ? 0 : wall + 1; };
   L.pickerTarget = function (p) { return p === 0 ? { daily: true } : { daily: false, wall: p - 1 }; };
 
+  // The screensaver's next drift point: the chosen point, or the point that far along the way at most max px from where
+  // the text is now, so a leg of fixed duration never moves faster than max / duration.
+  L.driftTarget = function (from, to, max) {
+    var dx = to.x - from.x, dy = to.y - from.y, k = Math.min(1, max / Math.sqrt(dx * dx + dy * dy)); // No move: k is 1.
+    return { x: from.x + dx * k, y: from.y + dy * k };
+  };
+
   // Saved choices moved from an earlier key to a new one: copied once, when the new key has nothing yet, and the old
   // key removed only after the copy is stored. Returns true when it moved a save.
   L.moveSave = function (storage, from, to) {

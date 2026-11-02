@@ -401,3 +401,13 @@ test('moveSave keeps the old save if the copy cannot be stored', () => {
   assert.equal(s.getItem('old'), 'old save');
   assert.equal(s.getItem('new'), null);
 });
+
+test('driftTarget keeps a near point and shortens a far one to the maximum leg, in the same direction', () => {
+  assert.deepEqual(plain(L.driftTarget({ x: 0, y: 0 }, { x: 18, y: -12 }, 30)), { x: 18, y: -12 });
+  assert.deepEqual(plain(L.driftTarget({ x: 0, y: 0 }, { x: 30, y: 0 }, 30)), { x: 30, y: 0 }); // Exactly the maximum.
+  assert.deepEqual(plain(L.driftTarget({ x: 5, y: 5 }, { x: 5, y: 5 }, 30)), { x: 5, y: 5 }); // Already there.
+  assert.deepEqual(plain(L.driftTarget({ x: -20, y: 0 }, { x: 20, y: 0 }, 30)), { x: 10, y: 0 });
+  assert.deepEqual(plain(L.driftTarget({ x: 2, y: 4 }, { x: 2, y: -46 }, 30)), { x: 2, y: -26 });
+  const far = L.driftTarget({ x: -20, y: -12 }, { x: 20, y: 12 }, 30);
+  assert.ok(Math.abs(Math.hypot(far.x + 20, far.y + 12) - 30) < 1e-9 && Math.abs(far.y + 12 - (far.x + 20) * 0.6) < 1e-9, JSON.stringify(far));
+});

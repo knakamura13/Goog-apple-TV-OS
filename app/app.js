@@ -1262,8 +1262,14 @@
       if (S.tab === 1) tvReadSources();
     }
   });
-  // A slow drift keeps the clock from burning a fixed shape into the OLED panel.
-  function drift() { ambDrift.style.transform = 'translate3d(' + Math.round(Math.random() * 40 - 20) + 'px,' + Math.round(Math.random() * 24 - 12) + 'px,0)'; }
+  // A slow drift keeps the clock from burning a fixed shape into the OLED panel: every 3 minutes the text glides over
+  // 30 s (the .amb-drift transition) to a new point within ±20 × ±12 px, at most 24 px away: about 0.5 px a second
+  // typically and never more than 0.8, so the motion can't be seen (Kyle, 2 November 2026).
+  var DRIFT_EVERY = 180000, DRIFT_LEG = 24, driftAt = { x: 0, y: 0 };
+  function drift() {
+    driftAt = H.driftTarget(driftAt, { x: Math.random() * 40 - 20, y: Math.random() * 24 - 12 }, DRIFT_LEG);
+    ambDrift.style.transform = 'translate3d(' + driftAt.x.toFixed(1) + 'px,' + driftAt.y.toFixed(1) + 'px,0)';
+  }
   function enterAmbient() {
     if (S.ambient) return;
     if (S.zone === 'wallpaper') closePicker();
@@ -1279,7 +1285,7 @@
     clearTimeout(idleTimer);
     render();
     stage.classList.add('is-ambient');
-    driftTimer = setInterval(drift, 20000);
+    driftTimer = setInterval(drift, DRIFT_EVERY);
     rotateTimer = setInterval(nextPhoto, 40000);
     getJson(H.listUrl(1 + Math.floor(Math.random() * H.PHOTO_PAGES)), function (list) {
       if (!S.ambient) return;
@@ -1292,7 +1298,11 @@
     stage.classList.remove('is-ambient');
     clearInterval(driftTimer);
     clearInterval(rotateTimer);
+    ambDrift.style.transition = 'none'; // Back to centre at once, ready for the next session.
     ambDrift.style.transform = '';
+    driftAt = { x: 0, y: 0 };
+    void ambDrift.offsetWidth;
+    ambDrift.style.transition = '';
     photoToken++; // Drops a slideshow photo still loading.
     nextSlide = null;
     slides = [];

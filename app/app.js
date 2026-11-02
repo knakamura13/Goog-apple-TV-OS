@@ -15,7 +15,9 @@
   // Favourites and library share six columns starting at the 90px side margin.
   var TILE_W = 250, TILE_H = 150, TILE_R = 32, PITCH = 298, COLS = 6, GRID_LEFT = 90;
   var DOCK_W = 1824, DOCK_H = 230, DOCK_R = 56, DOCK_TOP = 747;
-  var LIB_TOP = 1020, ROW_PITCH = 236, LABEL_GAP = 24, LABEL_H = 36, ROW_SPAN = TILE_H + LABEL_GAP + LABEL_H;
+  // The focused dock app lifts past the dock's top edge; its name sits in the dock, its baseline on the other tiles' bottoms.
+  var DOCK_NAME_Y = 40 + TILE_H - 24;
+  var LIB_TOP = 1033, ROW_PITCH = 236, LABEL_GAP = 24, LABEL_H = 36, ROW_SPAN = TILE_H + LABEL_GAP + LABEL_H;
   var TOP_LINE = 152, SAFE_BOTTOM = 1026, TOP_EDGE = 140;
   var SHALLOW = TOP_LINE - DOCK_TOP; // The dock sits just below the top bar while the first library rows show.
   var DEEP_ROWS = Math.floor((SAFE_BOTTOM - TOP_LINE - ROW_SPAN) / ROW_PITCH) + 1; // Rows that fit once the dock scrolls away.
@@ -329,14 +331,15 @@
     for (r = 0; r < ROWS.length; r++) toggle(library.children[r], 'is-above', rowTop(r) + t < TOP_EDGE);
   }
   function layoutZone() { return S.zone === 'menu' ? S.menuFrom : S.zone === 'move' ? S.mv.c.sec : S.zone; }
+  // The focused app's name: inside the dock under a lifted favourite, or under a library tile.
   function label() {
-    var on = layoutZone() === 'lib', a, x;
+    var z = layoutZone(), dock = z === 'fav', on = dock || z === 'lib', a, x;
     toggle(focusName, 'is-on', on);
     if (!on) return;
-    a = ROWS[S.lr][S.lc];
-    x = GRID_LEFT + S.lc * PITCH + TILE_W / 2 - 210;
+    a = dock ? FAVS[S.fav] : ROWS[S.lr][S.lc];
+    x = GRID_LEFT + (dock ? S.fav : S.lc) * PITCH + TILE_W / 2 - 210;
     focusName.textContent = a.name;
-    focusName.style.transform = 'translate3d(' + x + 'px,' + (rowTop(S.lr) + TILE_H + LABEL_GAP) + 'px,0)';
+    focusName.style.transform = 'translate3d(' + x + 'px,' + (dock ? DOCK_TOP + DOCK_NAME_Y : rowTop(S.lr) + TILE_H + LABEL_GAP) + 'px,0)';
   }
   function render() {
     var el, entered, i;

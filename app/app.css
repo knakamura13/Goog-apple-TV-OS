@@ -97,7 +97,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .in-tiles,.tab-inputs .fav-tiles{opacity:0;pointer-events:none}
 .tab-inputs .in-tiles{opacity:1;pointer-events:auto}
 
-.library{position:absolute;left:90px;top:1020px;width:1740px;transition:opacity 160ms linear}
+.library{position:absolute;left:90px;top:1033px;width:1740px;transition:opacity 160ms linear}
 .tab-inputs .library{opacity:0;pointer-events:none}
 .lib-row{position:absolute;left:0;width:1740px;height:150px;transition:opacity 200ms linear}
 .lib-row.is-above{opacity:0}
@@ -111,6 +111,10 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .t-face .rim{stroke:rgba(255,255,255,.16)}
 .tile.is-focus{transform:scale(1.18);z-index:1}
 .tile.is-focus::before,.tile.is-focus .t-sheen{opacity:1}
+/* A focused dock app lifts past the dock's top edge over a dark drop shadow; its name shows inside the dock. */
+.fav-tiles .tile::before{transition:opacity var(--focus-t) linear,transform var(--focus-t) var(--glide)}
+.fav-tiles .tile.is-focus{transform:translate3d(0,-45px,0) scale(1.14)}
+.fav-tiles .tile.is-focus::before{left:-4%;right:-4%;background:radial-gradient(closest-side,rgba(0,0,0,.9),rgba(0,0,0,.6) 50%,rgba(0,0,0,0));transform:translate3d(0,36px,0) scale(1.04,1.05)}
 /* Move on Home: the carried app stays on top; an app crossing between dock and library travels above the rest. */
 .tile.is-travel{z-index:2;transition-duration:var(--scroll-t)}
 .is-moving .tile.is-focus{z-index:3}
@@ -149,7 +153,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .in-tile.is-focus .t-face::before{opacity:1}
 .in-port,.in-name{position:relative}
 
-.focus-name{position:absolute;left:0;top:0;width:420px;text-align:center;font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.2px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity 120ms linear;z-index:2}
+.focus-name{position:absolute;left:0;top:0;width:420px;text-align:center;font-size:24px;line-height:30px;font-weight:600;letter-spacing:-.2px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity 120ms linear;z-index:2}
 .focus-name.is-on{opacity:1}
 
 /* ---------- Panels and dialogs sit over a dimmed page; the top bar stays readable ---------- */
@@ -233,7 +237,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .ed-slot.is-above,.ed-fav.is-above,.ed-label.is-above{opacity:0}
 .ed-slot.is-carry{z-index:2}
 /* The focused app's name becomes a solid pill, the same focus language as rows and buttons. */
-.ed-name{position:absolute;left:-24px;top:166px;z-index:2;width:298px;text-align:center;font-size:26px;line-height:32px;font-weight:500;color:var(--ink-soft);text-shadow:0 1px 3px rgba(0,0,0,.45);white-space:nowrap;transition:opacity 160ms linear}
+.ed-name{position:absolute;left:-24px;top:166px;z-index:2;width:298px;text-align:center;font-size:22px;line-height:28px;font-weight:500;color:var(--ink-soft);text-shadow:0 1px 3px rgba(0,0,0,.45);white-space:nowrap;transition:opacity 160ms linear}
 .ed-name span{display:inline-block;max-width:298px;padding:0 14px;border-radius:16px;overflow:hidden;text-overflow:ellipsis;vertical-align:top;transition:background-color 140ms linear,color 140ms linear}
 .ed-slot.is-focus .ed-name span{background:var(--solid);color:var(--solid-ink);text-shadow:none}
 .ed-slot.is-carry .ed-name,.ed-slot.is-low .ed-name{opacity:0}
@@ -329,8 +333,8 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 
 
 /* Resume: a pill just above the dock's left end with the last app's logo mark in white, so it never reads as a
-   second copy of a dock tile. Fades out as the library scrolls in. */
-.resume{position:absolute;left:90px;top:659px;opacity:0;pointer-events:none;transition:opacity 160ms linear;will-change:opacity}
+   second copy of a dock tile. It clears a lifted first dock tile by 20px. Fades out as the library scrolls in. */
+.resume{position:absolute;left:90px;top:647px;opacity:0;pointer-events:none;transition:opacity 160ms linear;will-change:opacity}
 .has-resume:not(.is-library) .resume{opacity:1;pointer-events:auto}
 .re-btn{position:relative;display:flex;align-items:center;height:64px;padding:0 28px 0 22px;border-radius:32px;background:rgba(10,12,14,var(--plate-tint,.56));color:#fff;transform-origin:0 50%;transition:transform var(--focus-t) var(--glide),color 140ms linear;will-change:transform}
 .re-btn::before{content:"";position:absolute;left:0;top:0;right:0;bottom:0;border-radius:inherit;background:var(--solid);opacity:0;transition:opacity 140ms linear}

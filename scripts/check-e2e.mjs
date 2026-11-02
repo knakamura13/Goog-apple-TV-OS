@@ -110,6 +110,15 @@ try {
     check('Library is Amazon Alexa, HBO Max, Samsung TV Plus, SmartThings, Spotify (A–Z, one row)', same(s.library, LIBRARY), s.library);
     check('Disney+ and Sling TV are on neither Home row', !s.fav.concat(...s.library).some(app => /disney|sling/i.test(app)), s);
     check('First focus is the first favourite (no Resume pill before any launch)', focusIs(s, 'fav', 0) && !has(s, 'has-resume'), s.f);
+    await page.waitForTimeout(400);
+    const lift = await page.evaluate(() => {
+      const box = el => el.getBoundingClientRect(), k = box(document.getElementById('stage')).width / 1920;
+      const dock = box(document.querySelector('.dock-glass')), tiles = [...document.querySelectorAll('#favRow > .tile')].map(box), name = box(document.getElementById('focusName'));
+      return { name: document.getElementById('focusName').classList.contains('is-on') ? document.getElementById('focusName').textContent : '',
+        over: (dock.top - tiles[0].top) / k, nameTop: (name.top - dock.top) / k, nameBottom: (dock.bottom - name.bottom) / k, gap: (name.top - tiles[0].bottom) / k, rest: (dock.top - tiles[1].top) / k };
+    });
+    check('The focused dock app lifts past the dock\'s top edge while the others stay inside', lift.over > 5 && lift.over < 30 && lift.rest < 0, lift);
+    check('Its name shows inside the dock, below the lifted tile', lift.name === 'Plex' && lift.nameTop > 0 && lift.nameBottom > 0 && lift.gap >= 0, lift);
     await page.waitForFunction(() => document.querySelector('#library .t-icon')?.complete, null, { timeout: 5000 }).catch(() => {});
     const icon = await page.evaluate(() => {
       const img = document.querySelector('#library .t-icon');

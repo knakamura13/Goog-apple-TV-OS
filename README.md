@@ -1,53 +1,56 @@
 # Home
 
-A personal launcher for a Samsung Tizen TV: favourite apps, the full app library, inputs, weather and a daily photo, driven entirely by the remote. No ads, no autoplay, nothing the owners don't use.
+Home is my own launcher design for a Samsung QN65S90D (QD-OLED, Tizen 9). It is a signed Tizen web app that replaces Smart Hub, and the TV's Home button opens it. It is built on the foundations and processes of [CleanFrame](https://github.com/nthnclrk/CleanFrame) by Nathan Clark: Tizen packaging and signing, app listing and launching, local-secret hygiene and the check tooling.
 
-Home began as a fork of [CleanFrame](https://github.com/nthnclrk/CleanFrame), a quieter home screen for Samsung The Frame. It keeps CleanFrame's device adapter, photographs, pre-rendered glass materials, brand marks, fonts and TV tools, and replaces the interface. The target TV is a Samsung QN65S90DAFXZA (not a Frame). The design, owner decisions and open TV checks are in [the Home spec](docs/home-redesign.md).
+![Home: resume card, favourites dock and the app library peeking below, over a bundled photo](docs/screenshots/home.jpg)
 
-**Use it at your own risk.** It is built for one TV. The TV tools and the native Home helper carry reference-machine assumptions; expect to adapt them and to test the result on your own hardware.
+## Features
 
-## Preview in a browser
+- **Favourites dock and app library:** up to six favourites on a glass dock, then every other installed app A–Z in a grid that scrolls up beneath it.
+- **Edit in place:** hold OK on any app to open, move, favourite or hide it. Settings › Apps rearranges everything and switches between colour and glass tiles.
+- **Resume card:** reopens the last app launched from Home.
+- **Clock and live weather:** current conditions for a ZIP code from Open-Meteo, cached so Home never waits on the network.
+- **Daily photo or a bundled wallpaper:** a new Unsplash photo each day from Lorem Picsum, or one of 15 bundled photos, chosen in a full-screen picker. The glass panels are made from the photo.
+- **Screensaver:** a large clock, the date and the photo credit over a slideshow of online photos, with slow drift to protect the OLED panel.
+- **Inputs tab:** HDMI ports with names you set and whether a device is connected, plus Samsung's source list.
+- **Settings:** wallpaper, apps, weather, screensaver delay, links to Samsung's picture and sound settings and Samsung Home, and an About page.
+- **Remote-only and quiet:** no ads and no autoplay. Focus never acts; OK does.
 
-You need Node.js 22.13+ (22 LTS) or 24+, and Python 3.10+.
+## Screenshots
+
+| | |
+| --- | --- |
+| ![The app library scrolled up under the dock](docs/screenshots/library.jpg) | ![The tile menu after holding OK on Netflix](docs/screenshots/tile-menu.jpg) |
+| App library, scrolled | Hold OK: edit in place |
+| ![The Apps editor carrying YouTube along the favourites](docs/screenshots/apps-editor.jpg) | ![The Settings panel](docs/screenshots/settings.jpg) |
+| Settings › Apps, moving an app | Settings |
+| ![The wallpaper picker previewing a photo full screen](docs/screenshots/wallpaper.jpg) | ![The Inputs tab with HDMI ports and the source list](docs/screenshots/inputs.jpg) |
+| Wallpaper picker | Inputs |
+| ![Settings › Weather with a ZIP code and units](docs/screenshots/weather.jpg) | ![The screensaver with a large clock, date and photo credit](docs/screenshots/screensaver.jpg) |
+| Settings › Weather | Screensaver |
+
+## Quick start
+
+Requires Node.js 22.13+ or 24+ and Python 3.10+.
 
 ```sh
 npm ci
-npm run dev
+npm run dev      # browser preview at http://localhost:4795/home/ (arrows, Enter = OK, Esc = Back)
+npm run check    # lint, manifest and asset check, device-adapter and logic unit tests
+npm run build    # unsigned Tizen web app in dist/home/
 ```
 
-Open [localhost:4795/home/](http://localhost:4795/home/). Arrows move, Enter is OK, Escape is Back, A starts the screensaver and H hides the key hints. The browser has no TV, so it shows sample apps and says what a launch would do.
-
-## Build, sign and install
+Sign a copy of `dist/home/` with the official Samsung SDK and your own certificate profile, then install the newest signed package:
 
 ```sh
-npm run build
+tizen package -t wgt -s <profile> -o dist/signed-home-<time> -- <copy of dist/home>
+npm run tv:install
 ```
 
-`build` assembles `dist/home/`, a self-contained, unsigned Tizen web app: the browser-only code between `preview` markers is stripped, asset paths become relative and only the assets Home uses are copied. Sign it with the official Samsung SDK and your own certificate profile, then install it with the TV tools; see [development](docs/development.md#build-and-sign).
+[Development](docs/development.md) covers the TV setup, signing and install in detail; [testing](docs/testing.md) covers the browser checks (`npm run check:all`). The design spec is [docs/home-redesign.md](docs/home-redesign.md).
 
-The app identity is `Zm209bQNEk.Home` in `app/config.xml`. Every later version installs in place over it, so keep that identity and its author certificate.
-
-## Develop and check
-
-```sh
-npm run check        # ES5 lint, manifest and resource check, device adapter and logic unit tests
-npm run check:tools  # signing-config, private-file and installer guards, offline
-npm run check:public # private-file and credential scan of the working tree and Git history
-npx playwright install chromium-headless-shell
-npm run check:all    # unit, mutation, end-to-end, accessibility and frame-gap checks
-```
-
-None of the checks contacts a TV or the internet. [Testing](docs/testing.md) describes each one.
-
-| Location | Purpose |
-| --- | --- |
-| `app/` | Home: `index.html`, `app.css`, `app.js`, `logic.js`, `config.xml`, the shared `device.js` adapter, icon and assets |
-| `scripts/` | Preview, build, checks, asset generation and TV tools |
-| `scripts/native-home/` | The optional helper that makes Home the TV's native Home/startup app |
-| [Development](docs/development.md) / [testing](docs/testing.md) | Runtime map, build and signing, checks and device boundaries |
-| [Assets](docs/assets.md) / [third-party notices](THIRD_PARTY_NOTICES.md) | Rendering recipes and asset provenance |
-| `.local/`, `dist/` | Ignored private setup, recovery data, builds and packages |
+An optional helper makes Home the TV's native Home and startup app; see [docs/native-home-s90d.md](docs/native-home-s90d.md).
 
 ## Licence and credits
 
-The original code and documentation use the [MIT licence](LICENSE). Fonts, photographs and logos keep their own terms; read [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). This is an independent project with no Samsung or streaming-service affiliation.
+Code and documentation are [MIT](LICENSE), shared with CleanFrame by [Nathan Clark](https://github.com/nthnclrk/CleanFrame). Fonts, photographs and brand marks keep their own terms; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Not affiliated with Samsung or any streaming service.

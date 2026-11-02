@@ -2,13 +2,13 @@
 
 Home is my own launcher design for a Samsung QN65S90D (QD-OLED, Tizen 9). It is a signed Tizen web app that replaces Smart Hub, and the TV's Home button opens it. It is built on the foundations and processes of [CleanFrame](https://github.com/nthnclrk/CleanFrame) by Nathan Clark: Tizen packaging and signing, app listing and launching, local-secret hygiene and the check tooling.
 
-![Home: resume card, favourites dock and the app library peeking below, over a bundled photo](docs/screenshots/home.jpg)
+![Home: Resume pill, favourites dock and the app library peeking below, over a bundled photo](docs/screenshots/home.jpg)
 
 ## Features
 
 - **Favourites dock and app library:** up to six favourites on a glass dock, then every other installed app A–Z in a grid that scrolls up beneath it.
 - **Edit in place:** hold OK on any app to open, move, favourite or hide it. Settings › Apps rearranges everything and switches between colour and glass tiles.
-- **Resume card:** reopens the last app launched from Home.
+- **Resume:** a small pill above the dock reopens the last app launched from Home.
 - **Clock and live weather:** current conditions for a ZIP code from Open-Meteo, cached so Home never waits on the network.
 - **Daily photo or a bundled wallpaper:** a new Unsplash photo each day from Lorem Picsum, or one of 15 bundled photos, chosen in a full-screen picker. The glass panels are made from the photo.
 - **Screensaver:** a large clock, the date and the photo credit over a slideshow of online photos, with slow drift to protect the OLED panel.

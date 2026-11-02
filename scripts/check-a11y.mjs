@@ -40,7 +40,7 @@ async function openRow(page, label) { await gotoRow(page, label); await press(pa
 const SCREENS = [
   { name: 'Home dock', setup: async page => { await press(page, 'ArrowRight', 2); await press(page, 'Enter'); },
     target: '#favRow > .tile.is-focus', away: 'ArrowRight', back: 'ArrowLeft',
-    labels: [['Time', '#time', { own: true }], ['Time AM/PM', '#time .mer'], ['Nav pills', '#pills > .pill'], ['Resume card heading', '.re-kicker']] },
+    labels: [['Time', '#time', { own: true }], ['Time AM/PM', '#time .mer'], ['Nav pills', '#pills > .pill'], ['Resume label', '.re-label']] },
   { name: 'Library', setup: page => press(page, 'ArrowDown'),
     target: '#library .tile.is-focus', away: 'ArrowRight', back: 'ArrowLeft',
     // A TV-icon tile shows its name only when the icon fails to load.

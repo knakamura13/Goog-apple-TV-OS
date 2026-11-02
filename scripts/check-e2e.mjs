@@ -109,7 +109,14 @@ try {
     check('Favourites are Plex, YouTube, Netflix, Apple TV, Hulu, Prime Video in that order', same(s.fav, FAV_MARKS), s.fav);
     check('Library is Amazon Alexa, HBO Max, Samsung TV Plus, SmartThings, Spotify (A–Z, one row)', same(s.library, LIBRARY), s.library);
     check('Disney+ and Sling TV are on neither Home row', !s.fav.concat(...s.library).some(app => /disney|sling/i.test(app)), s);
-    check('First focus is the first favourite (no resume card before any launch)', focusIs(s, 'fav', 0) && !has(s, 'has-resume'), s.f);
+    check('First focus is the first favourite (no Resume pill before any launch)', focusIs(s, 'fav', 0) && !has(s, 'has-resume'), s.f);
+    await page.waitForTimeout(400);
+    const marked = await page.evaluate(() => [...document.querySelectorAll('#favRow > .tile')].map(tile => ({
+      ring: +getComputedStyle(tile.querySelector('.ed-ring')).opacity,
+      shade: +getComputedStyle(tile.querySelector('.t-face'), '::after').opacity
+    })));
+    check('The focused dock app has a ring and is not darkened; the other dock apps are darkened without one',
+      marked[0].ring === 1 && marked[0].shade === 0 && marked.slice(1).every(t => t.ring === 0 && t.shade === 0.5), marked);
     await page.waitForFunction(() => document.querySelector('#library .t-icon')?.complete, null, { timeout: 5000 }).catch(() => {});
     const icon = await page.evaluate(() => {
       const img = document.querySelector('#library .t-icon');
@@ -179,7 +186,8 @@ try {
     check('A launch shows no message and no menu', !s.toast && !has(s, 'is-menu'), [s.toast, s.classes]);
     check('The launch saves Plex as the app to resume', s.saved?.last === 'plex', s.saved);
     check('The save keeps the first-run favourites and hidden apps', same(s.saved?.fav, FAVS) && same([...(s.saved?.hid || [])].sort(), HIDDEN), s.saved);
-    check('The resume card appears, showing Plex', has(s, 'has-resume') && s.resume === 'plex', [s.classes, s.resume]);
+    check('The Resume pill appears, showing Plex', has(s, 'has-resume') && s.resume === 'plex', [s.classes, s.resume]);
+    check('The Resume pill shows Plex\'s logo mark, not a copy of its tile', await page.evaluate(() => !!document.querySelector('#resumeSlot .re-btn .re-mark .mk') && !document.querySelector('#resumeSlot .tile')));
     await press(page, 'ArrowDown');
     await press(page, 'ArrowRight', 2);
     await press(page, 'Enter');
@@ -193,43 +201,43 @@ try {
     check('OK on Amazon Alexa launches AQKO41xyKP.AmazonAlexa', s.launches[2] === APP.alexa && !s.toast, [s.launches, s.toast]);
   });
 
-  await section('Resume card', {}, async (launcher, page) => {
+  await section('Resume pill', {}, async (launcher, page) => {
     await press(page, 'ArrowRight', 2);
     await press(page, 'Enter');
     await afterCallbacks(page);
     await page.reload();
     await page.waitForFunction(() => document.querySelector('#stage .is-focus'));
     let s = await snapshot(page);
-    check('After a launch and a reload the resume card shows the last app (Netflix)', has(s, 'has-resume') && s.resume === 'netflix', [s.classes, s.resume]);
-    check('After a reload, focus starts on the resume card', focusIs(s, 'resume'), s.f);
+    check('After a launch and a reload the Resume pill shows the last app (Netflix)', has(s, 'has-resume') && s.resume === 'netflix', [s.classes, s.resume]);
+    check('After a reload, focus starts on the Resume pill', focusIs(s, 'resume'), s.f);
     await press(page, 'ArrowUp');
-    check('Up from the resume card focuses the active nav pill (Home)', focusIs(await snapshot(page), 'nav', 0));
+    check('Up from the Resume pill focuses the active nav pill (Home)', focusIs(await snapshot(page), 'nav', 0));
     await press(page, 'ArrowDown');
-    check('Down from the nav pills returns to the resume card', focusIs(await snapshot(page), 'resume'));
+    check('Down from the nav pills returns to the Resume pill', focusIs(await snapshot(page), 'resume'));
     await press(page, 'ArrowUp');
     await press(page, 'ArrowRight', 2);
     check('Right past the last nav pill reaches the Settings gear', focusIs(await snapshot(page), 'gear'));
     await press(page, 'ArrowDown');
-    check('Down from the gear goes to the resume card', focusIs(await snapshot(page), 'resume'));
+    check('Down from the gear goes to the Resume pill', focusIs(await snapshot(page), 'resume'));
     await press(page, 'ArrowDown');
-    check('Down from the resume card focuses the first favourite', focusIs(await snapshot(page), 'fav', 0));
+    check('Down from the Resume pill focuses the first favourite', focusIs(await snapshot(page), 'fav', 0));
     await press(page, 'ArrowUp');
-    check('Up from the favourites returns to the resume card', focusIs(await snapshot(page), 'resume'));
+    check('Up from the favourites returns to the Resume pill', focusIs(await snapshot(page), 'resume'));
     await press(page, 'Enter');
     await afterCallbacks(page);
     s = await snapshot(page);
-    check('OK on the resume card reopens Netflix (org.tizen.netflix-app)', same(s.launches, [APP.netflix]) && !s.toast, [s.launches, s.toast]);
+    check('OK on the Resume pill reopens Netflix (org.tizen.netflix-app)', same(s.launches, [APP.netflix]) && !s.toast, [s.launches, s.toast]);
     await press(page, 'ArrowUp');
     await press(page, 'ArrowRight');
     await press(page, 'Enter');
     s = await snapshot(page);
-    check('On the Inputs tab the resume card is hidden', has(s, 'tab-inputs') && !has(s, 'has-resume'), s.classes);
+    check('On the Inputs tab the Resume pill is hidden', has(s, 'tab-inputs') && !has(s, 'has-resume'), s.classes);
     await press(page, 'ArrowLeft');
     await press(page, 'Enter');
     s = await snapshot(page);
-    check('Back on the Home tab the resume card shows again', !has(s, 'tab-inputs') && has(s, 'has-resume'), s.classes);
+    check('Back on the Home tab the Resume pill shows again', !has(s, 'tab-inputs') && has(s, 'has-resume'), s.classes);
     await press(page, 'ArrowDown');
-    check('Down from the Home pill goes to the resume card', focusIs(await snapshot(page), 'resume'));
+    check('Down from the Home pill goes to the Resume pill', focusIs(await snapshot(page), 'resume'));
   });
 
   await section('Edit in place: hold OK on a Home tile', {}, async (launcher, page) => {
@@ -625,7 +633,7 @@ try {
   }
   if (tints.bright && tints.dark) {
     check('A bright photo darkens the time\'s capsule more than a dark one', tints.bright['--tint-tr'] > tints.dark['--tint-tr'], tints);
-    check('A bright photo darkens the panels and the resume plate; a dark one keeps the bundled tints', tints.bright['--panel-tint'] > 0.56 && tints.dark['--panel-tint'] === 0.56 && tints.bright['--plate-tint'] > tints.dark['--plate-tint'], tints);
+    check('A bright photo darkens the panels and the Resume pill; a dark one keeps the bundled tints', tints.bright['--panel-tint'] > 0.56 && tints.dark['--panel-tint'] === 0.56 && tints.bright['--plate-tint'] > tints.dark['--plate-tint'], tints);
   }
 
   await section('Weather', { clock: new Date('2026-10-31T12:00:00') }, async (launcher, page) => {

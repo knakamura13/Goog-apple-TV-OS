@@ -239,7 +239,7 @@ export function snapshot(page) {
     // A tile shows either a bundled logo (named by its file) or the TV's name for the app.
     const tile = el => {
       const mark = /icons\/([\w-]+)\.svg/.exec(el.querySelector('.mk')?.getAttribute('style') || '');
-      return mark ? mark[1] : text(el.querySelector('.t-text'));
+      return mark ? mark[1] : text(el.querySelector('.t-text, .re-name'));
     };
     const focus = $$('#stage [data-z].is-focus').map(el => ({
       z: el.getAttribute('data-z'), i: el.getAttribute('data-i') === null ? null : +el.getAttribute('data-i'),
@@ -253,7 +253,7 @@ export function snapshot(page) {
       classes: [...$('#stage').classList],
       focus, f: focus[0] || null,
       fav: $$('#favRow > .tile').map(tile), library: $$('#library .lib-row').map(row => $$('.tile', row).map(tile)),
-      resume: $('#resumeSlot .tile') ? tile($('#resumeSlot .tile')) : null,
+      resume: $('#resumeSlot .re-btn') ? tile($('#resumeSlot .re-btn')) : null,
       focusName: text($('#focusName')),
       panel: { crumb: text($('#panelCrumb')), title: text($('#panelTitle')), rows, focused: rows[+($('#panelRows > .p-row.is-focus')?.getAttribute('data-i') ?? -1)]?.label || null,
         zip: $$('.zip-cell').map(cell => cell.textContent).join(''), status: $('#panelStatus').classList.contains('is-on') ? text($('#panelStatus')) : '' },

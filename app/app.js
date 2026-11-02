@@ -21,7 +21,6 @@
   var DEEP_ROWS = Math.floor((SAFE_BOTTOM - TOP_LINE - ROW_SPAN) / ROW_PITCH) + 1; // Rows that fit once the dock scrolls away.
   var PANEL = { w: 700, h: 866, r: 48 }, DIALOG = { w: 728, h: 340, r: 48 };
   var PILL_W = 150, PANEL_PITCH = 88, DIALOG_PITCH = 316, SMOOTHING = 0.6, ZIP_LEN = 5;
-  var RESUME_W = 298, RESUME_H = 236, RESUME_R = 44; // The resume card plate.
   var TM = { w: 560, h: 474, r: 44 }; // The edit-in-place menu: a title and four rows.
   // Apps editor: a favourites plate like the dock, then Library and Hidden grids with names under each app.
   var ED_PLATE_H = 262, ED_FAV_Y = 340, ED_LIB_Y = 664, ED_ROW = 222, ED_LABEL_GAP = 60, ED_TOP_SAFE = 256, ED_SPAN = 210, RING_PAD = 8;
@@ -181,7 +180,6 @@
     shape('edplate', DOCK_W, ED_PLATE_H, DOCK_R);
     shape('picker', PICKER.w, PICKER.h, PICKER.r, 'pickerRim');
     thumbRim = '<svg class="rim" viewBox="0 0 ' + THUMB_W + ' ' + THUMB_H + '" aria-hidden="true"><path d="' + shape('thumb', THUMB_W, THUMB_H, THUMB_R) + '"/></svg>';
-    shape('replate', RESUME_W, RESUME_H, RESUME_R);
     shape('tilemenu', TM.w, TM.h, TM.r, 'tilemenuRim');
     buildHome();
     buildResume();
@@ -207,15 +205,29 @@
     library.innerHTML = ROWS.map(function (row, r) {
       return '<div class="lib-row" style="top:' + r * ROW_PITCH + 'px">' + row.map(function (a, c) { return appHtml(a, 'lib', r * COLS + c, c); }).join('') + '</div>';
     }).join('');
+    addRings(favRow.querySelectorAll('.tile'), library.querySelectorAll('.tile'));
     S.fav = Math.min(S.fav, FAVS.length - 1);
     S.scroll = null;
   }
-  // The resume card shows the last app opened from Home while it is installed and not hidden.
+  // A white ring around the focused tile, the same ring the Apps editor draws round a carried app.
+  function addRings() {
+    var i, j;
+    for (i = 0; i < arguments.length; i++) for (j = 0; j < arguments[i].length; j++) arguments[i][j].insertAdjacentHTML('beforeend', ringSvg);
+  }
+  // The Resume pill shows the last app opened from Home while it is installed and not hidden.
   function resumeApp() { return S.lastId && S.hiddenIds.indexOf(S.lastId) < 0 ? byId(S.lastId) : null; }
   function buildResume() {
     var a = resumeApp();
-    resumeSlot.innerHTML = a ? appHtml(a, 'resume', 0, 0) : '';
-    resumeTile = a ? resumeSlot.querySelector('.tile') : null;
+    resumeSlot.innerHTML = a ? resumeHtml(a) : '';
+    resumeTile = a ? resumeSlot.firstChild : null;
+  }
+  // A return arrow, "Resume" and the app's logo mark in white: a variant of the dock's tile, never a copy of it.
+  // An app without a logo here is named instead.
+  var RETURN = '<svg class="ico re-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>';
+  function resumeHtml(a) {
+    var mark = a.mark ? '<span class="re-mark">' + markHtml(a.mark) + '</span>' : '';
+    var name = mark ? '' : '<span class="re-name">' + esc(a.name) + '</span>';
+    return '<div class="re-btn" data-z="resume" data-i="0">' + RETURN + '<span class="re-label">Resume</span>' + mark + name + '</div>';
   }
   // Saves carry a version from V1 on; older saves come from test builds and get their one-time clean-ups.
   var SAVE_VERSION = 1;
@@ -347,6 +359,7 @@
     toggle(stage, 'tab-inputs', S.tab === 1);
     toggle(stage, 'has-resume', S.tab === 0 && !!resumeApp());
     toggle(stage, 'is-library', layoutZone() === 'lib');
+    toggle(stage, 'is-fav', S.zone === 'fav');
     toggle(stage, 'is-panel', S.zone === 'panel');
     toggle(stage, 'is-dialog', S.zone === 'dialog');
     toggle(stage, 'is-menu', S.zone === 'menu');
@@ -363,7 +376,7 @@
   // ---------- Remote ----------
 
   function content() { return S.tab === 0 ? 'fav' : 'inputs'; }
-  // The top of the Home column is the resume card when it shows, otherwise the favourites.
+  // The top of the Home column is the Resume pill when it shows, otherwise the favourites.
   function topZone() { return S.tab === 0 && resumeApp() ? 'resume' : content(); }
   function rowLen(r) { return ROWS[r].length; }
   function act(k) {
@@ -907,7 +920,7 @@
     stage.style.setProperty('--panel-tint', (0.56 + lift).toFixed(3));
     stage.style.setProperty('--menu-tint', (0.58 + lift).toFixed(3));
     stage.style.setProperty('--veil', (0.42 + lift).toFixed(3));
-    stage.style.setProperty('--plate-tint', (0.34 + lift * 1.5).toFixed(3));
+    stage.style.setProperty('--plate-tint', (0.56 + lift * 1.5).toFixed(3));
     stage.style.setProperty('--empty-tint', (0.28 + lift).toFixed(3));
     stage.style.setProperty('--caption-shade', (0.55 + lift).toFixed(3));
   }

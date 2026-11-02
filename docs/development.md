@@ -21,6 +21,8 @@ Keep material rendering in the development tools. See [asset generation](assets.
 
 `npm run build` writes `dist/home/`: `index.html`, `app.css`, `app.js` and `logic.js` with the preview blocks stripped and `/home/` paths made relative, plus `config.xml`, `icon.png`, `device.js`, `build-info.js`, `THIRD_PARTY_NOTICES.md` and only the assets Home uses (fonts, the brand marks named in `app.js`, every catalogue photo with its thumbnail and three glass fields). It refuses to replace a folder that is not a previous build. `--out <folder>` builds elsewhere.
 
+`app/icon.png` is the launcher's icon in the TV's app list, a 256 × 256 rendering of `docs/icon.svg` (the dock and library as tiles). Re-render it from that file after changing the design.
+
 The build is unsigned. Sign a copy of it with the official SDK and your existing certificate profile, writing the package to its own timestamped folder:
 
 ```sh

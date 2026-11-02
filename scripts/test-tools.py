@@ -36,7 +36,7 @@ class ToolTests(unittest.TestCase):
         settings = load_settings(self.root)
         self.assertEqual(settings['profile'], 'FrameHome')
         self.assertEqual(settings['sdk_path'], self.root / '.local/tizen-sdk')
-        self.assertEqual(settings['identity']['app_id'], 'nClrkHome1.FrameHome')
+        self.assertEqual(settings['identity']['app_id'], 'Zm209bQNEk.Home')
         self.assertIsNone(settings['password_file'])
         password = self.password('.local/certificates/private/certificate-password.txt')
         self.assertEqual(load_settings(self.root)['password_file'], password)

@@ -1,6 +1,6 @@
 """Assemble Home, the launcher, as a self-contained, unsigned Tizen web app in dist/library-demo/.
 
-The browser preview serves Home from demo/library/ with assets under /home/assets/. The TV loads files
+The browser preview serves Home from app/ at /home/, with assets under /home/assets/. The TV loads files
 from inside the widget, so this copies only the assets Home uses and rewrites those paths to be relative.
 Sign the result with the official SDK, for example: tizen package -t wgt -s <profile> -- dist/library-demo
 """
@@ -13,8 +13,8 @@ from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DEMO = ROOT / 'demo/library'
-ASSETS = ROOT / 'app/assets'
+APP = ROOT / 'app'
+ASSETS = APP / 'assets'
 OUT = ROOT / 'dist/library-demo'
 MATERIALS = ('field-clear', 'field-blur', 'field-frost')
 # Code between preview markers serves only the browser preview: key hints, keyboard shortcuts, mouse clicks.
@@ -42,26 +42,26 @@ def build(out):
             raise SystemExit(f'Refusing to replace {out}: it is not empty and is not a previous build.')
         shutil.rmtree(out)
     out.mkdir(parents=True)
-    for name in ('index.html', 'library.css', 'logic.js', 'library.js'):
-        text = PREVIEW.sub('', (DEMO / name).read_text()).replace('/home/assets/', 'assets/').replace('/home/device.js', 'device.js')
+    for name in ('index.html', 'app.css', 'logic.js', 'app.js'):
+        text = PREVIEW.sub('', (APP / name).read_text()).replace('/home/assets/', 'assets/').replace('/home/device.js', 'device.js')
         if 'preview -->' in text or 'preview */' in text:
             raise SystemExit(f'Unmatched preview marker in {name}')
         if name == 'index.html':
             # Settings › About shows the build details; the browser preview has none.
-            text = text.replace('<script src="library.js">', '<script src="build-info.js"></script>\n<script src="library.js">')
+            text = text.replace('<script src="app.js">', '<script src="build-info.js"></script>\n<script src="app.js">')
             if 'build-info.js' not in text:
-                raise SystemExit('index.html no longer loads library.js; update the build-info script tag.')
+                raise SystemExit('index.html no longer loads app.js; update the build-info script tag.')
         (out / name).write_text(text)
-    shutil.copy2(DEMO / 'config.xml', out / 'config.xml')
-    shutil.copy2(ROOT / 'app/icon.png', out / 'icon.png')
-    shutil.copy2(ROOT / 'app/device.js', out / 'device.js')  # CleanFrame's installed-app list and launching
+    shutil.copy2(APP / 'config.xml', out / 'config.xml')
+    shutil.copy2(APP / 'icon.png', out / 'icon.png')
+    shutil.copy2(APP / 'device.js', out / 'device.js')  # CleanFrame's installed-app list and launching
 
     for relative in ('fonts.css', 'typefaces.css', 'manrope.woff2', 'manrope-OFL.txt', 'icons/metrics.js', 'wallpapers/catalog.js', 'wallpapers/SOURCES.json'):
         copy(relative, out)
     for font in ('geist', 'newsreader'):
         for path in (ASSETS / 'fonts' / font).iterdir():
             copy(path.relative_to(ASSETS), out)
-    for mark in sorted(set(re.findall(r"mark: '([a-z0-9-]+)'", (DEMO / 'library.js').read_text()))):
+    for mark in sorted(set(re.findall(r"mark: '([a-z0-9-]+)'", (APP / 'app.js').read_text()))):
         copy(f'icons/{mark}.svg', out)
     for wall in wallpaper_ids():
         copy(f'wallpapers/{wall}.jpg', out)
@@ -70,7 +70,7 @@ def build(out):
             copy(f'materials/{wall}-{material}.jpg', out)
     shutil.copy2(ROOT / 'THIRD_PARTY_NOTICES.md', out / 'THIRD_PARTY_NOTICES.md')
 
-    leftover = [name for name in ('index.html', 'logic.js', 'library.js') if '/home/' in (out / name).read_text()]
+    leftover = [name for name in ('index.html', 'logic.js', 'app.js') if '/home/' in (out / name).read_text()]
     if leftover:
         raise SystemExit('Preview-server paths remain in: ' + ', '.join(leftover))
     size = sum(path.stat().st_size for path in out.rglob('*') if path.is_file())

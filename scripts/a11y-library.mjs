@@ -1,4 +1,4 @@
-// Accessibility checks for Home (demo/library/), screen by screen, in Chromium at 1920×1080
+// Accessibility checks for Home (app/), screen by screen, in Chromium at 1920×1080
 // with reduced motion and transitions off, so every state is read at rest. A stand-in for the TV's Tizen API
 // supplies the apps. Never contacts a TV. A11Y_SCREEN=<text> checks only matching screens; A11Y_VERBOSE=1 lists
 // every label instead of the worst of each kind.

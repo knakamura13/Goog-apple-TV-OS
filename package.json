@@ -1,8 +1,8 @@
 {
-  "name": "cleanframe",
-  "version": "0.6.1",
+  "name": "home",
+  "version": "1.0.0",
   "private": true,
-  "description": "A personal, uncluttered home interface for Samsung The Frame.",
+  "description": "Home, a personal launcher for a Samsung Tizen TV.",
   "scripts": {
     "dev": "python3 scripts/preview.py",
     "check": "npm run lint && python3 scripts/check.py && npm run check:device && npm run test:library",
@@ -11,7 +11,7 @@
     "tv:launch": "python3 scripts/tv.py launch",
     "check:public": "python3 scripts/check-public.py",
     "check:tools": "python3 -B scripts/test-tools.py",
-    "lint": "eslint app demo/library",
+    "lint": "eslint app",
     "check:device": "node --test scripts/test-device.mjs",
     "check:library": "node scripts/check-library.mjs",
     "check:library-perf": "node scripts/perf-library.mjs",

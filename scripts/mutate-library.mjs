@@ -1,4 +1,4 @@
-// Mutation testing for Home's pure logic: changes demo/library/logic.js one operator at a time and runs
+// Mutation testing for Home's pure logic: changes app/logic.js one operator at a time and runs
 // scripts/test-library.mjs against each copy. A mutant the tests still pass is a fault they would miss.
 // Mutants that no longer compile are skipped, so syntax errors never count as caught faults.
 import { spawn } from 'node:child_process';
@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import vm from 'node:vm';
 
 const root = new URL('..', import.meta.url).pathname;
-const source = readFileSync(join(root, 'demo/library/logic.js'), 'utf8');
+const source = readFileSync(join(root, 'app/logic.js'), 'utf8');
 const lines = source.split('\n');
 const OPERATORS = [
   ['===', '!=='], ['!==', '==='], [' >= ', ' > '], [' > ', ' >= '], [' <= ', ' < '], [' < ', ' <= '],

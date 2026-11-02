@@ -1,5 +1,5 @@
 // Development only. Shared setup for Home's checks (scripts/*-library.mjs).
-// Serves demo/library/ from the loopback preview, drives Playwright's Chromium and installs a stand-in for the
+// Serves app/ (at /home/) from the loopback preview, drives Playwright's Chromium and installs a stand-in for the
 // TV's public Tizen API before the page loads, so the launcher runs its TV code paths. The weather and photo
 // services are answered from fixtures (or fail, to check offline behaviour), so no check reaches the internet.
 // Never contacts a TV.
@@ -176,7 +176,7 @@ export function launchBrowser() {
 // `offline` makes every request to the online services fail, as on a TV without internet. `requests` lists the
 // online requests the page made, in order. `appsFail` fails the first app-list reads, `photoIds` picks which
 // fixture photos Picsum's list offers, and `path` opens another page (a built package's index.html).
-export async function openLauncher(browser, base, { seed, clock, offline = false, appsFail = 0, photoIds, path = '/demo/library/', reducedMotion = 'no-preference' } = {}) {
+export async function openLauncher(browser, base, { seed, clock, offline = false, appsFail = 0, photoIds, path = '/home/', reducedMotion = 'no-preference' } = {}) {
   const listed = photoIds ? ALL_PHOTOS.filter(photo => photoIds.includes(photo.id)) : PHOTOS;
   const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1, reducedMotion });
   const page = await context.newPage();

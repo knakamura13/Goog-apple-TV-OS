@@ -1,4 +1,4 @@
-// End-to-end checks for Home (demo/library/), driven with remote keys in Chromium: arrows move, Enter is OK,
+// End-to-end checks for Home (app/), driven with remote keys in Chromium: arrows move, Enter is OK,
 // Escape is Back. A stand-in for the TV's public Tizen API reports the owners' installed apps and one connected
 // HDMI port, so every screen runs its TV code paths (app discovery, launching, Samsung's screens, the HDMI view,
 // Settings › About). The weather and photo services answer from fixtures, or fail in the offline sections.

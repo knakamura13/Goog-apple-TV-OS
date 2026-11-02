@@ -1,11 +1,11 @@
-// Unit tests for Home's pure logic (demo/library/logic.js), loaded in a plain sandbox exactly as the TV
+// Unit tests for Home's pure logic (app/logic.js), loaded in a plain sandbox exactly as the TV
 // loads it. HOME_LOGIC_FILE points the tests at another copy; scripts/mutate-library.mjs uses that.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
-const file = process.env.HOME_LOGIC_FILE || new URL('../demo/library/logic.js', import.meta.url).pathname;
+const file = process.env.HOME_LOGIC_FILE || new URL('../app/logic.js', import.meta.url).pathname;
 const sandbox = { window: {} };
 vm.runInNewContext(readFileSync(file, 'utf8'), sandbox);
 const L = sandbox.window.HomeLogic;

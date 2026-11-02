@@ -1,6 +1,6 @@
 // Development only: check ES5 grammar and common runtime mistakes.
 export default [{
-  files: ['app/**/*.js', 'demo/library/*.js'],
+  files: ['app/**/*.js'],
   languageOptions: {
     ecmaVersion: 5,
     sourceType: 'script',

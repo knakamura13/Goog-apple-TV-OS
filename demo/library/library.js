@@ -918,17 +918,45 @@
     front = back;
     back = swap;
   }
+  // The glass is a blurred, registered copy of the photo, so it has to change WITH the 900ms photo cross-fade, not
+  // the instant the new photo starts arriving. A frozen copy of each glass layer is kept on top and faded out over the
+  // same 900ms while the real layer, now carrying the new photo's materials, shows through beneath it.
+  var PHOTO_FADE = 900, glassFadeTimer = 0;
+  function dropGlassGhosts() {
+    var g = stage.querySelectorAll('.glass-ghost'), i;
+    for (i = 0; i < g.length; i++) if (g[i].parentNode) g[i].parentNode.removeChild(g[i]);
+  }
+  function crossfadeGlass(glass) {
+    var layers, ghosts, i, layer, ghost, imgs, n, img;
+    if (glassFadeTimer) { clearTimeout(glassFadeTimer); glassFadeTimer = 0; }
+    dropGlassGhosts(); // Snap any still-fading previous swap to done before starting this one.
+    layers = stage.querySelectorAll('.glass-layer');
+    for (i = 0; i < layers.length; i++) {
+      layer = layers[i];
+      ghost = layer.cloneNode(true); // Keeps the old photo's materials and the layer's registered offset.
+      ghost.removeAttribute('id');
+      ghost.className = layer.className + ' glass-ghost';
+      // Inline, so it beats the dock layer's own (higher-specificity) transform transition.
+      ghost.style.transition = 'opacity ' + PHOTO_FADE + 'ms linear';
+      layer.parentNode.insertBefore(ghost, layer.nextSibling);
+      imgs = layer.querySelectorAll('.glass-img');
+      for (n = 0; n < imgs.length; n++) { img = imgs[n]; img.src = glass[img.getAttribute('data-material')]; }
+    }
+    void stage.offsetWidth; // Commit the ghosts at full opacity before fading them out, so the swap animates.
+    ghosts = stage.querySelectorAll('.glass-ghost');
+    for (i = 0; i < ghosts.length; i++) ghosts[i].style.opacity = '0';
+    // Keep the retired glass (and any object URLs behind the ghosts) alive until the fade is done.
+    glassFadeTimer = setTimeout(function () { glassFadeTimer = 0; dropGlassGhosts(); sweepGlass(); }, PHOTO_FADE);
+  }
   function showPhoto(p) {
     var token = ++photoToken;
     preload([p.src, p.glass.clear, p.glass.blur, p.glass.frost], function () {
-      var glass = stage.querySelectorAll('.glass-img'), n;
       if (token !== photoToken) return;
       shownKey = p.key;
       swapPhoto(p.src);
       blurImg.src = p.glass.blur;
-      for (n = 0; n < glass.length; n++) glass[n].src = p.glass[glass[n].getAttribute('data-material')];
+      crossfadeGlass(p.glass);
       appliedGlass = p.glass;
-      sweepGlass();
       photoClasses(p.look);
       ambTitle.textContent = p.title;
       ambCredit.textContent = p.credit;

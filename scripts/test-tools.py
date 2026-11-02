@@ -168,8 +168,8 @@ class ToolTests(unittest.TestCase):
         sdb.chmod(0o700)
         self.config(sdk_path=str(sdb.parents[1]), profile='Synthetic profile', package_id='AbCdEf1234', app_id='AbCdEf1234.MyHome')
         (self.root / '.local/device.json').write_text(json.dumps({'host': '127.0.0.1'}))
-        widget = self.root / 'dist/Home.wgt'
-        widget.parent.mkdir()
+        widget = self.root / 'dist/signed-home-20261031-213802/Home.wgt'
+        widget.parent.mkdir(parents=True)
         for contaminated in [False, True]:
             with zipfile.ZipFile(widget, 'w') as archive:
                 archive.writestr('config.xml', (self.root / 'app/config.xml').read_bytes())

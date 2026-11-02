@@ -2,7 +2,7 @@
 
 The browser preview serves Home from app/ at /home/, with assets under /home/assets/. The TV loads files
 from inside the widget, so this copies only the assets Home uses and rewrites those paths to be relative.
-Sign a copy of the result with the official SDK, for example: tizen package -t wgt -s <profile> -o dist -- <copy of dist/home>
+Sign a copy of the result with the official SDK, for example: tizen package -t wgt -s <profile> -o dist/signed-home-<time> -- <copy of dist/home>
 """
 import argparse
 import json

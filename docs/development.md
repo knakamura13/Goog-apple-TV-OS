@@ -21,14 +21,14 @@ Keep material rendering in the development tools. See [asset generation](assets.
 
 `npm run build` writes `dist/home/`: `index.html`, `app.css`, `app.js` and `logic.js` with the preview blocks stripped and `/home/` paths made relative, plus `config.xml`, `icon.png`, `device.js`, `build-info.js`, `THIRD_PARTY_NOTICES.md` and only the assets Home uses (fonts, the brand marks named in `app.js`, every catalogue photo with its thumbnail and three glass fields). It refuses to replace a folder that is not a previous build. `--out <folder>` builds elsewhere.
 
-The build is unsigned. Sign a copy of it with the official SDK and your existing certificate profile, writing the package to `dist/`:
+The build is unsigned. Sign a copy of it with the official SDK and your existing certificate profile, writing the package to its own timestamped folder:
 
 ```sh
 copy="$(mktemp -d)/home" && cp -R dist/home "$copy"
-.local/tizen-sdk/tools/ide/bin/tizen package -t wgt -s <profile> -o dist -- "$copy"
+.local/tizen-sdk/tools/ide/bin/tizen package -t wgt -s <profile> -o "dist/signed-home-$(date +%Y%m%d-%H%M%S)" -- "$copy"
 ```
 
-`tv:install` installs `dist/Home.wgt`. The SDK normally names the package after `<name>` in `config.xml` (`Home`); check the path it reports. Check the SDK's exit status before installing; `tv:install` does not establish that the package is the latest source build. The initial custom XML-signature implementation was rejected by the reference TV; use the official SDK packager. See [Samsung's CLI configuration and packaging documentation](https://developer.samsung.com/smarttv/develop/getting-started/using-sdk/command-line-interface.html).
+The SDK names the package after `<name>` in `config.xml`, so each run writes `dist/signed-home-<time>/Home.wgt` (V1 was `dist/signed-home-20261031-213802/Home.wgt`). `npm run tv:install` installs the newest of those by folder name, or the package given with `-- --widget <path>`, and prints which one. Check the SDK's exit status before installing; `tv:install` does not establish that the package is the latest source build. The initial custom XML-signature implementation was rejected by the reference TV; use the official SDK packager. See [Samsung's CLI configuration and packaging documentation](https://developer.samsung.com/smarttv/develop/getting-started/using-sdk/command-line-interface.html).
 
 ## Local TV tools
 

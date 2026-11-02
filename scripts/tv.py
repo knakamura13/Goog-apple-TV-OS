@@ -1,4 +1,4 @@
-"""Connect, inspect, install or launch CleanFrame. These commands preserve Home/startup settings."""
+"""Connect, inspect, install or launch Home. These commands preserve the TV's Home/startup settings."""
 import argparse
 import hashlib
 import ipaddress
@@ -28,10 +28,10 @@ try:
         raise ValueError('Local SDB tool missing. See docs/development.md.')
     app_id = settings['identity']['app_id']
     # Reject a mismatched or unsafe package before connecting to the device.
-    widget = ROOT / 'dist/CleanFrame.wgt'
+    widget = ROOT / 'dist/Home.wgt'
     if args.action == 'install':
         if not widget.exists():
-            raise ValueError('Run npm run package first.')
+            raise ValueError('Build and sign dist/Home.wgt first; see docs/development.md.')
         check_signed_widget(widget, settings['identity'])
 except (ValueError, OSError, zipfile.BadZipFile) as error:
     message = str(error) if isinstance(error, ValueError) else 'Cannot read local SDK settings or signed widget.'
@@ -60,7 +60,7 @@ elif args.action == 'launch':
         raise SystemExit('App launch was not confirmed. Check the TV.')
 else:
     digest = hashlib.sha256(widget.read_bytes()).hexdigest()[:12]
-    remote = '/home/owner/share/tmp/sdk_tools/CleanFrame-' + digest + '-' + str(time.time_ns()) + '.wgt'
+    remote = '/home/owner/share/tmp/sdk_tools/Home-' + digest + '-' + str(time.time_ns()) + '.wgt'
     pushed = run('-s', serial, 'push', str(widget), remote)
     if '1 file(s) pushed' not in pushed or 'failed' in pushed.lower():
         raise SystemExit('Widget transfer was not confirmed.')
@@ -70,4 +70,4 @@ else:
     installed = run('-s', serial, 'shell', '0', 'applist', quiet=True)
     if app_id not in installed:
         raise SystemExit('App was not found in the installed-app list.')
-    print('CleanFrame installation confirmed. Startup defaults are unchanged.')
+    print('Home installation confirmed. Startup defaults are unchanged.')

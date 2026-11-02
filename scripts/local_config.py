@@ -1,9 +1,7 @@
 """Local signing settings. Importing this module reads no local configuration."""
 import json
-import os
 from pathlib import Path
 import re
-import stat
 import xml.etree.ElementTree as XML
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,25 +19,6 @@ def manifest_identity(data):
     identity = {'package_id': item.get('package'), 'app_id': item.get('id')}
     validate_identity(identity)
     return identity
-
-
-def override_identity(data, identity):
-    """Change only the two identity values; retain manifest bytes and prefixes."""
-    validate_identity(identity)
-    manifest_identity(data)
-    tags = list(re.finditer(rb'<tizen:application\b[^>]*>', data))
-    if len(tags) != 1:
-        raise ValueError('Expected one tizen:application tag in the source manifest.')
-    tag = tags[0].group()
-    for attribute, value in [('package', identity['package_id']), ('id', identity['app_id'])]:
-        pattern = rb'(?<![\w:.-])(' + attribute.encode() + rb'\s*=\s*)([\"\'])([^\"\']*)\2'
-        tag, count = re.subn(pattern, lambda match: match[1] + match[2] + value.encode() + match[2], tag)
-        if count != 1:
-            raise ValueError('Expected one ' + attribute + ' attribute in the application tag.')
-    result = data[:tags[0].start()] + tag + data[tags[0].end():]
-    if manifest_identity(result) != identity:
-        raise ValueError('Manifest identity override could not be verified.')
-    return result
 
 
 def validate_identity(identity):
@@ -88,21 +67,3 @@ def load_settings(root=ROOT):
             'profile': profile, 'identity': identity,
             'password_file': local_path(password, root) if password is not None else None}
 
-
-def read_password(path, root=ROOT):
-    """Read an owner-only regular file outside app/ and tracked source folders."""
-    path = Path(path)
-    resolved = path.resolve()
-    if any(resolved.is_relative_to((root / folder).resolve()) for folder in ['app', '.git']):
-        raise ValueError('Password file must stay outside app/ and .git/.')
-    if resolved.is_relative_to(root.resolve()) and not resolved.is_relative_to((root / '.local').resolve()):
-        raise ValueError('Keep the password file in .local/ or outside this repository.')
-    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-    with os.fdopen(descriptor, 'rb') as source:
-        info = os.fstat(source.fileno())
-        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) not in {0o600, 0o400}:
-            raise ValueError('Password file must be a regular file owned by you with mode 600 or 400.')
-        password = source.read(4099).removesuffix(b'\n').removesuffix(b'\r')
-    if not password or len(password) > 4096 or any(char in password for char in [b'\r', b'\n', b'\x00']):
-        raise ValueError('Password file must contain one non-empty password line.')
-    return password

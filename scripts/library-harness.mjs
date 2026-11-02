@@ -124,7 +124,6 @@ async function answerOnline(route, listed) {
 
 export async function startPreview() {
   const args = ['-u', 'scripts/preview.py', '--port', '0'];
-  if (process.env.CLEANFRAME_PUBLIC_FONTS === '1') args.push('--public-fonts');
   const server = spawn('python3', args, { cwd: repo, stdio: ['ignore', 'pipe', 'pipe'] });
   process.once('exit', () => server.kill()); // Never leave the server behind, even after an unexpected exit.
   let diagnostics = '';

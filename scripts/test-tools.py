@@ -1,6 +1,4 @@
 """Offline regression checks. All credentials and SDK responses are synthetic."""
-import contextlib
-import io
 import json
 import os
 from pathlib import Path
@@ -8,12 +6,9 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
 import zipfile
 
-from font_assets import write_widget_archive
-from local_config import ROOT, load_settings, manifest_identity, override_identity, read_password
-import package
+from local_config import ROOT, load_settings
 from private_files import check_signed_widget, check_widget, private_path, secret_content
 
 
@@ -47,7 +42,7 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(load_settings(self.root)['password_file'], password)
         self.assertIsNone(self.config(profile='Other profile')['password_file'])
 
-    def test_sdk_symlink_resolution_preserves_password_no_follow(self):
+    def test_sdk_symlink_resolution(self):
         sdk = self.root / '.local/real-sdk'
         sdk.mkdir()
         alias = self.root / '.local/SDK path with spaces'
@@ -58,8 +53,6 @@ class ToolTests(unittest.TestCase):
         settings = self.config(profile='Synthetic profile', sdk_path=str(alias), password_file=str(link))
         self.assertEqual(settings['sdk_path'], sdk.resolve())
         self.assertEqual(settings['password_file'], link)
-        with self.assertRaises(OSError):
-            read_password(settings['password_file'], self.root)
 
     def test_config_identity_validation_and_no_secret_errors(self):
         with self.assertRaisesRegex(ValueError, 'Set profile'):
@@ -81,65 +74,6 @@ class ToolTests(unittest.TestCase):
         (self.root / '.local/signing.json').write_bytes((ROOT / 'signing.example.json').read_bytes())
         with self.assertRaisesRegex(ValueError, 'ten-character'):
             load_settings(self.root)
-
-    def test_password_permissions_paths_and_contents(self):
-        good = self.password()
-        self.assertEqual(read_password(good, self.root), b'synthetic password')
-        for name in ['app/password.txt', 'password.txt', '.git/password.txt']:
-            with self.subTest(name=name), self.assertRaises(ValueError):
-                read_password(self.password(name), self.root)
-        for mode in [0o644, 0o640, 0o666, 0o700]:
-            good.chmod(mode)
-            with self.subTest(mode=mode), self.assertRaises(ValueError):
-                read_password(good, self.root)
-        good.chmod(0o600)
-        link = self.root / '.local/link.txt'
-        link.symlink_to(good)
-        with self.assertRaises(OSError):
-            read_password(link, self.root)
-        with patch('local_config.os.getuid', return_value=os.getuid() + 1), self.assertRaises(ValueError):
-            read_password(good, self.root)
-        for value in [b'', b'first\nsecond', b'x\x00y', b'x\n\n', b'x' * 4097, b'x' * 4096 + b'\nextra']:
-            good.write_bytes(value)
-            with self.subTest(length=len(value)), self.assertRaises(ValueError):
-                read_password(good, self.root)
-
-    def test_widget_identity_overlay_and_private_files(self):
-        original = (self.root / 'app/config.xml').read_bytes()
-        identity = {'package_id': 'AbCdEf1234', 'app_id': 'AbCdEf1234.MyHome'}
-        output = self.root / 'widget.wgt'
-        # Files outside app/ are not included, even when they contain test credentials.
-        self.password()
-        write_widget_archive(output, root=self.root, include_private=False, identity=identity)
-        with zipfile.ZipFile(output) as archive:
-            self.assertEqual(manifest_identity(archive.read('config.xml')), identity)
-            expected = original.replace(b'nClrkHome1.FrameHome', b'AbCdEf1234.MyHome').replace(b'nClrkHome1', b'AbCdEf1234')
-            self.assertEqual(archive.read('config.xml'), expected)
-            self.assertFalse(any('password' in name for name in archive.namelist()))
-        self.assertEqual((self.root / 'app/config.xml').read_bytes(), original)
-        duplicate = original.replace(b'</widget>', b'<tizen:application id="AbCdEf1234.Other" package="AbCdEf1234"/></widget>')
-        with self.assertRaises(ValueError):
-            override_identity(duplicate, identity)
-        for index, name in enumerate(['config.local.json', 'author.pfx', 'profiles.xml', '.local/signing.json']):
-            app_root = self.root / ('unsafe-' + str(index))
-            (app_root / 'app' / name).parent.mkdir(parents=True, exist_ok=True)
-            (app_root / 'app' / name).write_text('synthetic')
-            with self.subTest(name=name), self.assertRaises(ValueError):
-                write_widget_archive(output, root=app_root, include_private=False)
-        # Recognisable key material is blocked even under a harmless filename.
-        (self.root / 'app/notes.txt').write_bytes(b'-----BEGIN ' + b'ENCRYPTED PRIVATE KEY-----')
-        with self.assertRaises(ValueError):
-            write_widget_archive(output, root=self.root, include_private=False)
-
-    def test_export_ignores_local_signing_config(self):
-        output = self.root / 'public.wgt'
-        write_widget_archive(output, root=self.root, include_private=False)
-        with zipfile.ZipFile(output) as archive:
-            before = {name: archive.read(name) for name in archive.namelist()}
-        (self.root / '.local/signing.json').write_text('Deliberately invalid synthetic config: must not be read')
-        write_widget_archive(output, root=self.root, include_private=False)
-        with zipfile.ZipFile(output) as archive:
-            self.assertEqual(before, {name: archive.read(name) for name in archive.namelist()})
 
     def test_signed_widget_allows_public_certificates(self):
         output = self.root / 'signed.wgt'
@@ -167,77 +101,8 @@ class ToolTests(unittest.TestCase):
             with self.subTest(message=message), self.assertRaisesRegex(ValueError, message):
                 check_signed_widget(output, selected)
 
-    def test_fake_sdk_saved_profile_and_password_modes(self):
-        cli = self.root / '.local/sdk/tools/ide/bin/tizen'
-        cli.parent.mkdir(parents=True)
-        cli.write_text('#!' + sys.executable + '\n' + '''
-from pathlib import Path
-import shutil
-import sys
-import zipfile
-if Path(__file__).with_name('fail').exists():
-    print('synthetic secret SDK diagnostic')
-    sys.exit(3)
-if Path(__file__).with_name('prompt').exists():
-    print('Password:', end='', flush=True)
-    if input() != 'synthetic password':
-        sys.exit(2)
-    print('No: (N) ?', end='', flush=True)
-    if input() != 'n':
-        sys.exit(2)
-source = Path(sys.argv[-1])
-target = Path(sys.argv[sys.argv.index('-o') + 1]) / source.name
-shutil.copyfile(source, target)
-if Path(__file__).with_name('mismatch').exists():
-    with zipfile.ZipFile(target) as archive:
-        entries = {name: archive.read(name) for name in archive.namelist()}
-    entries['config.xml'] = entries['config.xml'].replace(b'AbCdEf1234.MyHome', b'AbCdEf1234.Wrong')
-    with zipfile.ZipFile(target, 'w') as archive:
-        for name, data in entries.items():
-            archive.writestr(name, data)
-with zipfile.ZipFile(target, 'a') as archive:
-    archive.writestr('author-signature.xml', '<Signature/>')
-    archive.writestr('signature1.xml', '<Signature/>')
-''')
-        cli.chmod(0o700)
-        profile = cli.parent / 'profiles.xml'
-        profile.write_text('Synthetic profile: do not rewrite')
-        identity = dict(package_id='AbCdEf1234', app_id='AbCdEf1234.MyHome')
-        alias = self.root / '.local/SDK alias with spaces'
-        alias.symlink_to(cli.parents[3], target_is_directory=True)
-        settings = self.config(sdk_path=str(alias), profile='My profile', **identity)
-        self.assertEqual(settings['sdk_path'], cli.parents[3].resolve())
-        self.assertTrue(settings['sdk_path'].is_relative_to(self.root))
-        with patch.object(package, 'load_settings', return_value=settings):
-            with contextlib.redirect_stdout(io.StringIO()) as output:
-                package.main(self.root)
-            self.assertNotIn('synthetic secret', output.getvalue())
-            target = self.root / 'dist/CleanFrame.wgt'
-            baseline = target.read_bytes()
-            (cli.parent / 'mismatch').write_text('Synthetic identity mismatch')
-            with self.assertRaisesRegex(ValueError, 'identity differs'):
-                package.main(self.root)
-            self.assertEqual(target.read_bytes(), baseline)
-            (cli.parent / 'mismatch').rename(cli.parent / 'unused-mismatch')
-            (cli.parent / 'fail').write_text('Synthetic failure')
-            with self.assertRaises(ValueError):
-                package.main(self.root)
-            self.assertEqual(target.read_bytes(), baseline)
-        password = self.password()
-        settings['password_file'] = password
-        self.assertTrue(settings['password_file'].is_relative_to(self.root))
-        (cli.parent / 'fail').rename(cli.parent / 'unused-failure')
-        (cli.parent / 'prompt').write_text('Use synthetic password prompt')
-        with patch.object(package, 'load_settings', return_value=settings):
-            with contextlib.redirect_stdout(io.StringIO()) as output:
-                package.main(self.root)
-            self.assertNotIn('synthetic password', output.getvalue())
-        self.assertEqual(profile.read_text(), 'Synthetic profile: do not rewrite')
-        with zipfile.ZipFile(target) as archive:
-            self.assertEqual(manifest_identity(archive.read('config.xml')), identity)
-
     def test_public_check_reads_index_and_history(self):
-        for name in ['scripts/check-public.py', 'scripts/font_assets.py', 'scripts/local_config.py', 'scripts/private_files.py',
+        for name in ['scripts/check-public.py', 'scripts/local_config.py', 'scripts/private_files.py',
                      'app/assets/fonts/SOURCES.json', 'app/assets/manrope.woff2', 'app/assets/manrope-OFL.txt',
                      'app/assets/fonts/geist/OFL.txt', 'app/assets/fonts/newsreader/OFL.txt']:
             target = self.root / name
@@ -291,21 +156,6 @@ with zipfile.ZipFile(target, 'a') as archive:
         git('-c', 'user.name=Offline Test', '-c', 'user.email=offline@example.invalid', 'commit', '-qm', 'Rename fixture')
         self.assertIn('reachable Git history: old-store.pfx', check().stderr)
 
-    def test_signing_rejects_prompts_and_times_out(self):
-        cli = self.root / 'fake-sdk'
-        cli.write_text('#!' + sys.executable + '\nprint("Password:", end="", flush=True)\ninput()\n')
-        cli.chmod(0o700)
-        with self.assertRaisesRegex(ValueError, 'requested a password'):
-            package.sign([str(cli)], timeout=2)
-        cli.write_text('#!' + sys.executable + '\nfor _ in range(3):\n print("Password:", end="", flush=True)\n input()\n')
-        with self.assertRaisesRegex(ValueError, 'too many passwords'):
-            package.sign([str(cli)], b'synthetic password', timeout=2)
-        cli.write_text('#!' + sys.executable + '\nimport time\ntime.sleep(10)\n')
-        with self.assertRaisesRegex(ValueError, 'timed out'):
-            package.sign([str(cli)], timeout=0.1)
-        cli.write_text('#!/nonexistent-offline-test-interpreter\n')
-        self.assertEqual(package.sign([str(cli)], timeout=2), 127)
-
     def test_install_rejects_artifact_before_fake_sdb(self):
         for name in ['scripts/tv.py', 'scripts/local_config.py', 'scripts/private_files.py']:
             target = self.root / name
@@ -318,7 +168,7 @@ with zipfile.ZipFile(target, 'a') as archive:
         sdb.chmod(0o700)
         self.config(sdk_path=str(sdb.parents[1]), profile='Synthetic profile', package_id='AbCdEf1234', app_id='AbCdEf1234.MyHome')
         (self.root / '.local/device.json').write_text(json.dumps({'host': '127.0.0.1'}))
-        widget = self.root / 'dist/CleanFrame.wgt'
+        widget = self.root / 'dist/Home.wgt'
         widget.parent.mkdir()
         for contaminated in [False, True]:
             with zipfile.ZipFile(widget, 'w') as archive:

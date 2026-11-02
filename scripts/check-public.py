@@ -7,8 +7,9 @@ import hashlib
 import json
 import subprocess
 
-from font_assets import ROOT
 from private_files import private_path, secret_content
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def git(*args):

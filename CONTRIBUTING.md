@@ -1,28 +1,28 @@
-# Contributing to CleanFrame
+# Contributing to Home
 
-CleanFrame was built for one Samsung The Frame, with very little work on portability. Use it at your own risk and treat it as a starting point for your own version. Forks and adaptations are encouraged. Contributions back to this repo should keep the remote experience simple and state what has actually been tested.
+Home is a fork of CleanFrame, built for one Samsung TV, with very little work on portability. Use it at your own risk and treat it as a starting point for your own version. Forks and adaptations are encouraged. Contributions back to this repo should keep the remote experience simple and state what has actually been tested.
 
 ## Start in the browser
 
-Use the README's public-font setup. Keep changes in `app/` and the maintained tools in `scripts/`. Use your browser to develop interface changes.
+Use the README's browser preview. Keep changes in `app/` and the maintained tools in `scripts/`. Use your browser to develop interface changes.
 
 ```sh
 npm ci
-npm run dev:public
+npm run dev
 npm run check
 npm run check:tools
-npx playwright install chromium
-CLEANFRAME_PUBLIC_FONTS=1 npm run check:browser
+npx playwright install chromium-headless-shell
+npm run check:all
 npm run check:public
 ```
 
-Keep runtime JavaScript ES5-compatible. Use existing focus, panel and preference logic. A new CSS/DOM API needs target-device evidence before it becomes a compatibility claim. Keep new dependencies in development tooling unless the runtime need is clear.
+Keep runtime JavaScript ES5-compatible. Use the existing focus, screen and saved-state logic. A new CSS/DOM API needs target-device evidence before it becomes a compatibility claim. Keep new dependencies in development tooling unless the runtime need is clear.
 
 ## Propose a change
 
 For a bug, describe the trigger, expected result and actual result. Include browser/viewport or TV model and full firmware version. For a new feature, explain the task it helps someone complete from the sofa. Open an issue before changing the app model or introducing a new service dependency.
 
-A pull request should explain the resulting behaviour, the checks run and any untested device result. Include a public-font screenshot for visual changes. Check both List and Dock, single focus, panel Back behaviour and saved-preference recovery when relevant. The TV remote remains the final check for remote feel; browser throttling is only a comparison.
+A pull request should explain the resulting behaviour, the checks run and any untested device result. Include a screenshot for visual changes. Check single focus, Back behaviour on every screen and saved-state recovery when relevant. The TV remote remains the final check for remote feel; browser throttling is only a comparison.
 
 ## Device work and privacy
 
@@ -32,4 +32,4 @@ Keep passwords, tokens, signing keys, serial numbers, DUIDs, addresses and origi
 
 ## Assets and licences
 
-CleanFrame's original code is MIT. Contributions to that code use the same licence. Keep upstream asset licences and source records intact. Add only assets you have permission to redistribute, and explain any required attribution or separate terms. Personal paid fonts stay under `.local/`; the public app must work without them. Review `THIRD_PARTY_NOTICES.md` before adding or replacing a logo, photograph or font.
+The original code is MIT. Contributions to that code use the same licence. Keep upstream asset licences and source records intact. Add only assets you have permission to redistribute, and explain any required attribution or separate terms. Personal paid fonts stay under `.local/`; Home does not use them. Review `THIRD_PARTY_NOTICES.md` before adding or replacing a logo, photograph or font.

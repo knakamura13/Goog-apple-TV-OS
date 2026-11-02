@@ -110,12 +110,12 @@ The photo does a slow one-shot zoom and the text drifts every few minutes to pro
 
 ## Reused from CleanFrame
 
-Home is its own app, built from `demo/library/`; CleanFrame's app in `app/` is unchanged. Home uses:
+Home is its own app in `app/`; CleanFrame's Frame interface has been removed. Home uses:
 
 - `device.js` for app launching and installed-app discovery
 - the bundled photos, their credits and catalogue values, and their pre-rendered glass materials, whose recipe Home also follows for online photos
 - the brand marks with their optical-size metrics, and the fonts
-- the focus-handling rules in `docs/interaction-behaviour.md`
+- CleanFrame's focus rule: focus alone never acts; OK does
 
 Art Mode isn't offered because this TV isn't a Frame.
 
@@ -129,15 +129,15 @@ Art Mode isn't offered because this TV isn't a Frame.
 
 ## Build, preview and tests
 
-The code is in `demo/library/`: `index.html`, `library.css`, `library.js` (the app) and `logic.js` (pure logic shared with the unit tests), plus `config.xml`. Run `npm run dev:public` and open `http://127.0.0.1:4795/demo/library/` to preview it in a browser.
+The code is in `app/`: `index.html`, `app.css`, `app.js` (the app) and `logic.js` (pure logic shared with the unit tests), plus `config.xml`. Run `npm run dev` and open `http://127.0.0.1:4795/home/` to preview it in a browser.
 
 - **Preview keys:** arrows move, Enter is OK, Escape is Back, A starts the screensaver, H hides the key hints. Clicking a tile focuses it and presses OK. `?wall=<id>` shows a bundled photo, for example `?wall=night`. The TV build has none of these extras.
 - **Preview data:** the browser has no TV, so it shows sample apps and says what a launch or an HDMI tile would do ("Opens Netflix on the TV."). Weather and photos are real in the browser too.
 - **On the TV:** Home lists the installed apps as described under App list and icons, OK opens them with no message, and Samsung Home, Picture and sound and Source list open Samsung's screens. On a first run, Favorites holds the first six installed apps from the owners' list (see Owners' decisions), the rest of that list fills the library, and every other installed app starts in Hidden. With nothing from the list installed, Favorites holds the first six apps A–Z. A damaged save falls back to these defaults. If the TV's app list can't be read, the sample apps hold Home's place without launching, the owner's saved Favorites and Hidden are kept as they were, and Home tries again every 10 seconds.
-- **TV build:** `npm run build:demo` assembles `dist/library-demo/`, a self-contained Tizen web app with relative asset paths and its own `config.xml` (SDK-generated identity `Zm209bQNEk.Home`, version 1.0.0). It is unsigned; sign it with the owner's certificate profile, for example `tizen package -t wgt -s <profile> -- <copy of dist/library-demo>`. Code between `preview` markers is stripped, and only the logos in use are copied. `build-info.js` records the commit, build time and size for Settings › About. On the TV, the number buttons are registered for ZIP entry.
+- **TV build:** `npm run build` assembles `dist/home/`, a self-contained Tizen web app with relative asset paths and its own `config.xml` (SDK-generated identity `Zm209bQNEk.Home`, version 1.0.0). It is unsigned; sign it with the owner's certificate profile, for example `tizen package -t wgt -s <profile> -o dist -- <copy of dist/home>` (see `docs/development.md`). Code between `preview` markers is stripped, and only the logos in use are copied. `build-info.js` records the commit, build time and size for Settings › About. On the TV, the number buttons are registered for ZIP entry.
 - **Network:** `config.xml` grants the `internet` privilege and access to `api.zippopotam.us`, `api.open-meteo.com` and `picsum.photos` (with its `fastly` subdomain) only. Home sends the ZIP code, the place's rounded coordinates and photo requests; nothing else.
 - **Package size:** about 15.3 MB, of which code is about 100 KB. Each bundled photo costs about 1 MB: the 1920×1080 photo about 690 KB, three pre-rendered glass layers about 236 KB and the thumbnail about 38 KB. The two variable fonts take 0.6 MB as TTF files.
-- **Tests:** `npm run check:home` runs the unit tests for `logic.js`, mutation testing (every mutant caught), end-to-end checks that drive every screen with remote keys, accessibility checks (visible focus and WCAG AA contrast on every screen) and frame-gap budgets with the CPU throttled 6×. A stand-in for the Tizen API and fixtures for the online services keep them off the TV and the internet; `docs/testing.md` has the details. Contrast over the photo is reported as a warning where it depends on the photo: text on glass passes on the photos the checks use, but its bounds over a pure white or black photo keep that photo's tints, so they don't model how the glass over an online photo darkens with its brightness. The tile menu's focus is visible but faint by the AAA measure.
+- **Tests:** `npm run check:all` runs the unit tests for `logic.js`, mutation testing (every mutant caught), end-to-end checks that drive every screen with remote keys, accessibility checks (visible focus and WCAG AA contrast on every screen) and frame-gap budgets with the CPU throttled 6×. A stand-in for the Tizen API and fixtures for the online services keep them off the TV and the internet; `docs/testing.md` has the details. Contrast over the photo is reported as a warning where it depends on the photo: text on glass passes on the photos the checks use, but its bounds over a pure white or black photo keep that photo's tints, so they don't model how the glass over an online photo darkens with its brightness. The tile menu's focus is visible but faint by the AAA measure.
 - **Performance in the browser:** with the CPU throttled 6×, every interaction keeps a median frame gap of 16.7 ms, and the worst gap stays under 75 ms (a page slide or the screensaver). The GPU cost of full-screen photos, glass copies and squircle masks can only be measured on the TV.
 
 ## Quality bar

@@ -173,7 +173,7 @@ Samsung documents the [project wizard and configuration file](https://developer.
 
 For existing source, have the agent inspect its manifest first and create a consistent identity for your independent app. If an installed launcher already owns native Home routing, restore that routing before changing its identity.
 
-For CleanFrame, put the SDK-generated `package_id` and `app_id`, SDK path and existing signing profile in ignored `.local/signing.json`, using `signing.example.json` as the template. The packager changes the generated manifest, and the installer and app self-filter use the same identity. Leave tracked identity guards intact. The native Home helper now takes model, firmware and app identity from a private per-TV profile, and still needs separate review and authority. See [local signing setup](development.md#local-tv-tools-and-signing) for SDK-managed passwords and the optional protected password file.
+For Home, put the SDK-generated `package_id` and `app_id`, SDK path and existing signing profile in ignored `.local/signing.json`, using `signing.example.json` as the template, and use the same identity in `app/config.xml`. The installer checks the signed widget against that identity, and the app self-filter reads its own ID from Tizen. Leave tracked identity guards intact. The native Home helper now takes model, firmware and app identity from a private per-TV profile, and still needs separate review and authority. See [local TV tools](development.md#local-tv-tools) and [build and sign](development.md#build-and-sign).
 
 ### Use the apps installed on your TV
 

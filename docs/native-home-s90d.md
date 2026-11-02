@@ -62,7 +62,7 @@ trips the helper.
 ### A2. `Zm209bQNEk.Home` is installed and is the right target; boot eligibility is unproven
 
 **Verdict: installed and correct; boot eligibility confirmed by the 1 November survey.** The identity
-is recorded in `demo/library/config.xml` and in the 31 October owner decisions, and in-place updates
+is recorded in `app/config.xml` and in the 31 October owner decisions, and in-place updates
 use the existing certificate, so the ID is stable. Boot eligibility is decided by the firmware; the
 1 November `query` returned `BOOT_SUPPORTED=true` and `TARGET_PACKAGE_PRESENT=true` here, so the
 launcher is installed and the firmware reports it boot-eligible. Cold-boot-to-launcher is a separate

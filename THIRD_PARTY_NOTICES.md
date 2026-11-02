@@ -1,6 +1,6 @@
 # Third-party notices
 
-The root MIT licence covers CleanFrame's original code and documentation. Third-party material retains the terms below. Keep these notices and the adjacent licence texts when sharing source or a build.
+The root MIT licence covers the original code and documentation of Home and of CleanFrame, which it forks. Third-party material retains the terms below. Keep these notices and the adjacent licence texts when sharing source or a build.
 
 ## Fonts
 
@@ -8,9 +8,9 @@ The root MIT licence covers CleanFrame's original code and documentation. Third-
 | --- | --- |
 | Manrope | SIL Open Font License 1.1; `app/assets/manrope-OFL.txt` |
 | Geist and Newsreader | SIL Open Font License 1.1; licences beside the files in `app/assets/fonts/`, with exact sources and hashes in `app/assets/fonts/SOURCES.json` |
-| Optional PP Neue Montreal, PP Mori and PP Pangram Sans | Proprietary. Binaries stay in ignored `.local/` storage and are excluded from Git and public exports. The optional local overlay requires the user's own permission to use and embed those files. |
+| Optional PP Neue Montreal, PP Mori and PP Pangram Sans | Proprietary. Binaries stay in ignored `.local/` storage and are excluded from Git; Home does not use them. |
 
-The public app uses Manrope, Geist and Newsreader. A personal widget containing proprietary fonts must stay private. See [Pangram's licensing information](https://pangrampangram.com/pages/eula).
+Home uses Manrope, Geist and Newsreader. A personal widget containing proprietary fonts must stay private. See [Pangram's licensing information](https://pangrampangram.com/pages/eula).
 
 ## Icons and trademarks
 
@@ -28,8 +28,8 @@ The fifteen photo pages were individually checked on 20 October 2026. Each displ
 
 Photographers retain their rights. Wallpapers, thumbnails, panel backgrounds and material fields derive from the credited photographs and retain their terms. The Unsplash licence permits copying, modification and distribution subject to its restrictions, including on selling unmodified images and building a competing image service.
 
-## Development dependencies and exports
+## Development dependencies and builds
 
 Development dependencies retain the licences in their npm packages. They are not copied into the TV JavaScript runtime.
 
-`npm run export:public` excludes private fonts and includes this notice and the root MIT licence. Preserve the included font and icon licence texts. Review [public release preparation](docs/public-release.md) before publishing a repository or download.
+`npm run build` copies this notice into the TV build. Preserve the included font and icon licence texts, and run `npm run check:public` before publishing a repository or download.

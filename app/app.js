@@ -998,6 +998,7 @@
   }
   // Glass made for an earlier daily photo is released once nothing shows it.
   function sweepGlass() {
+    if (glassFadeTimer) return; // The fading copies may still show retired glass; the fade's end sweeps.
     retiredGlass = retiredGlass.filter(function (g) {
       if (g === appliedGlass) return true;
       ['clear', 'blur', 'frost'].forEach(function (m) { if (g[m]) window.URL.revokeObjectURL(g[m]); });

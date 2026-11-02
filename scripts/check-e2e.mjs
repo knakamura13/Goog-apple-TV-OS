@@ -110,13 +110,6 @@ try {
     check('Library is Amazon Alexa, HBO Max, Samsung TV Plus, SmartThings, Spotify (A–Z, one row)', same(s.library, LIBRARY), s.library);
     check('Disney+ and Sling TV are on neither Home row', !s.fav.concat(...s.library).some(app => /disney|sling/i.test(app)), s);
     check('First focus is the first favourite (no Resume pill before any launch)', focusIs(s, 'fav', 0) && !has(s, 'has-resume'), s.f);
-    await page.waitForTimeout(400);
-    const marked = await page.evaluate(() => [...document.querySelectorAll('#favRow > .tile')].map(tile => ({
-      ring: +getComputedStyle(tile.querySelector('.ed-ring')).opacity,
-      shade: +getComputedStyle(tile.querySelector('.t-face'), '::after').opacity
-    })));
-    check('The focused dock app has a ring and is not darkened; the other dock apps are darkened without one',
-      marked[0].ring === 1 && marked[0].shade === 0 && marked.slice(1).every(t => t.ring === 0 && t.shade === 0.5), marked);
     await page.waitForFunction(() => document.querySelector('#library .t-icon')?.complete, null, { timeout: 5000 }).catch(() => {});
     const icon = await page.evaluate(() => {
       const img = document.querySelector('#library .t-icon');
@@ -291,19 +284,20 @@ try {
     await hold(page);
     await chooseFromMenu(page, 'Remove from Favorites');
     s = await snapshot(page);
-    check('Remove from Favorites moves Amazon Alexa back to the library, A–Z', same(s.fav, FAV_MARKS.slice(1)) && same(s.library, LIBRARY) && !s.saved?.hid.includes('alexa'), [s.fav, s.library]);
+    check('Remove from Favorites moves Amazon Alexa to the top of the library', same(s.fav, FAV_MARKS.slice(1)) && same(s.library, LIBRARY) && s.saved?.lib[0] === 'alexa' && !s.saved?.hid.includes('alexa'), [s.fav, s.library, s.saved?.lib]);
 
     await press(page, 'ArrowLeft', 5);
     await press(page, 'ArrowDown');
     await hold(page);
     await chooseFromMenu(page, 'Move');
     s = await snapshot(page);
-    check('Move opens the Apps editor carrying the app', has(s, 'is-editor') && same(s.editor.carry, ['alexa']), [s.classes, s.editor]);
-    check('The editor says what is being moved', /^Moving Amazon Alexa\./.test(s.editor.hint), s.editor.hint);
+    check('Move picks the app up on Home, without opening the Apps editor', !has(s, 'is-editor') && !has(s, 'is-menu') && focusIs(s, 'lib', 0), [s.classes, s.f]);
+    check('Home says what is being moved', /^Moving Amazon Alexa\./.test(s.toast), s.toast);
     await press(page, 'ArrowUp');
     await press(page, 'Enter');
     s = await snapshot(page);
-    check('Carrying the app up and pressing OK makes it a favourite', s.saved?.fav.includes('alexa') && same(s.editor.carry, []), [s.saved?.fav, s.editor]);
+    check('Carrying the app up and pressing OK makes it the first favourite', s.saved?.fav[0] === 'alexa' && same(s.fav, ['amazonalexa'].concat(FAV_MARKS.slice(1))) && focusIs(s, 'fav', 0), [s.saved?.fav, s.f]);
+    check('The drop is confirmed', s.toast === 'Amazon Alexa moved.', s.toast);
     check('The launcher launched nothing while editing', same(s.launches, []), s.launches);
   });
 
@@ -345,25 +339,56 @@ try {
     check('A repeat the TV doesn\'t flag still counts as holding: the menu opens and nothing launches', has(s, 'is-menu') && same(s.launches, [APP.plex, APP.youtube]), [s.classes, s.launches]);
   });
 
-  await section('Edit in place: leaving the Apps editor after Move', {}, async (launcher, page) => {
+  await section('Edit in place: Move on Home', {}, async (launcher, page) => {
     await press(page, 'ArrowRight', 2);
     await hold(page);
     await chooseFromMenu(page, 'Move');
-    check('Move from the menu opens the Apps editor', has(await snapshot(page), 'is-editor'));
-    await press(page, 'Escape');
-    await press(page, 'Escape');
+    await press(page, 'ArrowRight');
     let s = await snapshot(page);
-    check('Back twice (drop the app, leave the editor) returns to the moved app on the dock', !has(s, 'is-editor') && !has(s, 'is-panel') && focusIs(s, 'fav', 2), [s.classes, s.f]);
+    const moved = ['plex', 'youtube', 'appletv', 'netflix', 'hulu', 'primevideo-wordmark'];
+    check('Right carries Netflix one place along the dock, with focus on it', same(s.fav, moved) && focusIs(s, 'fav', 3), [s.fav, s.f]);
+    check('Nothing is saved while carrying', s.saved === null || same(s.saved.fav, FAVS), s.saved);
+    await page.waitForTimeout(400);
+    await press(page, 'Escape');
+    s = await snapshot(page);
+    check('Back cancels the move: the dock is as it was, focus back on Netflix', same(s.fav, FAV_MARKS) && focusIs(s, 'fav', 2) && s.toast === 'Move cancelled.', [s.fav, s.f, s.toast]);
     await press(page, 'ArrowRight');
     check('Keys work normally afterwards', focusIs(await snapshot(page), 'fav', 3));
+
+    await press(page, 'ArrowLeft');
+    await hold(page);
+    await chooseFromMenu(page, 'Move');
+    await press(page, 'ArrowRight');
+    await press(page, 'Enter');
+    s = await snapshot(page);
+    check('OK drops Netflix in its new place and saves the dock order', same(s.fav, moved) && s.saved?.fav[3] === 'netflix' && focusIs(s, 'fav', 3), [s.fav, s.saved?.fav, s.f]);
+
+    await press(page, 'ArrowLeft', 3);
     await press(page, 'ArrowDown');
     await hold(page);
     await chooseFromMenu(page, 'Move');
     await press(page, 'ArrowUp');
-    await press(page, 'Enter');
-    await press(page, 'Escape');
     s = await snapshot(page);
-    check('With Favorites full, a library app stays in the library and Back returns to the dock', !has(s, 'is-editor') && same(s.fav, FAV_MARKS) && focusIs(s, 'fav', 3), [s.fav, s.f]);
+    check('Carrying a library app into the full dock pushes the dock\'s last app to the top of the library',
+      same(s.fav, ['amazonalexa'].concat(moved.slice(0, 5))) && s.library[0][0] === 'primevideo-wordmark' && focusIs(s, 'fav', 0), [s.fav, s.library, s.f]);
+    await press(page, 'ArrowDown');
+    s = await snapshot(page);
+    check('Carrying it back down undoes the push', same(s.fav, moved) && same(s.library, LIBRARY) && focusIs(s, 'lib', 0), [s.fav, s.library, s.f]);
+    await press(page, 'ArrowUp');
+    await press(page, 'Enter');
+    s = await snapshot(page);
+    check('Dropping it there saves both lists', s.saved?.fav[0] === 'alexa' && s.saved?.fav.length === 6 && s.saved?.lib[0] === 'primevideo', [s.saved?.fav, s.saved?.lib]);
+
+    await press(page, 'ArrowDown');
+    await press(page, 'ArrowRight', 2);
+    await hold(page);
+    await chooseFromMenu(page, 'Move');
+    await press(page, 'ArrowLeft', 2);
+    await press(page, 'Enter');
+    await page.reload();
+    await page.waitForFunction(() => document.querySelector('#stage .is-focus'));
+    s = await snapshot(page);
+    check('A library app moved to the front keeps its place after a reload', same(s.library, [['Samsung TV Plus', 'primevideo-wordmark', 'hbomax', 'smartthings', 'spotify']]), s.library);
   });
 
   await section('Settings panel', {}, async (launcher, page) => {
@@ -384,6 +409,13 @@ try {
     s = await snapshot(page);
     check('Right then OK drops Plex one place later, and saves at once', same(s.saved?.fav, ['youtube', 'plex', 'netflix', 'appletv', 'hulu', 'primevideo']) && same(s.editor.carry, []), s.saved?.fav);
     check('The editor confirms the reorder', s.editor.hint === 'Favorites reordered.', s.editor.hint);
+    await press(page, 'ArrowDown');
+    await press(page, 'Enter');
+    const carried = (await snapshot(page)).editor.carry[0];
+    await press(page, 'ArrowRight');
+    await press(page, 'Enter');
+    s = await snapshot(page);
+    check('The library keeps its own order too: Right then OK moves an app one place later and saves it', s.saved?.lib[1] === carried && s.editor.hint === 'Library reordered.', [carried, s.saved?.lib, s.editor.hint]);
     await press(page, 'Escape');
     await settled(page);
     s = await snapshot(page);

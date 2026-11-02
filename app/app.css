@@ -102,7 +102,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .lib-row{position:absolute;left:0;width:1740px;height:150px;transition:opacity 200ms linear}
 .lib-row.is-above{opacity:0}
 
-/* ---------- Tiles: squircle faces; the focused tile grows, lifts its shadow, catches a sheen and gains a ring ---------- */
+/* ---------- Tiles: squircle faces; the focused tile grows, lifts its shadow and catches a sheen ---------- */
 .tile{position:absolute;top:0;width:250px;height:150px;transition:transform var(--focus-t) var(--glide);will-change:transform;-webkit-backface-visibility:hidden;backface-visibility:hidden}
 /* The shadow is a soft gradient blob behind the face: no box edge, so nothing shows through glass faces. */
 .tile::before{content:"";position:absolute;left:-8%;right:-8%;top:24%;bottom:-30%;background:radial-gradient(closest-side,rgba(0,0,0,.52),rgba(0,0,0,.26) 58%,rgba(0,0,0,0));opacity:0;transition:opacity var(--focus-t) linear}
@@ -111,11 +111,9 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .t-face .rim{stroke:rgba(255,255,255,.16)}
 .tile.is-focus{transform:scale(1.18);z-index:1}
 .tile.is-focus::before,.tile.is-focus .t-sheen{opacity:1}
-/* Home's focused tile also gains the white ring the Apps editor draws round a carried app, and while the dock has
-   focus the other dock tiles darken under a black layer (opacity would let the dock show through instead). */
-.fav-tiles .tile.is-focus .ed-ring,.library .tile.is-focus .ed-ring{opacity:1}
-.fav-tiles .t-face::after{content:"";position:absolute;left:0;top:0;right:0;bottom:0;background:#000;opacity:0;transition:opacity var(--focus-t) linear}
-.is-fav .fav-tiles .tile:not(.is-focus) .t-face::after{opacity:.5}
+/* Move on Home: the carried app stays on top; an app crossing between dock and library travels above the rest. */
+.tile.is-travel{z-index:2;transition-duration:var(--scroll-t)}
+.is-moving .tile.is-focus{z-index:3}
 /* OK on a focused tile presses the face in and lets it spring back while the shadow tucks under it.
    The press scales the face and focus scales the tile, so the two never override each other. */
 .tile.is-press .t-face,.tile.is-press::before{animation:press-face 360ms both}

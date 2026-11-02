@@ -65,7 +65,7 @@
   var FAVS = [], ROWS = [], INS = []; // Home's favourites, library rows and input tiles, rebuilt from the owner's choices.
 
   var S = { tab: 0, zone: 'fav', nav: 0, fav: 0, lr: 0, lc: 0, inp: 0, panel: 0, dialog: 0, glassTiles: false, wall: 0, ambWall: 0, daily: true, dailyPick: null, amb: 0, ambient: false, scroll: 0,
-    favIds: [], hiddenIds: [], lastId: '', ed: null, menu: null, menuFrom: 'fav', pages: [], panelFrom: 'gear', paging: false, pageEntered: false, queued: [],
+    favIds: [], hiddenIds: [], libOrder: [], mv: null, lastId: '', ed: null, menu: null, menuFrom: 'fav', pages: [], panelFrom: 'gear', paging: false, pageEntered: false, queued: [],
     weather: { zip: '92626', units: 'F' }, place: null, wx: null, zip: [], zipAt: 0, inputAt: 0, // Default location: Costa Mesa, CA (where the TV is).
     inputs: INPUT_DEFAULTS.map(function (p) { return { port: p.port, name: '', show: p.show, connected: true }; }) };
   var SETTINGS = [
@@ -197,22 +197,18 @@
   function nameOf(id) { return byId(id).name; }
   function byName(a, b) { return nameOf(a).localeCompare(nameOf(b)); }
   function allIds() { return APPS.map(function (a) { return a.id; }); }
-  function libraryIds(fav, hid) { return H.libraryIds(allIds(), fav, hid, nameOf); }
-  function buildHome() {
-    FAVS = S.favIds.map(byId);
-    ROWS = chunk(libraryIds(S.favIds, S.hiddenIds).map(byId), COLS);
+  function libraryIds(fav, hid) { return H.libraryIds(allIds(), fav, hid, S.libOrder, nameOf); }
+  // Home's rows from the owner's lists, or from lists given (an app being moved, shown where it would drop).
+  function buildHome(L) {
+    L = L || lists();
+    FAVS = L.fav.map(byId);
+    ROWS = chunk(L.lib.map(byId), COLS);
     favRow.innerHTML = FAVS.map(function (a, i) { return appHtml(a, 'fav', i, i); }).join('');
     library.innerHTML = ROWS.map(function (row, r) {
       return '<div class="lib-row" style="top:' + r * ROW_PITCH + 'px">' + row.map(function (a, c) { return appHtml(a, 'lib', r * COLS + c, c); }).join('') + '</div>';
     }).join('');
-    addRings(favRow.querySelectorAll('.tile'), library.querySelectorAll('.tile'));
     S.fav = Math.min(S.fav, FAVS.length - 1);
     S.scroll = null;
-  }
-  // A white ring around the focused tile, the same ring the Apps editor draws round a carried app.
-  function addRings() {
-    var i, j;
-    for (i = 0; i < arguments.length; i++) for (j = 0; j < arguments[i].length; j++) arguments[i][j].insertAdjacentHTML('beforeend', ringSvg);
   }
   // The Resume pill shows the last app opened from Home while it is installed and not hidden.
   function resumeApp() { return S.lastId && S.hiddenIds.indexOf(S.lastId) < 0 ? byId(S.lastId) : null; }
@@ -236,7 +232,8 @@
     try { H.moveSave(window.localStorage, OLD_STORE, STORE); } catch (e) { /* Storage full or blocked: read what is there. */ }
     try { d = JSON.parse(window.localStorage.getItem(STORE) || 'null'); } catch (e) { d = null; }
     if (!d || typeof d !== 'object') d = null;
-    savedLists = d && { fav: d.fav, hid: d.hid };
+    savedLists = d && { fav: d.fav, hid: d.hid, lib: d.lib };
+    S.libOrder = d && Array.isArray(d.lib) ? d.lib.filter(function (id) { return typeof id === 'string'; }) : [];
     lists = H.homeLists(OWNER_APPS, allIds(), d, FAV_MAX, nameOf);
     S.favIds = lists.fav;
     S.hiddenIds = lists.hid;
@@ -262,12 +259,13 @@
   // unchanged, and afterwards apps the TV doesn't list right now keep their places (HomeLogic.keepMissing).
   function ownerLists() {
     var installed = allIds();
-    return { fav: H.keepMissing(S.favIds, savedLists && savedLists.fav, installed, 24), hid: H.keepMissing(S.hiddenIds, savedLists && savedLists.hid, installed, 200) };
+    return { fav: H.keepMissing(S.favIds, savedLists && savedLists.fav, installed, 24), hid: H.keepMissing(S.hiddenIds, savedLists && savedLists.hid, installed, 200),
+      lib: H.keepMissing(libraryIds(S.favIds, S.hiddenIds), savedLists && savedLists.lib, installed, 200) };
   }
   function save() {
     var inputs = S.inputs.map(function (inp) { return { name: inp.name, show: inp.show }; });
-    savedLists = appsFromTv ? ownerLists() : savedLists || { fav: null, hid: null };
-    try { window.localStorage.setItem(STORE, JSON.stringify({ version: SAVE_VERSION, fav: savedLists.fav, hid: savedLists.hid, last: S.lastId, wall: S.wall, daily: S.daily, photo: S.dailyPick, amb: S.amb, glass: S.glassTiles, weather: S.weather, place: S.place, wx: S.wx, inputs: inputs })); } catch (e) { /* Home still works without saved choices. */ }
+    savedLists = appsFromTv ? ownerLists() : savedLists || { fav: null, hid: null, lib: null };
+    try { window.localStorage.setItem(STORE, JSON.stringify({ version: SAVE_VERSION, fav: savedLists.fav, hid: savedLists.hid, lib: savedLists.lib, last: S.lastId, wall: S.wall, daily: S.daily, photo: S.dailyPick, amb: S.amb, glass: S.glassTiles, weather: S.weather, place: S.place, wx: S.wx, inputs: inputs })); } catch (e) { /* Home still works without saved choices. */ }
   }
   function inputLabel(inp) { return inp.name || (inp.connected ? 'Connected' : 'No device'); }
   function buildInputs() {
@@ -297,6 +295,7 @@
       case 'menu': return tilemenuRows.children[S.menu.i];
       case 'fav': return favRow.children[S.fav];
       case 'lib': return library.children[S.lr].children[S.lc];
+      case 'move': return S.mv.c.sec === 'fav' ? favRow.children[S.fav] : library.children[S.lr].children[S.lc];
       case 'inputs': return inRow.children[S.inp];
       case 'panel': return pageDef().custom === 'zip' ? panelCustom.querySelectorAll('.zip-cell')[S.zipAt] : pageDef().custom === 'rename' ? panelCustom.querySelector('.p-field') : panelRows[curPage().i];
       case 'apps': return S.ed.focus === 'style' ? edStyle : edSlots[S.ed.focus].firstChild;
@@ -329,7 +328,7 @@
     toggle(dock, 'is-above', t < SHALLOW);
     for (r = 0; r < ROWS.length; r++) toggle(library.children[r], 'is-above', rowTop(r) + t < TOP_EDGE);
   }
-  function layoutZone() { return S.zone === 'menu' ? S.menuFrom : S.zone; }
+  function layoutZone() { return S.zone === 'menu' ? S.menuFrom : S.zone === 'move' ? S.mv.c.sec : S.zone; }
   function label() {
     var on = layoutZone() === 'lib', a, x;
     toggle(focusName, 'is-on', on);
@@ -359,7 +358,7 @@
     toggle(stage, 'tab-inputs', S.tab === 1);
     toggle(stage, 'has-resume', S.tab === 0 && !!resumeApp());
     toggle(stage, 'is-library', layoutZone() === 'lib');
-    toggle(stage, 'is-fav', S.zone === 'fav');
+    toggle(stage, 'is-moving', S.zone === 'move');
     toggle(stage, 'is-panel', S.zone === 'panel');
     toggle(stage, 'is-dialog', S.zone === 'dialog');
     toggle(stage, 'is-menu', S.zone === 'menu');
@@ -430,6 +429,9 @@
       case 'panel':
         panelKey(k);
         break;
+      case 'move':
+        moveKey(k);
+        break;
       case 'apps':
         editorKey(k);
         break;
@@ -467,14 +469,14 @@
     open(function (err) { if (err) toast(err.message); });
   }
   function samsungHome() { openSamsung('Samsung Home', window.FrameDevice.home); }
-  // Hold OK on a Home tile opens this in-place menu. Move reuses the Apps editor (picks the app up there); Hide and
-  // the Favorites toggle change the lists directly. Confirming a hold vs a tap uses OK key-up timing (TV open check 5).
+  // Hold OK on a Home tile opens this in-place menu. Move picks the app up right there on Home; Hide and the
+  // Favorites toggle change the lists directly. Confirming a hold vs a tap uses OK key-up timing (TV open check 5).
   function openTileMenu() {
     var a = S.zone === 'fav' ? FAVS[S.fav] : S.zone === 'lib' ? ROWS[S.lr][S.lc] : null, isFav, items;
     if (!a) return;
     isFav = S.favIds.indexOf(a.id) >= 0;
     items = [{ label: 'Open', run: function () { S.zone = S.menuFrom; launch(S.menu.tile, a); } }, { label: 'Move', run: function () { tileMove(a.id); } }];
-    items.push(isFav ? { label: 'Remove from Favorites', run: function () { tileEdit(H.unfav(lists(), a.id), a.id, a.name + ' removed from Favorites.'); } }
+    items.push(isFav ? { label: 'Remove from Favorites', run: function () { tileEdit(H.unfav(lists(), a.id), a.id, a.name + ' removed from Favorites.', true); } }
                      : { label: 'Add to Favorites', run: function () { tileEdit(H.addFav(lists(), a.id, FAV_MAX), a.id, a.name + ' added to Favorites.'); } });
     items.push({ label: 'Hide', run: function () { tileEdit(H.hide(lists(), a.id), a.id, a.name + ' hidden.'); } });
     S.menuFrom = S.zone;
@@ -485,20 +487,79 @@
     sound('select');
     render();
   }
+  // Move on Home: the arrows carry the app through the dock and the library while the other apps slide aside
+  // (HomeLogic.carryStep and dropAt). OK drops it and saves; Back puts everything back.
   function tileMove(id) {
-    var col = S.menuFrom === 'lib' ? S.lc : Math.max(0, S.favIds.indexOf(id));
-    openEditor('home');
-    S.ed.focus = id;
-    S.ed.col = col;
-    S.ed.carry = { id: id, sec: sectionOf(id), idx: Math.max(0, S.favIds.indexOf(id)), from: sectionOf(id) };
-    S.ed.hint = 'Moving ' + byId(id).name + '. Arrows move it, OK drops it, Back cancels.';
+    var L = lists(), sec = L.fav.indexOf(id) >= 0 ? 'fav' : 'lib';
+    S.mv = { base: L, c: { id: id, sec: sec, idx: L[sec].indexOf(id) } };
+    S.zone = 'move';
+    slideHome(function () { showAt(H.dropAt(S.mv.base, S.mv.c, FAV_MAX), id); });
+    toast('Moving ' + byId(id).name + '. Arrows move it, OK drops it, Back cancels.');
   }
-  function lists() { return { fav: S.favIds, hid: S.hiddenIds }; }
-  // A tile menu change saves and returns to the dock, or says why it can't be made.
-  function tileEdit(next, id, msg) {
+  function moveKey(k) {
+    var c = S.mv.c, next, L;
+    if (k === 'ok' || k === 'back') {
+      L = k === 'ok' ? H.dropAt(S.mv.base, c, FAV_MAX) : S.mv.base;
+      if (k === 'ok') { S.favIds = L.fav; S.libOrder = L.lib; save(); }
+      S.mv = null;
+      S.zone = L.fav.indexOf(c.id) >= 0 ? 'fav' : 'lib';
+      slideHome(function () { showAt(lists(), c.id); });
+      buildResume();
+      toast(k === 'ok' ? byId(c.id).name + ' moved.' : 'Move cancelled.');
+      return;
+    }
+    next = H.carryStep(S.mv.base, c, k, FAV_MAX, COLS, false);
+    if (next.error) { toast(next.error); return; }
+    if (next.sec === c.sec && next.idx === c.idx) return;
+    S.mv.c = next;
+    slideHome(function () { showAt(H.dropAt(S.mv.base, next, FAV_MAX), c.id); });
+  }
+  // Rebuild Home from lists with focus on an app's place.
+  function showAt(L, id) {
+    var i = L.fav.indexOf(id);
+    buildHome(L);
+    if (i >= 0) { S.fav = i; return; }
+    i = L.lib.indexOf(id);
+    S.lr = Math.floor(i / COLS); S.lc = i % COLS;
+  }
+  // Rebuilds Home and slides each tile from where its app was to its new place, with transforms only. A tile crossing
+  // between dock and library travels above the others at the page's scroll speed, so it never streaks or tucks under.
+  function slideHome(rebuild) {
+    var before = tileCentres(), after, id, el, dx, dy;
+    rebuild();
+    render();
+    after = tileCentres();
+    for (id in after) {
+      el = after[id].el;
+      if (!before[id] || (before[id].x === after[id].x && before[id].y === after[id].y)) continue;
+      dx = before[id].x - after[id].x; dy = before[id].y - after[id].y;
+      if (Math.abs(dy) > TILE_H) travel(el);
+      el.style.transition = 'none';
+      el.style.transform = 'translate3d(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px,0)' + (el === focused ? ' scale(1.18)' : '');
+    }
+    void page.offsetWidth;
+    for (id in after) { after[id].el.style.transition = ''; after[id].el.style.transform = ''; }
+  }
+  function travel(el) {
+    el.classList.add('is-travel');
+    setTimeout(function () { el.classList.remove('is-travel'); }, 400);
+  }
+  // Each Home tile's centre in stage pixels, by app.
+  function tileCentres() {
+    var out = {}, k = stage.getBoundingClientRect().width / 1920;
+    function add(el, a) { var r = el.getBoundingClientRect(); out[a.id] = { el: el, x: (r.left + r.width / 2) / k, y: (r.top + r.height / 2) / k }; }
+    FAVS.forEach(function (a, i) { add(favRow.children[i], a); });
+    ROWS.forEach(function (row, r) { row.forEach(function (a, c) { add(library.children[r].children[c], a); }); });
+    return out;
+  }
+  function lists() { return { fav: S.favIds, lib: libraryIds(S.favIds, S.hiddenIds), hid: S.hiddenIds }; }
+  // A tile menu change saves and returns to the dock, or says why it can't be made. An app leaving the dock goes to
+  // the top of the library, as one pushed out of a full dock does.
+  function tileEdit(next, id, msg, toLibrary) {
     if (next.error) { toast(next.error); return; }
     S.favIds = next.fav;
     S.hiddenIds = next.hid;
+    if (toLibrary) S.libOrder = [id].concat(libraryIds(S.favIds, S.hiddenIds).filter(function (x) { return x !== id; }));
     save();
     buildHome();
     buildResume();
@@ -739,11 +800,12 @@
 
   // ---------- Apps editor ----------
 
-  // Favourites keep their order; Library and Hidden stay in A-Z order. OK picks an app up, the arrows carry it while
-  // the other apps slide aside, OK drops it and Back cancels. Every drop saves at once.
+  // Favourites and Library keep the owner's order; Hidden stays A–Z. OK picks an app up, the arrows carry it while
+  // the other apps slide aside (the same rules as Move on Home, plus Hidden), OK drops it and Back cancels. Every drop
+  // saves at once.
   var ED_HINT = 'Press OK on an app to pick it up, then move it with the arrows.';
   var SECTION_NAMES = { fav: 'Favorites', lib: 'Library', hid: 'Hidden' };
-  function openEditor(from) {
+  function openEditor() {
     var i;
     if (!edTiles.firstChild) {
       edTiles.innerHTML = APPS.map(function (a, n) { return '<div class="ed-slot" data-id="' + a.id + '">' + appHtml(a, 'edapp', n, 0) + '<div class="ed-name"><span>' + esc(a.name) + '</span></div></div>'; }).join('');
@@ -757,28 +819,20 @@
       for (i = 0; i < FAV_MAX; i++) $('edFree').insertAdjacentHTML('beforeend', '<svg class="ed-free" viewBox="0 0 ' + TILE_W + ' ' + TILE_H + '" style="left:' + (GRID_LEFT + i * PITCH) + 'px" aria-hidden="true"><path d="' + tilePath + '"/><text x="125" y="84">Free</text></svg>');
     }
     S.ed = { focus: S.favIds[0], col: 0, carry: null, scroll: 0, hint: ED_HINT, first: true };
-    S.edFrom = from === 'home' ? 'home' : 'panel';
     S.zone = 'apps';
   }
-  // Back to Settings when opened there; Move from Home's tile menu returns to the dock, on the moved app if it is a
-  // favorite. Never back to the library: the lists changed, so its row and column may no longer exist.
   function closeEditor() {
     S.ed.carry = null;
     buildHome();
     buildResume();
-    if (S.edFrom === 'home') toDock(S.ed.focus); else S.zone = 'panel';
+    S.zone = 'panel';
   }
   function count(n) { return n + (n === 1 ? ' app' : ' apps'); }
   function sectionOf(id) { return S.favIds.indexOf(id) >= 0 ? 'fav' : S.hiddenIds.indexOf(id) >= 0 ? 'hid' : 'lib'; }
   // The lists as they would be if the carried app were dropped where it is now.
   function edLists() {
-    var c = S.ed.carry, fav = S.favIds.slice(), hid = S.hiddenIds.slice(), drop = function (list) { var i = list.indexOf(c.id); if (i >= 0) list.splice(i, 1); };
-    if (c) {
-      drop(fav); drop(hid);
-      if (c.sec === 'fav') fav.splice(c.idx, 0, c.id);
-      else if (c.sec === 'hid') hid.push(c.id);
-    }
-    return { fav: fav, lib: libraryIds(fav, hid), hid: hid.sort(byName) };
+    var L = S.ed.carry ? H.dropAt(lists(), S.ed.carry, FAV_MAX) : lists();
+    return { fav: L.fav, lib: L.lib, hid: L.hid.slice().sort(byName) };
   }
   function edLayout(L) {
     var pos = {}, rows = [['style'], L.fav], libRows = Math.max(1, Math.ceil(L.lib.length / COLS)), hidLabel = ED_LIB_Y + libRows * ED_ROW + 4, hidY = hidLabel + ED_LABEL_GAP;
@@ -805,7 +859,7 @@
     }
     edFavLabel.innerHTML = 'Favorites<span>' + L.fav.length + ' of ' + FAV_MAX + '</span>';
     for (i = 0; i < FAV_MAX; i++) toggle($('edFree').children[i], 'is-used', i < L.fav.length);
-    edLibLabel.innerHTML = 'Library<span>' + count(L.lib.length) + ', A–Z</span>';
+    edLibLabel.innerHTML = 'Library<span>' + count(L.lib.length) + '</span>';
     edHidLabel.innerHTML = 'Hidden<span>' + (L.hid.length ? count(L.hid.length) : '') + '</span>';
     edHidLabel.style.transform = 'translate3d(0,' + lay.hidLabel + 'px,0)';
     edEmpty.style.transform = 'translate3d(0,' + (lay.hidY + 4) + 'px,0)';
@@ -830,7 +884,7 @@
     if (S.ed.first) { void editorEl.offsetWidth; editorEl.classList.remove('is-instant'); S.ed.first = false; }
   }
   function editorKey(k) {
-    var rows = S.ed.layout.rows, r, col;
+    var rows = S.ed.layout.rows, r, col, sec;
     if (S.ed.carry) { carryKey(k); return; }
     for (r = 0; r < rows.length; r++) { col = rows[r].indexOf(S.ed.focus); if (col >= 0) break; }
     if (r > 0 && (k === 'left' || k === 'right')) {
@@ -841,30 +895,25 @@
     else if (k === 'down' && r < rows.length - 1) S.ed.focus = rows[r + 1][Math.min(S.ed.col, rows[r + 1].length - 1)];
     else if (k === 'ok' && S.ed.focus === 'style') { S.glassTiles = !S.glassTiles; save(); }
     else if (k === 'ok') {
-      S.ed.carry = { id: S.ed.focus, sec: sectionOf(S.ed.focus), idx: Math.max(0, S.favIds.indexOf(S.ed.focus)), from: sectionOf(S.ed.focus) };
+      sec = sectionOf(S.ed.focus);
+      S.ed.carry = { id: S.ed.focus, sec: sec, idx: lists()[sec].indexOf(S.ed.focus), from: sec };
       S.ed.hint = 'Moving ' + byId(S.ed.focus).name + '. Arrows move it, OK drops it here, Back cancels.';
     } else if (k === 'back') closeEditor();
   }
   function carryKey(k) {
-    var c = S.ed.carry, others = S.favIds.filter(function (id) { return id !== c.id; }).length, L;
-    if (k === 'left' || k === 'right') {
-      if (c.sec === 'fav') c.idx = clamp(c.idx + (k === 'left' ? -1 : 1), 0, others);
-      else S.ed.hint = 'Library and Hidden stay in A–Z order. Move up to Favorites to choose a spot.';
-    } else if (k === 'up') {
-      if (c.sec === 'hid') c.sec = 'lib';
-      else if (c.sec === 'lib' && others >= FAV_MAX) S.ed.hint = 'Favorites hold ' + FAV_MAX + ' apps. Move one out first.';
-      else if (c.sec === 'lib') { c.sec = 'fav'; c.idx = Math.min(S.ed.col, others); }
-    } else if (k === 'down') {
-      if (c.sec === 'fav' && !others) S.ed.hint = 'Keep at least one favorite.';
-      else if (c.sec === 'fav') c.sec = 'lib';
-      else if (c.sec === 'lib') c.sec = 'hid';
-    } else if (k === 'ok') {
+    var c = S.ed.carry, next, L;
+    if (k === 'ok') {
       L = edLists();
-      S.favIds = L.fav; S.hiddenIds = L.hid;
+      S.favIds = L.fav; S.libOrder = L.lib; S.hiddenIds = L.hid;
       save();
-      S.ed.hint = c.sec !== c.from ? byId(c.id).name + ' moved to ' + SECTION_NAMES[c.sec] + '.' : c.sec === 'fav' ? 'Favorites reordered.' : ED_HINT;
+      S.ed.hint = c.sec !== c.from ? byId(c.id).name + ' moved to ' + SECTION_NAMES[c.sec] + '.' : c.sec !== 'hid' ? SECTION_NAMES[c.sec] + ' reordered.' : ED_HINT;
       S.ed.carry = null;
     } else if (k === 'back') { S.ed.carry = null; S.ed.hint = ED_HINT; }
+    else {
+      next = H.carryStep(lists(), c, k, FAV_MAX, COLS, true);
+      if (next.error) S.ed.hint = next.error;
+      else { next.from = c.from; S.ed.carry = next; }
+    }
   }
 
   // ---------- Photos ----------
@@ -1352,6 +1401,7 @@
   stage.addEventListener('click', function (e) {
     var el = e.target, z, i;
     if (S.ambient) { exitAmbient(); return; }
+    if (S.zone === 'move') return; // The remote carries a moving app.
     armIdle();
     while (el && el !== stage && !el.getAttribute('data-z')) el = el.parentNode;
     if (!el || el === stage) return;
@@ -1481,8 +1531,8 @@
       render();
     });
   }
-  // Not while the screensaver runs, apps are being edited, or OK is held on a tile (its row would be rebuilt).
-  function busyWithApps() { return S.ambient || okPending || S.zone === 'apps' || S.zone === 'menu'; }
+  // Not while the screensaver runs, apps are being edited or moved, or OK is held on a tile (its row would be rebuilt).
+  function busyWithApps() { return S.ambient || okPending || S.zone === 'apps' || S.zone === 'menu' || S.zone === 'move'; }
   function refreshLater() {
     if (!appsPending || busyWithApps()) return;
     appsPending = false;

@@ -51,10 +51,44 @@
     return out.slice(0, max);
   };
 
-  // The library: every installed app that is neither a favorite nor hidden, A–Z.
-  L.libraryIds = function (installed, fav, hid, nameOf) {
-    return installed.filter(function (id) { return fav.indexOf(id) < 0 && hid.indexOf(id) < 0; })
-      .sort(function (a, b) { return nameOf(a).localeCompare(nameOf(b)); });
+  // The library: every installed app that is neither a favorite nor hidden, in the owner's saved order. Apps the
+  // order doesn't place yet (a save from before the order existed, or an app installed since) follow it, A–Z.
+  L.libraryIds = function (installed, fav, hid, order, nameOf) {
+    var rest = installed.filter(function (id) { return fav.indexOf(id) < 0 && hid.indexOf(id) < 0; }), placed;
+    placed = unique(Array.isArray(order) ? order : []).filter(function (id) { return rest.indexOf(id) >= 0; });
+    return placed.concat(rest.filter(function (id) { return placed.indexOf(id) < 0; })
+      .sort(function (a, b) { return nameOf(a).localeCompare(nameOf(b)); }));
+  };
+
+  // Carrying an app (Move on Home, or the Apps editor): `c` is where it is now, { id, sec: 'fav' | 'lib' | 'hid', idx },
+  // with idx counting the other apps in that section.
+  function without(list, id) { return list.filter(function (x) { return x !== id; }); }
+  function clampTo(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+
+  // The lists as they would be with the app dropped there. A full dock pushes its last app to the top of the library.
+  L.dropAt = function (lists, c, favMax) {
+    var out = { fav: without(lists.fav, c.id), lib: without(lists.lib, c.id), hid: without(lists.hid, c.id) };
+    out[c.sec].splice(clampTo(c.idx, 0, out[c.sec].length), 0, c.id);
+    if (out.fav.length > favMax) out.lib.unshift(out.fav.pop());
+    return out;
+  };
+
+  // Where one arrow takes the carried app, or { error } when it can't go there. Left and Right step through the dock,
+  // or through the library in reading order; Up and Down move a row, crossing between dock and library (and, in the
+  // editor, Hidden). The dock always has room: an app carried into a full dock pushes its last app out.
+  L.carryStep = function (lists, c, key, favMax, cols, withHidden) {
+    var favOthers = without(lists.fav, c.id).length, libOthers = without(lists.lib, c.id).length;
+    var favLast = Math.min(favOthers, favMax - 1), step = key === 'left' ? -1 : 1;
+    if (c.sec === 'fav') {
+      if (key === 'left' || key === 'right') return { id: c.id, sec: 'fav', idx: clampTo(c.idx + step, 0, favLast) };
+      if (key === 'down') return favOthers ? { id: c.id, sec: 'lib', idx: Math.min(c.idx, libOthers) } : { error: 'Keep at least one favorite.' };
+    } else if (c.sec === 'lib') {
+      if (key === 'left' || key === 'right') return { id: c.id, sec: 'lib', idx: clampTo(c.idx + step, 0, libOthers) };
+      if (key === 'up') return c.idx < cols ? { id: c.id, sec: 'fav', idx: Math.min(c.idx, favLast) } : { id: c.id, sec: 'lib', idx: c.idx - cols };
+      if (key === 'down' && Math.floor(c.idx / cols) < Math.floor(libOthers / cols)) return { id: c.id, sec: 'lib', idx: Math.min(c.idx + cols, libOthers) };
+      if (key === 'down' && withHidden) return { id: c.id, sec: 'hid', idx: 0 };
+    } else if (key === 'up') return { id: c.id, sec: 'lib', idx: libOthers };
+    return { id: c.id, sec: c.sec, idx: c.idx };
   };
 
   // Edit-in-place list changes. Each returns new lists, or { error } and leaves the lists alone.

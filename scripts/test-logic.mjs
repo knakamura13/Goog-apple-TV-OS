@@ -103,8 +103,65 @@ test('keepMissing keeps saved apps the TV doesn\'t list right now, in their save
   assert.deepEqual(plain(L.keepMissing(['a', 'b'], ['z'], ['a', 'b'], 2)), ['z', 'a']);
 });
 
-test('libraryIds lists the rest A–Z', () => {
-  assert.deepEqual(plain(L.libraryIds(['sling', 'plex', 'alexa', 'disney', 'hulu'], ['plex'], ['disney'], nameOf)), ['alexa', 'hulu', 'sling']);
+test('libraryIds lists the rest A–Z when no order is saved', () => {
+  assert.deepEqual(plain(L.libraryIds(['sling', 'plex', 'alexa', 'disney', 'hulu'], ['plex'], ['disney'], null, nameOf)), ['alexa', 'hulu', 'sling']);
+  assert.deepEqual(plain(L.libraryIds(['sling', 'alexa'], [], [], 'oops', nameOf)), ['alexa', 'sling']);
+});
+
+test('libraryIds keeps the saved order and puts apps it does not place after it, A–Z', () => {
+  const installed = ['sling', 'plex', 'spotify', 'disney', 'hulu', 'alexa'];
+  // Sling and Hulu are placed; Spotify and Alexa are new; Plex (a favorite), Disney (hidden) and Gone are skipped.
+  assert.deepEqual(plain(L.libraryIds(installed, ['plex'], ['disney'], ['sling', 'gone', 'plex', 'hulu', 'disney', 'sling'], nameOf)), ['sling', 'hulu', 'alexa', 'spotify']);
+});
+
+const base = { fav: ['a', 'b', 'c'], lib: ['d', 'e', 'f', 'g', 'h'], hid: ['z'] };
+
+test('dropAt moves an app within and between sections', () => {
+  assert.deepEqual(plain(L.dropAt(base, { id: 'a', sec: 'fav', idx: 2 }, 6)), { fav: ['b', 'c', 'a'], lib: ['d', 'e', 'f', 'g', 'h'], hid: ['z'] });
+  assert.deepEqual(plain(L.dropAt(base, { id: 'a', sec: 'lib', idx: 1 }, 6)), { fav: ['b', 'c'], lib: ['d', 'a', 'e', 'f', 'g', 'h'], hid: ['z'] });
+  assert.deepEqual(plain(L.dropAt(base, { id: 'g', sec: 'fav', idx: 0 }, 6)), { fav: ['g', 'a', 'b', 'c'], lib: ['d', 'e', 'f', 'h'], hid: ['z'] });
+  assert.deepEqual(plain(L.dropAt(base, { id: 'z', sec: 'lib', idx: 99 }, 6)), { fav: ['a', 'b', 'c'], lib: ['d', 'e', 'f', 'g', 'h', 'z'], hid: [] });
+  assert.deepEqual(plain(L.dropAt(base, { id: 'd', sec: 'hid', idx: 0 }, 6)), { fav: ['a', 'b', 'c'], lib: ['e', 'f', 'g', 'h'], hid: ['d', 'z'] });
+});
+
+test('dropAt into a full dock pushes its last app to the top of the library', () => {
+  assert.deepEqual(plain(L.dropAt(base, { id: 'e', sec: 'fav', idx: 1 }, 3)), { fav: ['a', 'e', 'b'], lib: ['c', 'd', 'f', 'g', 'h'], hid: ['z'] });
+  assert.deepEqual(plain(L.dropAt(base, { id: 'b', sec: 'fav', idx: 0 }, 3)), { fav: ['b', 'a', 'c'], lib: ['d', 'e', 'f', 'g', 'h'], hid: ['z'] });
+});
+
+test('carryStep in the dock: Left and Right stop at the ends, a full dock has no extra slot', () => {
+  const at = (sec, idx, id = 'a') => ({ id, sec, idx });
+  assert.deepEqual(plain(L.carryStep(base, at('fav', 0), 'left', 6, 3)), at('fav', 0));
+  assert.deepEqual(plain(L.carryStep(base, at('fav', 1), 'right', 6, 3)), at('fav', 2));
+  assert.deepEqual(plain(L.carryStep(base, at('fav', 2), 'right', 6, 3)), at('fav', 2)); // Two others: slots 0–2.
+  assert.deepEqual(plain(L.carryStep(base, at('fav', 2, 'd'), 'right', 6, 3)), at('fav', 3, 'd')); // From the library: room at the end.
+  assert.deepEqual(plain(L.carryStep(base, at('fav', 2, 'd'), 'right', 3, 3)), at('fav', 2, 'd')); // Full dock: no slot past the last.
+  assert.deepEqual(plain(L.carryStep(base, at('fav', 1), 'up', 6, 3)), at('fav', 1));
+});
+
+test('carryStep between dock and library', () => {
+  const at = (sec, idx, id = 'a') => ({ id, sec, idx });
+  assert.deepEqual(plain(L.carryStep(base, at('fav', 2), 'down', 6, 3)), at('lib', 2));
+  assert.deepEqual(plain(L.carryStep({ fav: ['a'], lib: ['d'], hid: [] }, at('fav', 0), 'down', 6, 3)), { error: 'Keep at least one favorite.' });
+  assert.deepEqual(plain(L.carryStep({ fav: ['a', 'b', 'c', 'x'], lib: [], hid: [] }, at('fav', 3), 'down', 6, 3)), at('lib', 0)); // An empty library.
+  assert.deepEqual(plain(L.carryStep(base, at('lib', 2, 'd'), 'up', 6, 3)), at('fav', 2, 'd'));
+  assert.deepEqual(plain(L.carryStep(base, at('lib', 2, 'd'), 'up', 3, 3)), at('fav', 2, 'd'));
+  assert.deepEqual(plain(L.carryStep({ fav: ['a', 'b'], lib: ['d', 'e', 'f'], hid: [] }, at('lib', 2, 'd'), 'up', 6, 3)), at('fav', 2, 'd'));
+  assert.deepEqual(plain(L.carryStep({ fav: ['a', 'b', 'c'], lib: ['d', 'e', 'f'], hid: [] }, at('lib', 2, 'd'), 'up', 3, 3)), at('fav', 2, 'd'));
+});
+
+test('carryStep in the library: reading order, rows, and Hidden only in the editor', () => {
+  const at = (sec, idx, id = 'd') => ({ id, sec, idx });
+  assert.deepEqual(plain(L.carryStep(base, at('lib', 0), 'left', 6, 3)), at('lib', 0));
+  assert.deepEqual(plain(L.carryStep(base, at('lib', 2), 'right', 6, 3)), at('lib', 3)); // Wraps to the next row.
+  assert.deepEqual(plain(L.carryStep(base, at('lib', 4), 'right', 6, 3)), at('lib', 4)); // Four others: places 0–4.
+  assert.deepEqual(plain(L.carryStep(base, at('lib', 4), 'up', 6, 3)), at('lib', 1));
+  assert.deepEqual(plain(L.carryStep(base, at('lib', 3), 'up', 6, 3)), at('lib', 0)); // The second row's first place.
+  assert.deepEqual(plain(L.carryStep(base, at('lib', 2), 'down', 6, 3)), at('lib', 4)); // The short last row.
+  assert.deepEqual(plain(L.carryStep(base, at('lib', 4), 'down', 6, 3)), at('lib', 4));
+  assert.deepEqual(plain(L.carryStep(base, at('lib', 4), 'down', 6, 3, true)), at('hid', 0));
+  assert.deepEqual(plain(L.carryStep(base, at('hid', 0, 'z'), 'up', 6, 3, true)), at('lib', 5, 'z'));
+  assert.deepEqual(plain(L.carryStep(base, at('hid', 0, 'z'), 'left', 6, 3, true)), at('hid', 0, 'z'));
 });
 
 test('hide moves an app to Hidden and keeps one favorite', () => {

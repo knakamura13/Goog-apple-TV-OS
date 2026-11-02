@@ -6,8 +6,8 @@ Home is my own launcher design for a Samsung QN65S90D (QD-OLED, Tizen 9). It is 
 
 ## Features
 
-- **Favourites dock and app library:** up to six favourites on a glass dock, then every other installed app A–Z in a grid that scrolls up beneath it.
-- **Edit in place:** hold OK on any app to open, move, favourite or hide it. Settings › Apps rearranges everything and switches between colour and glass tiles.
+- **Favourites dock and app library:** up to six favourites on a glass dock, then every other installed app in a grid that scrolls up beneath it, both in your own order.
+- **Edit in place:** hold OK on any app to open, favourite or hide it, or Move it anywhere in the dock and library right on Home. Settings › Apps also rearranges and hides apps and switches between colour and glass tiles.
 - **Resume:** a small pill above the dock reopens the last app launched from Home.
 - **Clock and live weather:** current conditions for a ZIP code from Open-Meteo, cached so Home never waits on the network.
 - **Daily photo or a bundled wallpaper:** a new Unsplash photo each day from Lorem Picsum, or one of 15 bundled photos, chosen in a full-screen picker. The glass panels are made from the photo.

@@ -519,11 +519,17 @@ try {
     await photoMatches(page, /wallpapers\/[a-z]+\.jpg$/);
     s = await snapshot(page);
     check('Choosing a bundled photo replaces the daily one, glass included', s.glass.every(entry => /materials\//.test(entry)) && s.saved?.daily === false, [s.glass, s.saved?.daily]);
+    await page.waitForTimeout(1100); // The 900 ms glass cross-fade, with margin.
+    s = await snapshot(page);
+    check('Once the photo has faded in, the old glass is gone and the new glass is decoded', s.ghosts.length === 0 && s.brokenGlass.length === 0, [s.ghosts, s.brokenGlass]);
     await press(page, 'ArrowLeft');
     await press(page, 'Enter');
     await photoMatches(page, new RegExp('/id/' + id + '/'));
     s = await snapshot(page);
     check('Choosing Daily photo again brings back today\'s photo and its glass', s.saved?.daily === true && same(s.glass, DAILY_GLASS), [s.saved?.daily, s.glass]);
+    await page.waitForTimeout(1100);
+    s = await snapshot(page);
+    check('After the fade the daily glass still shows: its object URLs were not revoked', s.ghosts.length === 0 && s.brokenGlass.length === 0 && same(s.glass, DAILY_GLASS), [s.ghosts, s.brokenGlass, s.glass]);
     await press(page, 'Escape');
     await settled(page);
     check('The Wallpaper row says Daily photo', rowValue(await snapshot(page), 'Wallpaper') === 'Daily photo');
@@ -565,6 +571,12 @@ try {
     await photoMatches(page, new RegExp(home.photo.replace(/[/.?]/g, '\\$&') + '$'));
     s = await snapshot(page);
     check('Waking restores Home\'s photo and glass', !has(s, 'is-ambient') && s.photo === home.photo && same(s.glass, home.glass), [s.photo, s.glass]);
+    // The clock is frozen here, so the glass cross-fade can be inspected mid-way and then run to its end.
+    const layers = await page.evaluate(() => document.querySelectorAll('.glass-layer:not(.glass-ghost)').length);
+    check('The glass changes with the photo: each layer has a copy of the old glass fading out over 900 ms', s.ghosts.length === layers && s.ghosts.every(g => g.opacity === '0' && /^opacity 900ms/.test(g.transition)), [layers, s.ghosts]);
+    await page.clock.fastForward(1000);
+    s = await snapshot(page);
+    check('After 900 ms the fading copies are removed and Home\'s glass still shows', s.ghosts.length === 0 && s.brokenGlass.length === 0 && same(s.glass, home.glass), [s.ghosts, s.brokenGlass, s.glass]);
   });
 
   await section('Offline', { offline: true, clock: new Date('2026-10-31T12:00:00') }, async (launcher, page) => {

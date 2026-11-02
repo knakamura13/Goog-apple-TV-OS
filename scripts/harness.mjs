@@ -263,7 +263,12 @@ export function snapshot(page) {
       picker: { focused: +($('#pkGrid > .pk-item.is-focus')?.getAttribute('data-i') ?? -1), applied: +($('#pkGrid > .pk-item.is-applied')?.getAttribute('data-i') ?? -1), title: text($('#pkTitle')),
         credit: text($('#pkCredit')), dailyThumb: $('#pkGrid > .pk-item img')?.getAttribute('src') || '' },
       photo: $('.bg-photo.is-front')?.getAttribute('src') || '',
-      glass: [...new Set($$('.glass-img').map(img => img.getAttribute('data-material') + ' ' + (img.src.startsWith('blob:') ? 'blob' : img.getAttribute('src'))))].sort(),
+      // The live glass layers. During a photo cross-fade, frozen copies of the previous glass (.glass-ghost) sit on top
+      // and fade out over 900 ms; they are reported separately in `ghosts`.
+      glass: [...new Set($$('.glass-layer:not(.glass-ghost) .glass-img').map(img => img.getAttribute('data-material') + ' ' + (img.src.startsWith('blob:') ? 'blob' : img.getAttribute('src'))))].sort(),
+      ghosts: $$('.glass-ghost').map(el => ({ opacity: el.style.opacity, transition: el.style.transition })),
+      // A live glass image that failed to decode (for example a revoked object URL) would show nothing.
+      brokenGlass: $$('.glass-layer:not(.glass-ghost) .glass-img').filter(img => img.getAttribute('src') && img.complete && !img.naturalWidth).map(img => img.getAttribute('data-material')),
       caption: { title: text($('#ambTitle')), credit: text($('#ambCredit')) },
       weather: { on: !$('.weather').classList.contains('is-off'), text: text($('.weather span')), label: $('.weather').getAttribute('aria-label') },
       inputs: $$('#inRow > .tile').map(el => text(el.querySelector('.in-name'))),

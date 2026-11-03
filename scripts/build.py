@@ -63,6 +63,8 @@ def build(out):
             copy(path.relative_to(ASSETS), out)
     for mark in sorted(set(re.findall(r"mark: '([a-z0-9-]+)'", (APP / 'app.js').read_text()))):
         copy(f'icons/{mark}.svg', out)
+    for matte in ('white', 'gray', 'navy', 'black'):  # The screensaver's paper mattes (scripts/build-matte.py).
+        copy(f'materials/matte-{matte}.jpg', out)
     for wall in wallpaper_ids():
         copy(f'wallpapers/{wall}.jpg', out)
         copy(f'wallpapers/{wall}-thumb.jpg', out)

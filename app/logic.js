@@ -171,11 +171,8 @@
   L.savedPick = function (saved) {
     return saved && typeof saved === 'object' && typeof saved.id === 'string' && /^\d+$/.test(saved.id) ? { id: saved.id, author: typeof saved.author === 'string' ? saved.author.slice(0, 60) : '' } : null;
   };
-  // A new random photo is due once the shown one has been up for the screensaver delay; never while that is Off (0),
-  // and not when the screensaver starts (ambientAt) before the clock's next 5 s check: it has its own slideshow.
-  L.randomDue = function (now, shownAt, every, ambientAt) {
-    return every > 0 && shownAt > 0 && now - shownAt >= every && !(ambientAt > 0 && ambientAt - now <= 5000);
-  };
+  // A new random photo is due once the shown one has been up for the screensaver delay; never while that is Off (0).
+  L.randomDue = function (now, shownAt, every) { return every > 0 && shownAt > 0 && now - shownAt >= every; };
   L.photoUrl = function (id, w, h) { return 'https://picsum.photos/id/' + encodeURIComponent(id) + '/' + w + '/' + h; };
   L.listUrl = function (page) { return 'https://picsum.photos/v2/list?page=' + page + '&limit=30'; };
   L.PHOTO_PAGES = 33; // Picsum's list holds about 990 photos, 30 a page.

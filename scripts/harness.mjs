@@ -149,7 +149,13 @@ export async function startPreview() {
 
 // Serves a built package (a folder such as dist/home) on loopback, to check what the TV runs.
 export async function startStatic(dir) {
-  const server = spawn('python3', ['-u', '-m', 'http.server', '0', '--bind', '127.0.0.1', '--directory', dir], { stdio: ['ignore', 'pipe', 'pipe'] });
+  // Python's http.server queues only 5 waiting connections, so a page loading many files at once had some reset;
+  // the queue is raised to 128, as scripts/preview.py does.
+  const serve = 'import functools, http.server as h, sys\n'
+    + 'class Server(h.ThreadingHTTPServer):\n    request_queue_size = 128\n'
+    + 'server = Server(("127.0.0.1", 0), functools.partial(h.SimpleHTTPRequestHandler, directory=sys.argv[1]))\n'
+    + 'print("Serving on port", server.server_port, flush=True)\nserver.serve_forever()';
+  const server = spawn('python3', ['-u', '-c', serve, dir], { stdio: ['ignore', 'pipe', 'pipe'] });
   process.once('exit', () => server.kill());
   try {
     const base = await new Promise((resolve, reject) => {
@@ -258,7 +264,6 @@ export function snapshot(page) {
       panel: { crumb: text($('#panelCrumb')), title: text($('#panelTitle')), rows, focused: rows[+($('#panelRows > .p-row.is-focus')?.getAttribute('data-i') ?? -1)]?.label || null,
         zip: $$('.zip-cell').map(cell => cell.textContent).join(''), status: $('#panelStatus').classList.contains('is-on') ? text($('#panelStatus')) : '' },
       menu: { title: text($('#tilemenuTitle')), rows: $$('#tilemenuRows > .tm-row').map(text) },
-      dialog: $$('.d-actions > .d-btn').map(text),
       editor: { carry: $$('.ed-slot.is-carry').map(slot => slot.getAttribute('data-id')), hint: text($('#edHint')),
         hidden: $$('.ed-slot.is-hidden').map(slot => slot.getAttribute('data-id')), apps: $$('.ed-slot').map(slot => slot.getAttribute('data-id')) },
       picker: { focused: +($('#pkGrid > .pk-item.is-focus')?.getAttribute('data-i') ?? -1), applied: +($('#pkGrid > .pk-item.is-applied')?.getAttribute('data-i') ?? -1), title: text($('#pkTitle')),

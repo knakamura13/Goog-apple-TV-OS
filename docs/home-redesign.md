@@ -61,9 +61,9 @@ The gear opens a glass panel on the right. Rows that only change a value do it i
 | Wallpaper › | Full-screen picker (below). The row shows **Random photo** or the chosen photo's name |
 | Apps › | Full-screen editor (below) |
 | Weather › | Defaults to Costa Mesa, CA (ZIP 92626, where the TV is). Page with **ZIP code ›** (five digits: Up/Down change a digit, Left/Right move, or type with the remote's number buttons; the row names the place once it is known, or says the ZIP code wasn't found) and **Units** (Fahrenheit or Celsius) |
-| Screensaver | Steps through After 1 min, 5 min, 15 min, Off |
+| Screensaver › | Page with **Starts** (After 1 min, 5 min, 15 min, Off) and **Matte** (Off, White, Gray, Navy, Black). The row shows both |
 | Picture and sound ↗ | Samsung's picture and sound settings |
-| Samsung Home ↗ | The escape route. Back from the favourites row still offers the "stay or open Samsung Home" choice |
+| Samsung Home ↗ | The escape route: opens Samsung Home at once |
 | About › | Read-only details for troubleshooting: build version and time, app size, free storage, TV model, firmware, Tizen and web engine versions, page size. TV values appear only on the TV |
 
 There is no sleep timer: a web app can't turn the TV off, and the TV's own sleep timer stays in Samsung's settings.
@@ -86,7 +86,9 @@ After a set idle time on Home (default 1 minute), the top bar and rows fade out 
 - **Bottom right:** the photo's title and credit ("Desert stars / Photographed by Mohammad Alizade"), or for an online photo the credit alone ("Photo by … on Unsplash"). The bundled CleanFrame photos all have credits.
 - **Legibility:** one full-width band darkens the bottom of the screen (to 70% at the edge) and the text has a tight shadow. Shaded blobs behind the clock and the credit were removed because they showed as dark ovals over dark photos (Kyle, 2 November 2026). Over all twelve bundled photos the clock keeps at least 3.3:1, the date 5:1 and the credit 6.7:1 against the brightest 5% of the photo behind them.
 - **No weather** in the screensaver.
-- **Slideshow:** every 40 seconds another online photo from a random page of Picsum's list, the next one loaded ahead so it shows at once; offline, the bundled photos. Samsung's screensaver covers ours after a minute or two while ours keeps running, so each session loads at most 10 online photos and then shows the bundled ones. The slideshow changes only the background and caption, never Home's choice or its glass, and Home returns to its photo afterwards.
+- **Photo:** always Home's own photo, so leaving the screensaver never changes it. The random photo keeps changing on its one timer while the screensaver runs, each new photo's glass made before it shows; a bundled photo stays (Kyle, 2 November 2026).
+- **Matte** (Settings › Screensaver › Matte): like a Samsung Frame, the photo sits scaled into a 16:9 window (1440 × 810) cut in paper board, White, Gray, Navy or Black. The paper is a full-screen texture made once by `scripts/build-matte.py` (soft laid grain, faint mottling, fibres; nothing repeats), with a 6 px bevel showing the board's core (white on White and Gray, black on Navy and Black) and an inner shadow deepest under the top edge. The time, date and credit become a small gallery label on the board below the photo, dark on White and Gray, light on Navy and Black.
+- **Leaving:** any key, or the remote's Home button: with Home as the TV's home app it relaunches Home, which wakes it (the `appcontrol` event, or Home becoming visible again).
 
 The photo does a slow one-shot zoom and every 3 minutes the text glides for 30 seconds to a new spot at most 24 px away (about 0.5 px a second, never over 0.8, too slow to see) to protect the OLED (Kyle, 2 November 2026). This is a QD-OLED, and Samsung's own panel-protection screensaver cannot be disabled by any app: confirmed on the TV that it takes over after a still minute or two, and even strong continuous motion does not prevent it (it yields only to actual video playback). So the launcher does not fight it: ours shows first, then Samsung's runs on longer idle, which protects the panel. A key press from Samsung's screensaver returns to this Home (confirmed on the TV). Any key brings the UI back without acting on that key, however long it is held. Home's idle timer only runs while Home is in front.
 
@@ -105,7 +107,7 @@ The photo does a slow one-shot zoom and every 3 minutes the text glides for 30 s
 | Nav pills | Left/Right | Between pills. Right of the last pill jumps to Settings |
 | Nav pills / Settings | Down | Resume pill or favourites (Home tab), or the first input (Inputs tab) |
 | Nav pill | OK | Switch tab. Focus alone does not switch, matching CleanFrame's rule that focus never acts |
-| Favourites | Back | Existing "stay or open Samsung Home" choice |
+| Favourites | Back | The first favourite; on the first favourite, the screensaver (Kyle, 2 November 2026: Back never offers Samsung Home, which Settings opens) |
 | Any app tile | OK | Launch, with no message. A message appears only if the launch fails. Nothing ever autoplays or launches from focus |
 | Any app tile | hold OK | After 450 ms, a small menu: **Open**, **Move**, **Add to Favorites** or **Remove from Favorites**, and **Hide**. Move picks the app up right on Home: Left/Right carry it along the dock or through the library in reading order, Up/Down move it a row and between dock and library, and the other apps slide aside. Carried into a full dock it pushes the dock's last app to the top of the library; the dock keeps at least one app. OK drops it and saves, Back puts everything back (Kyle, 2 November 2026). The others apply in place and save. A quick tap launches on key-up. Key repeats while OK is held are ignored whether or not the TV flags them, any other key cancels the hold, and if the TV never sends key-up the hold ends 800 ms after the last OK event, so Open in the menu still opens apps (TV open check 5) |
 

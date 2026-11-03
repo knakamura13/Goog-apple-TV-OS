@@ -278,16 +278,10 @@ test('savedPick keeps a usable saved photo, whatever day a V1 save gave it', () 
 });
 
 test('randomDue: a new random photo after the screensaver delay, never while it is Off or nothing has shown', () => {
-  assert.equal(L.randomDue(160000, 100000, 60000, 0), true);
-  assert.equal(L.randomDue(159999, 100000, 60000, 0), false);
-  assert.equal(L.randomDue(999999, 100000, 0, 0), false);
-  assert.equal(L.randomDue(999999, 0, 60000, 0), false);
-});
-
-test('randomDue: not when the screensaver starts before the next 5 s check', () => {
-  assert.equal(L.randomDue(160000, 100000, 60000, 165000), false);
-  assert.equal(L.randomDue(160000, 100000, 60000, 165001), true);
-  assert.equal(L.randomDue(160000, 100000, 60000, 158000), false); // Already due: it is starting.
+  assert.equal(L.randomDue(160000, 100000, 60000), true);
+  assert.equal(L.randomDue(159999, 100000, 60000), false);
+  assert.equal(L.randomDue(999999, 100000, 0), false);
+  assert.equal(L.randomDue(999999, 0, 60000), false);
 });
 
 test('photo URLs and credits', () => {

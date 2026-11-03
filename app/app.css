@@ -46,7 +46,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .status .glass-tint{background:rgba(10,12,14,var(--tint-tr,.36))}
 .glass-hl{background:linear-gradient(to bottom,rgba(255,255,255,.10),rgba(255,255,255,0) 44%)}
 .glass-dim{background:rgba(6,10,14,.42);opacity:0;transition:opacity var(--scroll-t) linear;will-change:opacity}
-.is-library .glass-dim,.is-panel .glass-dim,.is-dialog .glass-dim,.is-menu .glass-dim{opacity:1}
+.is-library .glass-dim,.is-panel .glass-dim,.is-menu .glass-dim{opacity:1}
 .dock .glass-dim{background:rgba(6,10,14,.18)}
 .rim{position:absolute;left:0;top:0;width:100%;height:100%;fill:none;stroke:rgba(255,255,255,.18);stroke-width:2;pointer-events:none}
 .nav::after,.status::after{content:"";position:absolute;left:0;top:0;right:0;bottom:0;border-radius:inherit;box-shadow:inset 0 1px 0 rgba(255,255,255,.24),inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
@@ -55,7 +55,7 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
    shifted the opposite way, so text turns dark exactly where the indicator covers it, frame by frame. */
 .ind{position:absolute;left:0;top:0;will-change:transform;transition:transform var(--slide-t) var(--glide),opacity 140ms linear}
 .ind .ind-ink{position:absolute;left:0;top:0;will-change:transform;transition:transform var(--slide-t) var(--glide)}
-.nav-focus,.p-ind,.d-ind{overflow:hidden;pointer-events:none}
+.nav-focus,.p-ind{overflow:hidden;pointer-events:none}
 
 /* ---------- Top bar ---------- */
 .ui{position:absolute;left:0;top:0;width:1920px;height:1080px;transition:opacity 400ms linear 250ms}
@@ -116,6 +116,9 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
    only its opacity and offset animate. */
 .fav-tiles .tile::before{left:-3%;right:-3%;top:22%;bottom:-6%;background:radial-gradient(closest-side,rgba(0,0,0,.5),rgba(0,0,0,.22) 60%,rgba(0,0,0,0));transition:opacity var(--focus-t) linear,transform var(--focus-t) var(--glide)}
 .fav-tiles .tile.is-focus{transform:translate3d(0,-45px,0) scale(1.14)}
+/* A lifted glass tile is frosted with the photo's blurred layer, placed for where the tile now sits, so the dock's top
+   edge no longer shows through it (Kyle, 2 November 2026); a highlight and a brighter tint keep focus clear. */
+.tiles-glass .fav-tiles .tile.is-focus .t-face{background:linear-gradient(rgba(255,255,255,.22),rgba(255,255,255,.22)),var(--frost) var(--lx) var(--ly)/1684.2px 947.4px no-repeat!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 0 0 1px rgba(255,255,255,.18)}
 .fav-tiles .tile.is-focus::before{transform:translate3d(0,8px,0)}
 /* Move on Home: the carried app stays on top; an app crossing between dock and library travels above the rest. */
 .tile.is-travel{z-index:2;transition-duration:var(--scroll-t)}
@@ -158,9 +161,9 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .focus-name{position:absolute;left:0;top:0;width:420px;text-align:center;font-size:24px;line-height:30px;font-weight:600;letter-spacing:-.2px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity 120ms linear;z-index:2}
 .focus-name.is-on{opacity:1}
 
-/* ---------- Panels and dialogs sit over a dimmed page; the top bar stays readable ---------- */
+/* ---------- Panels and menus sit over a dimmed page; the top bar stays readable ---------- */
 .modal-dim{position:absolute;left:0;top:0;width:1920px;height:1080px;background:rgba(4,8,12,.58);opacity:0;transition:opacity 180ms linear;pointer-events:none}
-.is-panel .modal-dim,.is-dialog .modal-dim,.is-menu .modal-dim{opacity:1}
+.is-panel .modal-dim,.is-menu .modal-dim{opacity:1}
 
 .panel{position:absolute;right:90px;top:136px;width:700px;height:866px;z-index:5;opacity:0;transform:translate3d(40px,0,0);transition:opacity 160ms linear,transform 240ms var(--glide);pointer-events:none;-webkit-mask-image:var(--panel-mask);mask-image:var(--panel-mask)}
 /* Panels, menus, plates and shades darken further over a bright online photo (--panel-tint and others, photoClasses). */
@@ -198,20 +201,6 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .p-status{position:absolute;left:56px;right:56px;bottom:52px;font-size:26px;line-height:34px;font-weight:500;color:var(--ink-soft);opacity:0;transition:opacity 160ms linear}
 .p-status.is-on{opacity:1}
 
-.dialog{position:absolute;left:596px;top:370px;width:728px;height:340px;z-index:6;opacity:0;transform:scale(.97);transition:opacity 160ms linear,transform 200ms var(--glide);pointer-events:none;-webkit-mask-image:var(--dialog-mask);mask-image:var(--dialog-mask)}
-.dialog .glass-tint{background:rgba(12,16,20,var(--menu-tint,.58))}
-.is-dialog .dialog{opacity:1;transform:scale(1);pointer-events:auto}
-.d-title{position:relative;padding:52px 56px 0;font-size:40px;line-height:48px;font-weight:600;letter-spacing:-.8px}
-.d-text{position:relative;padding:12px 56px 0;font-size:28px;line-height:36px;color:var(--ink-soft)}
-.d-actions{position:absolute;left:56px;bottom:44px;z-index:0;width:616px;height:72px;display:flex}
-.d-actions::before,.d-actions::after{content:"";position:absolute;top:0;z-index:-1;width:300px;height:72px;border-radius:36px;background:rgba(255,255,255,.10)}
-.d-actions::before{left:0}
-.d-actions::after{left:316px}
-.d-ind{width:300px;height:72px;border-radius:36px;background:var(--solid)}
-.d-ind .ind-ink{display:flex}
-.d-btn{position:relative;flex:none;width:300px;height:72px;line-height:72px;text-align:center;font-size:30px;font-weight:500}
-.d-btn+.d-btn{margin-left:16px}
-.ind-ink .d-btn{color:var(--solid-ink)}
 
 /* ---------- Apps editor: Favorites on a plate, Library and Hidden below, names under every app ---------- */
 .editor{position:absolute;left:0;top:0;width:1920px;height:1080px;z-index:5;opacity:0;transition:opacity 220ms linear;pointer-events:none}
@@ -349,3 +338,35 @@ body{font-family:Manrope,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .re-name{margin-left:10px;font-size:28px;font-weight:500;letter-spacing:-.2px;white-space:nowrap;opacity:.82}
 .re-mark{width:55px;height:30px;margin-left:12px;overflow:hidden}
 .re-mark .mark{left:0;top:0;transform:scale(.32);transform-origin:0 0}
+
+/* ---------- Screensaver matte (Settings › Screensaver › Matte) ---------- */
+/* Frame-style: the photo, scaled into a 16:9 window, sits in a paper matte with an inner shadow like a recessed print. */
+.amb-matte{display:none;position:absolute;left:0;top:0;width:1920px;height:1080px}
+.has-matte .amb-matte{display:block}
+/* Four bands of one full-screen paper texture around a 1440 x 810 window, each showing its own part of it. */
+.mt-band{position:absolute;background:var(--matte-tex) no-repeat}
+.mt-top{left:0;top:0;width:1920px;height:96px;background-position:0 0}
+.mt-bottom{left:0;top:906px;width:1920px;height:174px;background-position:0 -906px}
+.mt-left{left:0;top:96px;width:240px;height:810px;background-position:0 -96px}
+.mt-right{left:1680px;top:96px;width:240px;height:810px;background-position:-1680px -96px}
+/* The cut: a 6px bevel showing the board's white core, as real mat board does, its top and left faces in shadow and
+   its bottom and right faces catching the light. Then a soft inner shadow over the photo, deepest under the top edge. */
+.mt-bevel{position:absolute;left:234px;top:90px;width:1452px;height:822px;border:6px solid;border-color:var(--core-top) var(--core-right) var(--core-bottom) var(--core-left)}
+.amb-window{position:absolute;left:240px;top:96px;width:1440px;height:810px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.28),inset 0 24px 30px -12px rgba(0,0,0,.62),inset 9px 0 14px -10px rgba(0,0,0,.34),inset -9px 0 14px -10px rgba(0,0,0,.3),inset 0 -1px 3px -1px rgba(0,0,0,.08)}
+.mt-white,.mt-gray{--core-top:#cbc7bf;--core-left:#d6d2ca;--core-right:#e6e3dc;--core-bottom:#f8f6f1}
+/* Dark boards get a black core, as dark mats usually have; a white core read as a bright frame liner. */
+.mt-navy,.mt-black{--core-top:#2f2e2c;--core-left:#3a3936;--core-right:#504e4a;--core-bottom:#5f5d58}
+.mt-white{--matte-tex:url(assets/materials/matte-white.jpg);--matte:#efede8;--bevel:rgba(255,255,255,.7);--matte-ink:rgba(30,30,32,.82);--matte-soft:rgba(30,30,32,.58)}
+.mt-gray{--matte-tex:url(assets/materials/matte-gray.jpg);--matte:#8e9090;--bevel:rgba(255,255,255,.35);--matte-ink:rgba(20,21,22,.9);--matte-soft:rgba(20,21,22,.72)}
+.mt-navy{--matte-tex:url(assets/materials/matte-navy.jpg);--matte:#1d2738;--bevel:rgba(255,255,255,.14);--matte-ink:rgba(255,255,255,.9);--matte-soft:rgba(255,255,255,.62)}
+.mt-black{--matte-tex:url(assets/materials/matte-black.jpg);--matte:#0d0d0e;--bevel:rgba(255,255,255,.1);--matte-ink:rgba(255,255,255,.88);--matte-soft:rgba(255,255,255,.58)}
+.is-ambient.has-matte .bg-photo{transform:translate3d(0,-39px,0) scale(.75);transition:opacity 900ms linear}
+.has-matte .amb-shade{display:none}
+/* The clock, date and credit become a gallery label in the matte's bottom border. */
+.has-matte .amb-clock{left:240px;bottom:52px;display:flex;align-items:baseline;text-shadow:none}
+.has-matte .amb-time{font-size:52px;line-height:60px;letter-spacing:-1px;color:var(--matte-ink)}
+.has-matte .amb-time .mer{font-size:22px;margin-left:6px;color:var(--matte-soft)}
+.has-matte .amb-date{margin:0 0 0 22px;font-size:26px;line-height:34px;color:var(--matte-soft)}
+.has-matte .amb-caption{right:240px;bottom:60px;text-shadow:none}
+.has-matte .amb-title{font-size:28px;line-height:34px;color:var(--matte-ink)}
+.has-matte .amb-credit{font-size:22px;line-height:28px;color:var(--matte-soft)}

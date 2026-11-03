@@ -11,7 +11,7 @@ Home is my own launcher design for a Samsung QN65S90D (QD-OLED, Tizen 9). It is 
 - **Resume:** a small pill above the dock reopens the last app launched from Home.
 - **Clock and live weather:** current conditions for a ZIP code from Open-Meteo, cached so Home never waits on the network.
 - **Random photo or a bundled wallpaper:** a random Unsplash photo from Lorem Picsum, new each time you choose it and every screensaver delay, or one of 12 bundled photos, chosen in a full-screen picker. The glass panels are made from the photo.
-- **Screensaver:** a large clock, the date and the photo credit over a slideshow of online photos, with slow drift to protect the OLED panel.
+- **Screensaver:** a large clock, the date and the photo credit over Home's own photo, which keeps changing with Random photo. An optional Frame-style paper matte (white, gray, navy or black) frames it like a print. The text drifts too slowly to see, to protect the OLED panel.
 - **Inputs tab:** HDMI ports with names you set and whether a device is connected, plus Samsung's source list.
 - **Settings:** wallpaper, apps, weather, screensaver delay, links to Samsung's picture and sound settings and Samsung Home, and an About page.
 - **Remote-only and quiet:** no ads and no autoplay. Focus never acts; OK does.
@@ -26,8 +26,8 @@ Home is my own launcher design for a Samsung QN65S90D (QD-OLED, Tizen 9). It is 
 | Settings › Apps, moving an app | Settings |
 | ![The wallpaper picker previewing a photo full screen](docs/screenshots/wallpaper.jpg) | ![The Inputs tab with HDMI ports and the source list](docs/screenshots/inputs.jpg) |
 | Wallpaper picker | Inputs |
-| ![Settings › Weather with a ZIP code and units](docs/screenshots/weather.jpg) | ![The screensaver with a large clock, date and photo credit](docs/screenshots/screensaver.jpg) |
-| Settings › Weather | Screensaver |
+| ![Settings › Weather with a ZIP code and units](docs/screenshots/weather.jpg) | ![The screensaver framed in a white paper matte, with the time and photo credit as a label below](docs/screenshots/screensaver.jpg) |
+| Settings › Weather | Screensaver with a white matte |
 
 ## Quick start
 

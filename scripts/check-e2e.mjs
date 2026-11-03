@@ -134,7 +134,7 @@ try {
     check('Back from the Apps editor returns to Settings', has(await snapshot(page), 'is-panel'));
   });
 
-  await section('Home navigation: dock, library and the Samsung Home dialog', {}, async (launcher, page) => {
+  await section('Home navigation: dock, library and Back', {}, async (launcher, page) => {
     await press(page, 'ArrowLeft');
     check('Left on the first favourite stays there (no wrapping)', focusIs(await snapshot(page), 'fav', 0));
     await press(page, 'ArrowRight', 5);
@@ -158,26 +158,12 @@ try {
 
     await press(page, 'Escape');
     s = await snapshot(page);
-    check('Back from the dock opens "Open Samsung Home?" with Stay here focused', has(s, 'is-dialog') && focusIs(s, 'dialog', 0) && same(s.dialog, ['Stay here', 'Samsung Home']), [s.f, s.dialog]);
-    await press(page, 'ArrowRight');
-    check('Dialog Right focuses Samsung Home', focusIs(await snapshot(page), 'dialog', 1));
-    await press(page, 'ArrowLeft');
-    check('Dialog Left focuses Stay here', focusIs(await snapshot(page), 'dialog', 0));
-    await press(page, 'Enter');
-    s = await snapshot(page);
-    check('OK on Stay here closes the dialog and returns to the same favourite', !has(s, 'is-dialog') && focusIs(s, 'fav', 4), s.f);
-    await press(page, 'Escape');
+    check('Back on the dock moves to the first dock app', focusIs(s, 'fav', 0) && !has(s, 'is-ambient'), s.f);
     await press(page, 'Escape');
     s = await snapshot(page);
-    check('Back in the dialog also returns to the dock', !has(s, 'is-dialog') && focusIs(s, 'fav', 4), s.f);
-    check('Leaving the dialog without choosing launches nothing', same(await launched(page), []), await launched(page));
-    await press(page, 'Escape');
-    await press(page, 'ArrowRight');
-    await press(page, 'Enter');
-    await afterCallbacks(page);
-    s = await snapshot(page);
-    check('OK on Samsung Home opens Samsung Home (com.samsung.tv.csfs)', same(s.launches, [SAMSUNG_HOME]), s.launches);
-    check('Samsung Home closes the dialog back to the dock without an error message', !has(s, 'is-dialog') && focusIs(s, 'fav') && !s.toast, [s.f, s.toast]);
+    check('Back on the first dock app starts the screensaver, launching nothing', has(s, 'is-ambient') && same(s.launches, []), [s.classes, s.launches]);
+    await press(page, 'ArrowDown');
+    check('A key wakes Home on the dock', !has(await snapshot(page), 'is-ambient'));
   });
 
   await section('Launching: a quick OK opens the app', {}, async (launcher, page) => {
@@ -431,11 +417,19 @@ try {
     s = await snapshot(page);
     check('Back from the editor returns to the Apps row', has(s, 'is-panel') && s.panel.focused === 'Apps', [s.classes, s.panel.focused]);
 
-    await gotoRow(page, 'Screensaver');
-    check('Screensaver starts at "After 1 min"', rowValue(await snapshot(page), 'Screensaver') === 'After 1 min');
+    check('Screensaver starts at "After 1 min" with no matte', rowValue(await snapshot(page), 'Screensaver') === 'After 1 min');
+    await openRow(page, 'Screensaver');
+    s = await snapshot(page);
+    check('Screensaver opens its own page with Starts and Matte', s.panel.title === 'Screensaver' && rowValue(s, 'Starts') === 'After 1 min' && rowValue(s, 'Matte') === 'Off', s.panel);
     await press(page, 'Enter');
     s = await snapshot(page);
-    check('OK on Screensaver steps to "After 5 min" and saves it', rowValue(s, 'Screensaver') === 'After 5 min' && s.saved?.amb === 1, [rowValue(s, 'Screensaver'), s.saved?.amb]);
+    check('OK on Starts steps to "After 5 min" and saves it', rowValue(s, 'Starts') === 'After 5 min' && s.saved?.amb === 1, [rowValue(s, 'Starts'), s.saved?.amb]);
+    await openRow(page, 'Matte');
+    s = await snapshot(page);
+    check('OK on Matte steps to White and saves it', rowValue(s, 'Matte') === 'White' && s.saved?.matte === 1 && has(s, 'has-matte') && has(s, 'mt-white'), [rowValue(s, 'Matte'), s.saved?.matte, s.classes]);
+    await press(page, 'Escape');
+    await settled(page);
+    check('The Screensaver row sums it up', rowValue(await snapshot(page), 'Screensaver') === 'After 5 min · White matte');
 
     await openRow(page, 'Weather');
     s = await snapshot(page);
@@ -502,7 +496,7 @@ try {
     check('The favourites order persists across a reload', same(s.fav, ['youtube', 'plex', 'netflix', 'appletv', 'hulu', 'primevideo-wordmark']), s.fav);
     await openSettings(page);
     s = await snapshot(page);
-    check('The Screensaver choice persists across a reload', rowValue(s, 'Screensaver') === 'After 5 min', rowValue(s, 'Screensaver'));
+    check('The Screensaver choices persist across a reload', rowValue(s, 'Screensaver') === 'After 5 min · White matte' && has(s, 'mt-white'), rowValue(s, 'Screensaver'));
     await openRow(page, 'Weather');
     s = await snapshot(page);
     check('The Weather ZIP code and its place persist across a reload', rowValue(s, 'ZIP code') === '90229 · Testville', s.panel.rows);
@@ -610,31 +604,30 @@ try {
     check('With the screensaver Off, the random photo changes only when chosen', onlineId(s.photo) === id && s.saved?.photo?.id === id, [id, s.photo]);
   });
 
-  await section('Random photo: the screensaver slideshow', { clock: new Date('2026-10-31T12:00:00') }, async (launcher, page) => {
+  await section('Random photo: one photo for Home and the screensaver', { clock: new Date('2026-10-31T12:00:00') }, async (launcher, page) => {
     await photoMatches(page, ONLINE_PHOTO);
     const home = await snapshot(page);
     launcher.requests.length = 0;
-    await page.clock.fastForward(61000);
-    await page.waitForTimeout(300);
+    await press(page, 'Escape'); // Back on the first dock app starts the screensaver at once.
     let s = await snapshot(page);
-    check('The screensaver starts on Home\'s photo and asks for a list page', has(s, 'is-ambient') && s.photo === home.photo && launcher.requests.filter(url => /v2\/list/.test(url)).length === 1, [s.photo, launcher.requests]);
-    await page.waitForTimeout(500); // The next photo loads ahead.
-    await page.clock.fastForward(40000);
-    await page.waitForTimeout(300);
+    check('The screensaver shows Home\'s photo with its credit, without a slideshow of its own', has(s, 'is-ambient') && s.photo === home.photo && s.caption.credit === 'Photo by ' + author(onlineId(home.photo)) + ' on Unsplash' && !launcher.requests.some(url => /v2\/list/.test(url)), [s.photo, s.caption, launcher.requests]);
+    await page.clock.fastForward(61000); // Past the 1-minute delay; the clock checks every 5 s.
+    await page.waitForFunction(old => { const src = document.querySelector('.bg-photo.is-front')?.getAttribute('src') || ''; return /picsum/.test(src) && src !== old; }, home.photo, { timeout: 8000 }).catch(() => {});
     s = await snapshot(page);
-    check('After 40 s it shows another online photo with its credit', onlineId(s.photo) && s.photo !== home.photo && s.caption.credit === 'Photo by ' + author(onlineId(s.photo)) + ' on Unsplash' && s.caption.title === '', [s.photo, s.caption]);
-    check('The slideshow leaves Home\'s glass alone', same(s.glass, home.glass), s.glass);
-    check('The slideshow never changes Home\'s saved choice', s.saved?.daily === true && s.saved?.photo?.id === onlineId(home.photo), s.saved?.photo);
-    await press(page, 'ArrowDown');
-    await photoMatches(page, new RegExp(home.photo.replace(/[/.?]/g, '\\$&') + '$'));
-    s = await snapshot(page);
-    check('Waking restores Home\'s photo and glass', !has(s, 'is-ambient') && s.photo === home.photo && same(s.glass, home.glass), [s.photo, s.glass]);
-    // The clock is frozen here, so the glass cross-fade can be inspected mid-way and then run to its end.
-    const layers = await page.evaluate(() => document.querySelectorAll('.glass-layer:not(.glass-ghost)').length);
-    check('The glass changes with the photo: each layer has a copy of the old glass fading out over 900 ms', s.ghosts.length === layers && s.ghosts.every(g => g.opacity === '0' && /^opacity 900ms/.test(g.transition)), [layers, s.ghosts]);
+    const next = s.photo;
+    check('On the same timer the screensaver moves to a new random photo with its credit', has(s, 'is-ambient') && onlineId(next) && next !== home.photo && s.caption.credit === 'Photo by ' + author(onlineId(next)) + ' on Unsplash', [next, s.caption]);
+    check('It is Home\'s photo now: saved, with its glass made', s.saved?.daily === true && s.saved?.photo?.id === onlineId(next) && same(s.glass, DAILY_GLASS), [s.saved?.photo, s.glass]);
     await page.clock.fastForward(1000);
     s = await snapshot(page);
-    check('After 900 ms the fading copies are removed and Home\'s glass still shows', s.ghosts.length === 0 && s.brokenGlass.length === 0 && same(s.glass, home.glass), [s.ghosts, s.brokenGlass, s.glass]);
+    check('After the 900 ms fade the old glass is gone and the new glass is decoded', s.ghosts.length === 0 && s.brokenGlass.length === 0, [s.ghosts, s.brokenGlass]);
+    await press(page, 'ArrowDown');
+    s = await snapshot(page);
+    check('Waking keeps the photo the screensaver was showing', !has(s, 'is-ambient') && s.photo === next, [s.photo, next]);
+    await press(page, 'Escape'); // Focus is still on the first dock app, so Back starts the screensaver.
+    check('Back on the first dock app starts the screensaver again', has(await snapshot(page), 'is-ambient'));
+    await page.evaluate(() => window.dispatchEvent(new Event('appcontrol'))); // The remote's Home button relaunches Home.
+    s = await snapshot(page);
+    check('The Home button (Home relaunched) wakes the screensaver', !has(s, 'is-ambient') && s.photo === next, [s.classes, s.photo]);
   });
 
   await section('Offline', { offline: true, clock: new Date('2026-10-31T12:00:00') }, async (launcher, page) => {
@@ -653,7 +646,7 @@ try {
     await page.clock.fastForward(40000);
     await page.waitForTimeout(500);
     s = await snapshot(page);
-    check('The offline slideshow shows the bundled photos with their titles', has(s, 'is-ambient') && /wallpapers\/(?!valley)[a-z]+\.jpg$/.test(s.photo) && s.caption.title !== '', [s.photo, s.caption]);
+    check('Offline the screensaver stays on Home\'s bundled photo, with its title', has(s, 'is-ambient') && /\/valley\.jpg$/.test(s.photo) && s.caption.title !== '', [s.photo, s.caption]);
     await press(page, 'ArrowDown');
     await photoMatches(page, /\/valley\.jpg$/);
     check('Waking restores the bundled Home photo', !has(await snapshot(page), 'is-ambient'));
@@ -830,7 +823,7 @@ try {
     await press(page, 'Enter');
     await afterCallbacks(page);
     s = await snapshot(page);
-    check('OK wakes Home without acting', !has(s, 'is-ambient') && same(s.launches, []) && !has(s, 'is-dialog'), [s.classes, s.launches]);
+    check('OK wakes Home without acting', !has(s, 'is-ambient') && same(s.launches, []), [s.classes, s.launches]);
   });
 
   await section('Saved choices from earlier builds', { seed: { fav: ['netflix', 'plex'], hid: ['disneyplus'], wall: 4, amb: 1, inputs: [{ name: 'PlayStation 5', show: true }, { name: 'Mac mini', show: true }, { name: 'Xbox', show: true }, { name: '', show: false }] } }, async (launcher, page) => {
@@ -851,11 +844,26 @@ try {
       const s = await snapshot(page);
       check('A V1 wallpaper index ' + wall + ' shows ' + file, new RegExp('/' + file + '\\.jpg$').test(s.photo), s.photo);
       await openSettings(page);
-      await openRow(page, 'Screensaver'); // Any change saves.
+      await openRow(page, 'Screensaver');
+      await press(page, 'Enter'); // Any change saves.
       const saved = (await snapshot(page)).saved;
       check('The next save names it by id (' + file + ')', saved?.wall === file, saved?.wall);
     });
   }
+
+  await section('Screensaver matte and frosted glass tiles', { seed: { version: 1, daily: false, matte: 4, glass: true } }, async (launcher, page) => {
+    await photoMatches(page, /\/valley\.jpg$/);
+    await press(page, 'Escape'); // Back on the first dock app starts the screensaver.
+    await page.waitForTimeout(400);
+    let s = await snapshot(page);
+    const matte = await page.evaluate(() => ({ band: getComputedStyle(document.querySelector('.mt-top')).backgroundImage, shown: getComputedStyle(document.querySelector('.amb-matte')).display, label: getComputedStyle(document.querySelector('.amb-time')).fontSize }));
+    check('A saved Black matte frames the screensaver in its paper, with the time as a small label', has(s, 'is-ambient') && has(s, 'mt-black') && matte.shown === 'block' && /matte-black\.jpg/.test(matte.band) && matte.label === '52px', [s.classes, matte]);
+    await press(page, 'ArrowDown');
+    await press(page, 'ArrowRight');
+    await page.waitForTimeout(300);
+    const frost = await page.evaluate(() => getComputedStyle(document.querySelector('#favRow > .tile.is-focus .t-face')).backgroundImage);
+    check('A lifted glass dock tile is frosted with the photo\'s blurred layer', /materials\/valley-field-blur\.jpg/.test(frost), frost);
+  });
 
   await section('A V1 save', { seed: { version: 1, inputs: [{ name: 'PlayStation 5', show: true }, { name: 'Mac mini', show: true }, { name: '', show: true }, { name: '', show: false }] } }, async (launcher, page) => {
     await press(page, 'ArrowUp');

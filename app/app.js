@@ -21,8 +21,8 @@
   var TOP_LINE = 152, SAFE_BOTTOM = 1026, TOP_EDGE = 140;
   var SHALLOW = TOP_LINE - DOCK_TOP; // The dock sits just below the top bar while the first library rows show.
   var DEEP_ROWS = Math.floor((SAFE_BOTTOM - TOP_LINE - ROW_SPAN) / ROW_PITCH) + 1; // Rows that fit once the dock scrolls away.
-  var PANEL = { w: 700, h: 866, r: 48 }, DIALOG = { w: 728, h: 340, r: 48 };
-  var PILL_W = 150, PANEL_PITCH = 88, DIALOG_PITCH = 316, SMOOTHING = 0.6, ZIP_LEN = 5;
+  var PANEL = { w: 700, h: 866, r: 48 };
+  var PILL_W = 150, PANEL_PITCH = 88, SMOOTHING = 0.6, ZIP_LEN = 5;
   var TM = { w: 560, h: 474, r: 44 }; // The edit-in-place menu: a title and four rows.
   // Apps editor: a favourites plate like the dock, then Library and Hidden grids with names under each app.
   var ED_PLATE_H = 262, ED_FAV_Y = 340, ED_LIB_Y = 664, ED_ROW = 222, ED_LABEL_GAP = 60, ED_TOP_SAFE = 256, ED_SPAN = 210, RING_PAD = 8;
@@ -60,6 +60,8 @@
   var INPUT_DEFAULTS = [{ port: 'HDMI 1', show: true }, { port: 'HDMI 2', show: true }, { port: 'HDMI 3', show: true }, { port: 'HDMI 4', show: false }];
   var SOURCE_APP = 'org.tizen.SMSourceAPP'; // Samsung's source list, for sources Home doesn't show (USB, antenna).
   var TABS = ['Home', 'Inputs'];
+  // The screensaver's matte (Off, or a paper board with its texture in assets/materials/matte-<id>.jpg).
+  var MATTES = [{ id: '', name: 'Off' }, { id: 'white', name: 'White' }, { id: 'gray', name: 'Gray' }, { id: 'navy', name: 'Navy' }, { id: 'black', name: 'Black' }];
   var AMBIENT = [{ name: 'After 1 min', ms: 60000 }, { name: 'After 5 min', ms: 300000 }, { name: 'After 15 min', ms: 900000 }, { name: 'Off', ms: 0 }];
   var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -68,7 +70,7 @@
   var V1_WALLS = ['misty', 'cove', 'forest', 'valley', 'night', 'peaks', 'bridge', 'ridge', 'golden', 'summit', 'goldcoast', 'sydney', 'amber', 'mint', 'alpine'];
   var FAVS = [], ROWS = [], INS = []; // Home's favourites, library rows and input tiles, rebuilt from the owner's choices.
 
-  var S = { tab: 0, zone: 'fav', nav: 0, fav: 0, lr: 0, lc: 0, inp: 0, panel: 0, dialog: 0, glassTiles: false, wall: 0, ambWall: 0, random: true, randomPick: null, amb: 0, ambient: false, scroll: 0,
+  var S = { tab: 0, zone: 'fav', nav: 0, fav: 0, lr: 0, lc: 0, inp: 0, panel: 0, glassTiles: false, wall: 0, random: true, randomPick: null, amb: 0, matte: 0, ambient: false, scroll: 0,
     favIds: [], hiddenIds: [], libOrder: [], mv: null, lastId: '', ed: null, menu: null, menuFrom: 'fav', pages: [], panelFrom: 'gear', paging: false, pageEntered: false, queued: [],
     weather: { zip: '92626', units: 'F' }, place: null, wx: null, zip: [], zipAt: 0, inputAt: 0, // Default location: Costa Mesa, CA (where the TV is).
     inputs: INPUT_DEFAULTS.map(function (p) { return { port: p.port, name: '', show: p.show, connected: true }; }) };
@@ -76,7 +78,7 @@
     { label: 'Wallpaper', kind: 'screen', value: function () { return S.random ? 'Random photo' : WALLS[S.wall] ? WALLS[S.wall].name : ''; }, ok: openPicker },
     { label: 'Apps', kind: 'screen', value: function () { return S.favIds.length + (S.favIds.length === 1 ? ' favorite' : ' favorites'); }, ok: openEditor },
     { label: 'Weather', kind: 'page', value: function () { return S.weather.zip ? S.weather.zip + ' · °' + S.weather.units : 'Set location'; }, ok: function () { pushPage('weather'); } },
-    { label: 'Screensaver', value: function () { return AMBIENT[S.amb].name; }, ok: function () { S.amb = (S.amb + 1) % AMBIENT.length; save(); armIdle(); } },
+    { label: 'Screensaver', kind: 'page', value: function () { return AMBIENT[S.amb].name + (S.matte ? ' · ' + MATTES[S.matte].name + ' matte' : ''); }, ok: function () { pushPage('screensaver'); } },
     { label: 'Picture and sound', kind: 'link', ok: function () { openSamsung('Samsung’s picture and sound settings', window.FrameDevice.settings); } },
     { label: 'Samsung Home', kind: 'link', ok: samsungHome },
     { label: 'About', kind: 'page', ok: function () { tvReadAbout(); pushPage('about'); } }
@@ -91,8 +93,8 @@
   var favRow = $('favRow'), inRow = $('inRow'), focusName = $('focusName'), gear = $('gear'), toastEl = $('toast'), panelStatus = $('panelStatus');
   var resumeSlot = $('resumeSlot'), resumeTile = null;
   var tilemenuRows = $('tilemenuRows'), tilemenuTitle = $('tilemenuTitle');
-  var navActive = $('navActive'), navFocus = $('navFocus'), panelInd = $('panelInd'), dialogInd = $('dialogInd');
-  var navInk = $('navInk'), panelInk = $('panelInk'), dialogInk = $('dialogInk');
+  var navActive = $('navActive'), navFocus = $('navFocus'), panelInd = $('panelInd');
+  var navInk = $('navInk'), panelInk = $('panelInk');
   var timeEl = $('time'), statusEl = stage.querySelector('.status'), ambTime = $('ambTime'), ambDate = $('ambDate'), ambTitle = $('ambTitle'), ambCredit = $('ambCredit'), ambDrift = $('ambDrift');
   var front = $('photoA'), back = $('photoB'), blurImg = $('blur');
   var pkGrid = $('pkGrid'), pkTitle = $('pkTitle'), pkCredit = $('pkCredit'), pickerEl = $('picker'), previewTimer = null;
@@ -100,8 +102,8 @@
   var wxBox = stage.querySelector('.weather'), wxIcon = wxBox.querySelector('.ico'), tempEl = wxBox.querySelector('span'), wxBusy = false, wxRetry = 0, zipMissing = '';
   var editorEl = $('editor'), edPage = $('edPage'), edTiles = $('edTiles'), edStyle = $('edStyle'), edHint = $('edHint');
   var edFavLabel = $('edFavLabel'), edLibLabel = $('edLibLabel'), edHidLabel = $('edHidLabel'), edEmpty = $('edEmpty'), edFavBox = $('edFavBox'), edSlots = {};
-  var pills, panelRows = $('panelRows').children, dialogBtns, tileRim = '', thumbRim = '', tilePath = '', ringSvg = '', focused = null, lastZone = null, credits = {}, statusWidth = 0;
-  var idleTimer = null, ambientAt = 0, driftTimer = null, rotateTimer = null, toastTimer = null, statusAt = 0;
+  var pills, panelRows = $('panelRows').children, tileRim = '', thumbRim = '', tilePath = '', ringSvg = '', focused = null, lastZone = null, credits = {}, statusWidth = 0;
+  var idleTimer = null, driftTimer = null, toastTimer = null, statusAt = 0;
   var tvSources = {}, tvWindowOn = false; // On the TV only: real HDMI sources by port name, and whether one is showing.
 
   function $(id) { return document.getElementById(id); }
@@ -180,7 +182,6 @@
     ringSvg = '<svg class="ed-ring" viewBox="0 0 ' + (TILE_W + 2 * RING_PAD) + ' ' + (TILE_H + 2 * RING_PAD) + '" aria-hidden="true"><path d="' + squircle(TILE_W + 2 * RING_PAD, TILE_H + 2 * RING_PAD, TILE_R + RING_PAD, SMOOTHING) + '"/></svg>';
     shape('dock', DOCK_W, DOCK_H, DOCK_R, 'dockRim');
     shape('panel', PANEL.w, PANEL.h, PANEL.r, 'panelRim');
-    shape('dialog', DIALOG.w, DIALOG.h, DIALOG.r, 'dialogRim');
     shape('edplate', DOCK_W, ED_PLATE_H, DOCK_R);
     shape('picker', PICKER.w, PICKER.h, PICKER.r, 'pickerRim');
     thumbRim = '<svg class="rim" viewBox="0 0 ' + THUMB_W + ' ' + THUMB_H + '" aria-hidden="true"><path d="' + shape('thumb', THUMB_W, THUMB_H, THUMB_R) + '"/></svg>';
@@ -191,7 +192,6 @@
     $('pills').innerHTML = TABS.map(function (t, i) { return '<div class="pill" data-z="nav" data-i="' + i + '">' + t + '</div>'; }).join('');
     navInk.innerHTML = TABS.map(function (t) { return '<div class="pill">' + t + '</div>'; }).join('');
     pills = $('pills').children;
-    dialogBtns = stage.querySelectorAll('.d-actions > .d-btn');
   }
 
   function rowHtml(s, attrs) {
@@ -208,6 +208,12 @@
     FAVS = L.fav.map(byId);
     ROWS = chunk(L.lib.map(byId), COLS);
     favRow.innerHTML = FAVS.map(function (a, i) { return appHtml(a, 'fav', i, i); }).join('');
+    // Where each lifted glass tile's frost comes from: the face grows 1.14 about its centre and rises 45px, so the
+    // blurred photo behind it is placed for that spot (see .fav-tiles .tile.is-focus in app.css).
+    FAVS.forEach(function (a, i) {
+      var st = favRow.children[i].style, x = GRID_LEFT + i * PITCH, y = DOCK_TOP + 40;
+      st.setProperty('--lx', (-(x - 0.14 * TILE_W / 2) / 1.14).toFixed(1) + 'px'); st.setProperty('--ly', (-(y - 0.14 * TILE_H / 2 - 45) / 1.14).toFixed(1) + 'px');
+    });
     library.innerHTML = ROWS.map(function (row, r) {
       return '<div class="lib-row" style="top:' + r * ROW_PITCH + 'px">' + row.map(function (a, c) { return appHtml(a, 'lib', r * COLS + c, c); }).join('') + '</div>';
     }).join('');
@@ -250,6 +256,7 @@
     S.random = d.daily === true; // Builds before the daily photo saved only a bundled choice, which stands.
     S.randomPick = H.savedPick(d.photo);
     if (H.validIndex(d.amb, AMBIENT.length)) S.amb = d.amb;
+    if (H.validIndex(d.matte, MATTES.length)) S.matte = d.matte;
     if (d.weather && typeof d.weather === 'object') S.weather = { zip: typeof d.weather.zip === 'string' && /^\d{5}$/.test(d.weather.zip) ? d.weather.zip : S.weather.zip, units: d.weather.units === 'C' ? 'C' : 'F' };
     S.place = H.savedPlace(d.place, S.weather.zip);
     S.wx = H.savedReading(d.wx, S.weather.zip);
@@ -270,7 +277,7 @@
   function save() {
     var inputs = S.inputs.map(function (inp) { return { name: inp.name, show: inp.show }; });
     savedLists = appsFromTv ? ownerLists() : savedLists || { fav: null, hid: null, lib: null };
-    try { window.localStorage.setItem(STORE, JSON.stringify({ version: SAVE_VERSION, fav: savedLists.fav, hid: savedLists.hid, lib: savedLists.lib, last: S.lastId, wall: WALLS[S.wall].id, daily: S.random, photo: S.randomPick, amb: S.amb, glass: S.glassTiles, weather: S.weather, place: S.place, wx: S.wx, inputs: inputs })); } catch (e) { /* Home still works without saved choices. */ }
+    try { window.localStorage.setItem(STORE, JSON.stringify({ version: SAVE_VERSION, fav: savedLists.fav, hid: savedLists.hid, lib: savedLists.lib, last: S.lastId, wall: WALLS[S.wall].id, daily: S.random, photo: S.randomPick, amb: S.amb, matte: S.matte, glass: S.glassTiles, weather: S.weather, place: S.place, wx: S.wx, inputs: inputs })); } catch (e) { /* Home still works without saved choices. */ }
   }
   function inputLabel(inp) { return inp.name || (inp.connected ? 'Connected' : 'No device'); }
   function buildInputs() {
@@ -304,8 +311,7 @@
       case 'inputs': return inRow.children[S.inp];
       case 'panel': return pageDef().custom === 'zip' ? panelCustom.querySelectorAll('.zip-cell')[S.zipAt] : pageDef().custom === 'rename' ? panelCustom.querySelector('.p-field') : panelRows[curPage().i];
       case 'apps': return S.ed.focus === 'style' ? edStyle : edSlots[S.ed.focus].firstChild;
-      case 'wallpaper': return pkGrid.children[S.pk.i];
-      default: return dialogBtns[S.dialog];
+      default: return pkGrid.children[S.pk.i]; // The wallpaper picker.
     }
   }
   // A selection indicator slides to its new item; it jumps without animating when focus first enters its group.
@@ -360,14 +366,12 @@
     if (S.zone === 'nav') place(navFocus, navInk, S.nav * PILL_W, 0, entered);
     if (S.zone === 'panel' && !pageDef().custom) place(panelInd, panelInk, 0, curPage().i * PANEL_PITCH, entered || S.pageEntered);
     S.pageEntered = false;
-    if (S.zone === 'dialog') place(dialogInd, dialogInk, S.dialog * DIALOG_PITCH, 0, entered);
     toggle(navFocus, 'is-on', S.zone === 'nav');
     toggle(stage, 'tab-inputs', S.tab === 1);
     toggle(stage, 'has-resume', S.tab === 0 && !!resumeApp());
     toggle(stage, 'is-library', layoutZone() === 'lib');
     toggle(stage, 'is-moving', S.zone === 'move');
     toggle(stage, 'is-panel', S.zone === 'panel');
-    toggle(stage, 'is-dialog', S.zone === 'dialog');
     toggle(stage, 'is-menu', S.zone === 'menu');
     toggle(stage, 'tiles-glass', S.glassTiles);
     toggle(stage, 'is-editor', S.zone === 'apps');
@@ -415,7 +419,7 @@
         else if (k === 'up') { if (resumeApp()) S.zone = 'resume'; else { S.zone = 'nav'; S.nav = S.tab; } }
         else if (k === 'down' && ROWS.length) { S.zone = 'lib'; S.lr = 0; S.lc = Math.min(S.fav, rowLen(0) - 1); }
         else if (k === 'ok') launch(focused, FAVS[S.fav]);
-        else if (k === 'back') { S.zone = 'dialog'; S.dialog = 0; }
+        else if (k === 'back') { if (S.fav) S.fav = 0; else enterAmbient(); } // Back: the first dock app, then the screensaver.
         break;
       case 'lib':
         if (k === 'left') S.lc = Math.max(0, S.lc - 1);
@@ -444,12 +448,6 @@
         break;
       case 'wallpaper':
         pickerKey(k);
-        break;
-      case 'dialog':
-        if (k === 'left') S.dialog = 0;
-        else if (k === 'right') S.dialog = 1;
-        else if (k === 'back') S.zone = 'fav';
-        else if (k === 'ok') { if (S.dialog === 1) samsungHome(); S.zone = 'fav'; }
         break;
     }
     render();
@@ -622,6 +620,15 @@
         return [
           { label: 'ZIP code', kind: 'page', value: function () { return S.weather.zip ? S.weather.zip + (S.place ? ' · ' + S.place.name : zipMissing === S.weather.zip ? ' · not found' : '') : 'Not set'; }, ok: function () { S.zip = (S.weather.zip || '00000').split(''); S.zipAt = 0; pushPage('zip'); } },
           { label: 'Units', value: function () { return S.weather.units === 'C' ? 'Celsius' : 'Fahrenheit'; }, ok: function () { S.weather.units = S.weather.units === 'C' ? 'F' : 'C'; save(); showWeather(); } }
+        ];
+      }
+    },
+    screensaver: {
+      title: 'Screensaver', note: 'A matte frames the photo like a print, with the time and its credit on the board below.',
+      rows: function () {
+        return [
+          { label: 'Starts', value: function () { return AMBIENT[S.amb].name; }, ok: function () { S.amb = (S.amb + 1) % AMBIENT.length; save(); armIdle(); } },
+          { label: 'Matte', value: function () { return MATTES[S.matte].name; }, ok: function () { S.matte = (S.matte + 1) % MATTES.length; save(); applyMatte(); } }
         ];
       }
     },
@@ -927,14 +934,11 @@
   // ---------- Photos ----------
 
   // Home shows a bundled photo with its prepared glass materials, or the random photo: an Unsplash photo from Lorem
-  // Picsum (no key needed), whose glass is made on the TV. The screensaver's slideshow shows more online
-  // photos (the bundled ones when offline) and changes only the background and caption, never Home's choice or glass.
-  // Home writes no image files; the web engine's cache keeps recently loaded photos and evicts them by itself.
+  // Picsum (no key needed), whose glass is made on the TV. The screensaver always shows Home's photo: the random photo
+  // keeps changing on one timer whether the screensaver runs or not, its glass made before it shows, so waking never
+  // changes the photo (Kyle, 2 November 2026). Home writes no image files; the web engine's cache keeps recently loaded
+  // photos and evicts them by itself.
   var shownKey = '', photoToken = 0, randomPhoto = null, randomBusy = false, randomRetry = 0, randomAt = 0, appliedGlass = null, retiredGlass = [];
-  var slides = [], nextSlide = null, slideId = '', slid = false, onlineSlides = 0;
-  // Samsung's screensaver covers ours after a minute or two while ours keeps running, so each screensaver session
-  // loads at most this many online photos and then shows the bundled ones.
-  var SLIDE_LIMIT = 10;
   // A photo that hasn't loaded after 20 seconds counts as failed, so a stalled request never blocks the next one.
   function loadImage(src, cors, done) {
     var im = new Image(), timer = setTimeout(function () { finish(null); }, 20000);
@@ -1026,6 +1030,7 @@
       shownKey = p.key;
       swapPhoto(p.src);
       blurImg.src = p.glass.blur;
+      stage.style.setProperty('--frost', 'url(' + p.glass.blur + ')'); // A lifted glass dock tile is frosted with it.
       crossfadeGlass(p.glass);
       appliedGlass = p.glass;
       photoClasses(p.look);
@@ -1111,7 +1116,7 @@
           randomBusy = false;
           randomAt = Date.now();
           sweepGlass();
-          if (S.zone === 'wallpaper') render(); else if (S.random && !S.ambient) showHome();
+          if (S.zone === 'wallpaper') render(); else if (S.random) showHome(); // In the screensaver too: one photo.
         });
       });
     }
@@ -1128,34 +1133,6 @@
   function randomEvery() {
     var min = AMBIENT[S.amb].ms / 60000;
     return !min ? 'a new one each time you choose it' : min === 1 ? 'a new one every minute' : 'a new one every ' + min + ' minutes';
-  }
-  // The screensaver loads its next online photo ahead, so each change shows at once; offline, the bundled photos show.
-  function prepareSlide() {
-    var p = H.pickPhoto(slides, Math.random, slideId), token = photoToken;
-    nextSlide = null;
-    if (!p || onlineSlides >= SLIDE_LIMIT) return;
-    loadImage(H.photoUrl(p.id, 1920, 1080), false, function (img) {
-      if (img && S.ambient && token === photoToken) nextSlide = { id: p.id, src: img.src, credit: H.credit(p.author) };
-    });
-  }
-  function nextPhoto() {
-    var s = nextSlide, token = photoToken, w;
-    if (s) {
-      slideId = s.id;
-      onlineSlides++;
-      showSlide(s.src, '', s.credit);
-    } else {
-      S.ambWall = (S.ambWall + 1) % WALLS.length;
-      w = bundled(S.ambWall);
-      preload([w.src], function () { if (S.ambient && token === photoToken) showSlide(w.src, w.title, w.credit); });
-    }
-    prepareSlide();
-  }
-  function showSlide(src, title, credit) {
-    slid = true;
-    swapPhoto(src);
-    ambTitle.textContent = title;
-    ambCredit.textContent = credit;
   }
   function loadCredits(done) {
     var xhr = new XMLHttpRequest();
@@ -1177,7 +1154,7 @@
     ambDate.textContent = DAYS[d.getDay()] + ', ' + MONTHS[d.getMonth()] + ' ' + ordinal(d.getDate());
     updateWeather();
     showWeather();
-    if (S.random && shownKey && !S.ambient && S.zone !== 'wallpaper') updateRandom(H.randomDue(Date.now(), randomAt, AMBIENT[S.amb].ms, ambientAt));
+    if (S.random && shownKey && S.zone !== 'wallpaper') updateRandom(H.randomDue(Date.now(), randomAt, AMBIENT[S.amb].ms));
   }
   // The status capsule changes width with the hour's digits and the weather; its glass must follow its left edge.
   function fitStatus() { if (statusEl.offsetWidth !== statusWidth) { statusWidth = statusEl.offsetWidth; registerGlass(); } }
@@ -1256,8 +1233,7 @@
   // No screensaver while an HDMI port shows, or while a name is typed (the TV's keyboard may keep keys from Home).
   function armIdle() {
     clearTimeout(idleTimer);
-    ambientAt = 0;
-    if (AMBIENT[S.amb].ms && !S.ambient && !tvWindowOn && !renaming()) { idleTimer = setTimeout(enterAmbient, AMBIENT[S.amb].ms); ambientAt = Date.now() + AMBIENT[S.amb].ms; }
+    if (AMBIENT[S.amb].ms && !S.ambient && !tvWindowOn && !renaming()) idleTimer = setTimeout(enterAmbient, AMBIENT[S.amb].ms);
   }
   function renaming() { return S.zone === 'panel' && pageDef().custom === 'rename'; }
   // On this QD-OLED, Samsung's panel-protection screensaver can't be disabled and takes over after a still-ish
@@ -1265,17 +1241,27 @@
 
   // Our screensaver only counts idle time while Home is in front. Leaving releases a held key and closes the HDMI
   // view; coming back reads the TV's apps (and, on the Inputs tab, its HDMI ports) again.
+  // The remote's Home button never reaches an app as a key. With Home as the TV's home app, pressing it while Home is in
+  // front relaunches Home, which the web engine reports as an appcontrol event (or a return to visible, below).
+  window.addEventListener('appcontrol', function () { if (S.ambient) exitAmbient(); armIdle(); });
   document.addEventListener('visibilitychange', function () {
     letGo();
     if (document.hidden) {
       if (tvWindowOn) tvHideSource();
       clearTimeout(idleTimer);
     } else {
+      if (S.ambient) exitAmbient();
       armIdle();
       refreshApps();
       if (S.tab === 1) tvReadSources();
     }
   });
+  // The matte classes on the stage: has-matte and mt-<id> (Off removes both).
+  function applyMatte() {
+    var i;
+    for (i = 1; i < MATTES.length; i++) toggle(stage, 'mt-' + MATTES[i].id, i === S.matte);
+    toggle(stage, 'has-matte', S.matte > 0);
+  }
   // A slow drift keeps the clock from burning a fixed shape into the OLED panel: every 3 minutes the text glides over
   // 30 s (the .amb-drift transition) to a new point within ±20 × ±12 px, at most 24 px away: about 0.5 px a second
   // typically and never more than 0.8, so the motion can't be seen (Kyle, 2 November 2026).
@@ -1289,40 +1275,25 @@
     if (S.zone === 'wallpaper') closePicker();
     if (S.zone === 'apps') closeEditor();
     if (S.zone === 'panel') closePanel();
-    if (S.zone === 'dialog') S.zone = 'fav';
     if (S.zone === 'menu') S.zone = S.menuFrom;
     okCancel();
     S.ambient = true;
-    S.ambWall = S.wall;
-    onlineSlides = 0;
-    slideId = randomPhoto && shownKey === randomPhoto.key ? randomPhoto.id : ''; // Not shown twice in a row.
     clearTimeout(idleTimer);
     render();
     stage.classList.add('is-ambient');
     driftTimer = setInterval(drift, DRIFT_EVERY);
-    rotateTimer = setInterval(nextPhoto, 40000);
-    getJson(H.listUrl(1 + Math.floor(Math.random() * H.PHOTO_PAGES)), function (list) {
-      if (!S.ambient) return;
-      slides = Array.isArray(list) ? list : [];
-      prepareSlide();
-    });
   }
   function exitAmbient() {
     S.ambient = false;
     stage.classList.remove('is-ambient');
     clearInterval(driftTimer);
-    clearInterval(rotateTimer);
     ambDrift.style.transition = 'none'; // Back to centre at once, ready for the next session.
     ambDrift.style.transform = '';
     driftAt = { x: 0, y: 0 };
     void ambDrift.offsetWidth;
     ambDrift.style.transition = '';
-    photoToken++; // Drops a slideshow photo still loading.
-    nextSlide = null;
-    slides = [];
-    if (slid || shownKey !== homePhoto().key) showHome();
-    slid = false;
-    if (randomAt) randomAt = Date.now(); // A full delay after waking before the next random photo.
+    photoToken++; // Drops a photo swap still loading; Home's photo is shown below if it isn't already.
+    if (shownKey !== homePhoto().key) showHome();
     armIdle();
     refreshLater();
   }
@@ -1434,14 +1405,13 @@
     while (el && el !== stage && !el.getAttribute('data-z')) el = el.parentNode;
     if (!el || el === stage) return;
     z = el.getAttribute('data-z'); i = +el.getAttribute('data-i');
-    if ((z === 'panel' && S.zone !== 'panel') || (z === 'dialog' && S.zone !== 'dialog')) return;
+    if (z === 'panel' && S.zone !== 'panel') return;
     if (z === 'nav') S.nav = i;
     else if (z === 'fav') S.fav = i;
     else if (z === 'lib') { S.lr = Math.floor(i / COLS); S.lc = i % COLS; }
     else if (z === 'inputs') S.inp = i;
     else if (z === 'panel') curPage().i = i;
     else if (z === 'zip') { S.zipAt = i; render(); return; }
-    else if (z === 'dialog') S.dialog = i;
     else if (z === 'menu' && S.menu) S.menu.i = i;
     else if (z === 'edapp') { if (S.zone !== 'apps') return; S.ed.focus = APPS[i].id; z = 'apps'; }
     else if (z === 'edstyle') { if (S.zone !== 'apps') return; S.ed.focus = 'style'; z = 'apps'; }
@@ -1581,6 +1551,7 @@
     soundStart();
     for (i = 0; i < WALLS.length; i++) if (WALLS[i].id === want) S.wall = i;
     load(); // The owner's saved choice wins over the default.
+    applyMatte();
     /* preview */if (forced) S.random = false;/* /preview */
     build();
     if (resumeApp()) S.zone = 'resume';

@@ -5,7 +5,7 @@
 //
 // (a) Focus is visible. Compared with the same element unfocused, the focused element (or something inside it, or a
 //     ::before/::after) changes scale, background, outline, box-shadow, opacity or colour, or a focus indicator
-//     (the sliding pill behind the nav, Settings rows and dialog buttons) covers it; and the pixels on screen really
+//     (the sliding pill behind the nav and Settings rows) covers it; and the pixels on screen really
 //     change. A change that turns fewer pixels by 3:1 than a 2 px outline would is a warning (WCAG 2.4.13, AAA),
 //     because the TV is watched from about 3 m.
 // (b) Text contrast meets WCAG AA (1.4.3): 4.5:1, or 3:1 for text at least 24 px bold (700+) or 32 px.
@@ -63,9 +63,6 @@ const SCREENS = [
     labels: [['Breadcrumb', '.ed-crumb'], ['Title', '.ed-title'], ['Hint', '#edHint'], ['Tile style button', '#edStyle'],
       ['Section labels', '#edFavLabel, #edLibLabel, #edHidLabel', { own: true }], ['Section counts', '.ed-label > span'],
       ['App names', '.ed-name > span'], ['Empty Hidden note', '#edEmpty', { optional: true }]] }, // Shown only when nothing is hidden.
-  { name: 'Samsung Home dialog', setup: page => press(page, 'Escape'),
-    target: '.d-actions > .d-btn.is-focus', away: 'ArrowRight', back: 'ArrowLeft',
-    labels: [['Title', '.d-title'], ['Text', '.d-text'], ['Buttons', '.d-actions > .d-btn'], ['Focused button', '#dialogInk .d-btn']] },
   { name: 'Hold-OK menu', setup: page => hold(page),
     target: '#tilemenuRows > .tm-row.is-focus', away: 'ArrowDown', back: 'ArrowUp',
     labels: [['Title', '#tilemenuTitle'], ['Rows', '#tilemenuRows > .tm-row']] },
